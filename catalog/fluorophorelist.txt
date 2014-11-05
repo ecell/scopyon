@@ -1,0 +1,173 @@
+catalog/fluorophore/4,6-diamidino-2-phenyl-indole HCI(DAPI).csv
+catalog/fluorophore/4,6-diamidino-2-phenyl-indole HCI(DAPI)_recommend.csv
+catalog/fluorophore/7-amino-4-methylcoumarin-3-acetic acid(AMCA).csv
+catalog/fluorophore/7-amino-4-methylcoumarin-3-acetic acid(AMCA)_recommend.csv
+catalog/fluorophore/7-Amino Actinomycin D.csv
+catalog/fluorophore/7-Amino Actinomycin D_recommend.csv
+catalog/fluorophore/Acridine Orange.csv
+catalog/fluorophore/Acridine Orange_recommend.csv
+catalog/fluorophore/Alexa Fluor 350.csv
+catalog/fluorophore/Alexa Fluor 350_recommend.csv
+catalog/fluorophore/Alexa Fluor 405.csv
+catalog/fluorophore/Alexa Fluor 405_recommend.csv
+catalog/fluorophore/Alexa Fluor 430.csv
+catalog/fluorophore/Alexa Fluor 430_recommend.csv
+catalog/fluorophore/Alexa Fluor 488.csv
+catalog/fluorophore/Alexa Fluor 488_recommend.csv
+catalog/fluorophore/Alexa Fluor 514.csv
+catalog/fluorophore/Alexa Fluor 514_recommend.csv
+catalog/fluorophore/Alexa Fluor 532.csv
+catalog/fluorophore/Alexa Fluor 532_recommend.csv
+catalog/fluorophore/Alexa Fluor 546.csv
+catalog/fluorophore/Alexa Fluor 546_recommend.csv
+catalog/fluorophore/Alexa Fluor 555.csv
+catalog/fluorophore/Alexa Fluor 555_recommend.csv
+catalog/fluorophore/Alexa Fluor 568.csv
+catalog/fluorophore/Alexa Fluor 568_recommend.csv
+catalog/fluorophore/Alexa Fluor 594.csv
+catalog/fluorophore/Alexa Fluor 594_recommend.csv
+catalog/fluorophore/Alexa Fluor 633.csv
+catalog/fluorophore/Alexa Fluor 633_recommend.csv
+catalog/fluorophore/Alexa Fluor 647.csv
+catalog/fluorophore/Alexa Fluor 647_recommend.csv
+catalog/fluorophore/Alexa Fluor 680.csv
+catalog/fluorophore/Alexa Fluor 680_recommend.csv
+catalog/fluorophore/Alexa Fluor 700.csv
+catalog/fluorophore/Alexa Fluor 700_recommend.csv
+catalog/fluorophore/Alexa Fluor 750.csv
+catalog/fluorophore/Alexa Fluor 750_recommend.csv
+catalog/fluorophore/Allophycocyanin(APC).csv
+catalog/fluorophore/Allophycocyanin(APC)_recommend.csv
+catalog/fluorophore/Azami-Green.csv
+catalog/fluorophore/Azami-Green_recommend.csv
+catalog/fluorophore/BOBO 1.csv
+catalog/fluorophore/BOBO 1_recommend.csv
+catalog/fluorophore/BODIPY FL.csv
+catalog/fluorophore/BODIPY FL_recommend.csv
+catalog/fluorophore/Calcein_AM.csv
+catalog/fluorophore/Calcein_AM_recommend.csv
+catalog/fluorophore/Cascade Blue.csv
+catalog/fluorophore/Cascade Blue_recommend.csv
+catalog/fluorophore/Cy3.csv
+catalog/fluorophore/Cy3_recommend.csv
+catalog/fluorophore/Cy5.csv
+catalog/fluorophore/Cy5_recommend.csv
+catalog/fluorophore/DiI.csv
+catalog/fluorophore/DiI_recommend.csv
+catalog/fluorophore/DiO.csv
+catalog/fluorophore/DiO_recommend.csv
+catalog/fluorophore/dKeima570.csv
+catalog/fluorophore/dKeima-Red.csv
+catalog/fluorophore/dKeima-Red_recommend.csv
+catalog/fluorophore/Dronpa-Green3.csv
+catalog/fluorophore/Dronpa-Green3_recommend.csv
+catalog/fluorophore/Dronpa-Green.csv
+catalog/fluorophore/Dronpa-Green_recommend.csv
+catalog/fluorophore/EBFP.csv
+catalog/fluorophore/EBFP_recommend.csv
+catalog/fluorophore/ECFP.csv
+catalog/fluorophore/ECFP_recommend.csv
+catalog/fluorophore/EGFP.csv
+catalog/fluorophore/EGFP_recommend.csv
+catalog/fluorophore/Eosin-isothiocyanate.csv
+catalog/fluorophore/Eosin-isothiocyanate_recommend.csv
+catalog/fluorophore/ERTracker Blue-White DPX.csv
+catalog/fluorophore/ERTracker Blue-White DPX_recommend.csv
+catalog/fluorophore/Ethidium Bromide.csv
+catalog/fluorophore/Ethidium Bromide_recommend.csv
+catalog/fluorophore/Ethidium homodimer-1.csv
+catalog/fluorophore/Ethidium homodimer-1_recommend.csv
+catalog/fluorophore/EYFP.csv
+catalog/fluorophore/EYFP_recommend.csv
+catalog/fluorophore/Fluo 4.csv
+catalog/fluorophore/Fluo 4_recommend.csv
+catalog/fluorophore/Fluorescein-isothiocyanate(FITC).csv
+catalog/fluorophore/Fluorescein-isothiocyanate(FITC)_recommend.csv
+catalog/fluorophore/FM 1-43.csv
+catalog/fluorophore/FM 1-43_recommend.csv
+catalog/fluorophore/Hoechst 33258.csv
+catalog/fluorophore/Hoechst 33258_recommend.csv
+catalog/fluorophore/JC-1.csv
+catalog/fluorophore/JC-1_recommend.csv
+catalog/fluorophore/Kaede-Green.csv
+catalog/fluorophore/Kaede-Green_recommend.csv
+catalog/fluorophore/Kaede-Red.csv
+catalog/fluorophore/Kaede-Red_recommend.csv
+catalog/fluorophore/Kikume Green.csv
+catalog/fluorophore/Kikume Green_recommend.csv
+catalog/fluorophore/Kikume Red.csv
+catalog/fluorophore/Kikume Red_recommend.csv
+catalog/fluorophore/Kusabira-Orange1.csv
+catalog/fluorophore/Kusabira-Orange1_recommend.csv
+catalog/fluorophore/Lucifer Yellow CH.csv
+catalog/fluorophore/Lucifer Yellow CH_recommend.csv
+catalog/fluorophore/LysoTracker Red DND-99.csv
+catalog/fluorophore/LysoTracker Red DND-99_recommend.csv
+catalog/fluorophore/mAzami-Green1.csv
+catalog/fluorophore/mAzami-Green1_recommend.csv
+catalog/fluorophore/mCherry.csv
+catalog/fluorophore/mCherry_recommend.csv
+catalog/fluorophore/Midoriichi-Cyan1.csv
+catalog/fluorophore/Midoriichi-Cyan1_recommend.csv
+catalog/fluorophore/MitoTracker Red CMXRos.csv
+catalog/fluorophore/MitoTracker Red CMXRos_recommend.csv
+catalog/fluorophore/mKeima-Red.csv
+catalog/fluorophore/mKeima-Red_recommend.csv
+catalog/fluorophore/mKikume Green.csv
+catalog/fluorophore/mKikume Green_recommend.csv
+catalog/fluorophore/mKikume Red.csv
+catalog/fluorophore/mKikume Red_recommend.csv
+catalog/fluorophore/mKusabira-Orange1.csv
+catalog/fluorophore/mKusabira-Orange1_recommend.csv
+catalog/fluorophore/mKusabira-Orange2.csv
+catalog/fluorophore/mKusabira-Orange2_recommend.csv
+catalog/fluorophore/mMidoriichi-Cyan1.csv
+catalog/fluorophore/mMidoriichi-Cyan1_recommend.csv
+catalog/fluorophore/mRFP.csv
+catalog/fluorophore/mRFP_recommend.csv
+catalog/fluorophore/Oregon Green 488.csv
+catalog/fluorophore/Oregon Green 488_recommend.csv
+catalog/fluorophore/Phycoerythrin R(PE-R).csv
+catalog/fluorophore/Phycoerythrin R(PE-R)_recommend.csv
+catalog/fluorophore/POPO 1.csv
+catalog/fluorophore/POPO 1_recommend.csv
+catalog/fluorophore/Propidium Iodide(PI).csv
+catalog/fluorophore/Propidium Iodide(PI)_recommend.csv
+catalog/fluorophore/Qdot 525.csv
+catalog/fluorophore/Qdot 525_recommend.csv
+catalog/fluorophore/Qdot 605.csv
+catalog/fluorophore/Qdot 605_recommend.csv
+catalog/fluorophore/Qdot 625.csv
+catalog/fluorophore/Qdot 625_recommend.csv
+catalog/fluorophore/Qdot 655.csv
+catalog/fluorophore/Qdot 655_recommend.csv
+catalog/fluorophore/Resorufin.csv
+catalog/fluorophore/Resorufin_recommend.csv
+catalog/fluorophore/RH795.csv
+catalog/fluorophore/Rhodamine 123.csv
+catalog/fluorophore/Rhodamine 123_recommend.csv
+catalog/fluorophore/Rhodamine-Phalloidin.csv
+catalog/fluorophore/Rhodamine-Phalloidin_recommend.csv
+catalog/fluorophore/Sulforhodamine 101.csv
+catalog/fluorophore/Sulforhodamine 101_recommend.csv
+catalog/fluorophore/SYTOX Green nucleic acid stain.csv
+catalog/fluorophore/SYTOX Green nucleic acid stain_recommend.csv
+catalog/fluorophore/Tetramethylrhodamine(TRITC).csv
+catalog/fluorophore/Tetramethylrhodamine(TRITC)_recommend.csv
+catalog/fluorophore/Texas Red.csv
+catalog/fluorophore/Texas Red_recommend.csv
+catalog/fluorophore/TO PRO 3.csv
+catalog/fluorophore/TO PRO 3_recommend.csv
+catalog/fluorophore/TOTO 1.csv
+catalog/fluorophore/TOTO 1_recommend.csv
+catalog/fluorophore/TOTO 3.csv
+catalog/fluorophore/TOTO 3_recommend.csv
+catalog/fluorophore/TRITC.csv
+catalog/fluorophore/Uminikono-Green.csv
+catalog/fluorophore/Uminikono-Green_recommend.csv
+catalog/fluorophore/Venus.csv
+catalog/fluorophore/Venus_recommend.csv
+catalog/fluorophore/YO PRO 1.csv
+catalog/fluorophore/YO PRO 1_recommend.csv
+catalog/fluorophore/YOYO 1.csv
+catalog/fluorophore/YOYO 1_recommend.csv
