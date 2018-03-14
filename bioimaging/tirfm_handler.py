@@ -27,9 +27,9 @@ class TIRFMConfigs(EPIFMConfigs) :
 
     TIRFM configration
 
-	Evanescent Field
-	    +
-	Detector : EMCCD/CMOS
+        Evanescent Field
+            +
+        Detector : EMCCD/CMOS
     '''
 
     def __init__(self, user_configs_dict = None):
@@ -60,31 +60,28 @@ class TIRFMConfigs(EPIFMConfigs) :
 
 class TIRFMVisualizer(EPIFMVisualizer) :
 
-	'''
-	TIRFM visualization class
-	'''
+    '''
+    TIRFM visualization class
+    '''
 
-	def __init__(self, configs=TIRFMConfigs(), effects=PhysicalEffects()) :
+    def __init__(self, configs=TIRFMConfigs(), effects=PhysicalEffects()) :
 
-		assert isinstance(configs, TIRFMConfigs)
-		self.configs = configs
+        assert isinstance(configs, TIRFMConfigs)
+        self.configs = configs
 
-                assert isinstance(effects, PhysicalEffects)
-                self.effects = effects
+        assert isinstance(effects, PhysicalEffects)
+        self.effects = effects
 
-		"""
-		Check and create the folder for image file.
-		"""
-		if not os.path.exists(self.configs.image_file_dir):
-		    os.makedirs(self.configs.image_file_dir)
-		#else:
-		#    for file in os.listdir(self.configs.movie_image_file_dir):
-		#	os.remove(os.path.join(self.configs.movie_image_file_dir, file))
+        """
+        Check and create the folder for image file.
+        """
+        if not os.path.exists(self.configs.image_file_dir):
+            os.makedirs(self.configs.image_file_dir)
+        #else:
+        #    for file in os.listdir(self.configs.movie_image_file_dir):
+        #       os.remove(os.path.join(self.configs.movie_image_file_dir, file))
 
-                """
-                set optical path from source to detector
-                """
-		self.configs.set_Optical_path()
-
-
-
+        """
+        set optical path from source to detector
+        """
+        self.configs.set_Optical_path()

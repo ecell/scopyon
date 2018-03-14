@@ -18,126 +18,123 @@ coord = [(0,334,295),(0,368,472),(0,387,23),(2,249,186),(2,407,148),(3,325,317),
 
 
 def gaussian(A, x0, y0, width_x, width_y) :
-	"""Returns a gaussian function with the given parameters"""
-	width_x = float(width_x)
-	width_y = float(width_y)
+    """Returns a gaussian function with the given parameters"""
+    width_x = float(width_x)
+    width_y = float(width_y)
 
-	return lambda x,y: A*numpy.exp(-(((x0-x)/width_x)**2+((y0-y)/width_y)**2)/2)
+    return lambda x,y: A*numpy.exp(-(((x0-x)/width_x)**2+((y0-y)/width_y)**2)/2)
 
 
 def moments(data) :
-	"""Returns (A, x, y, width_x, width_y)
-	the gaussian parameters of a 2D distribution by calculating its
-	moments """
-	total = data.sum()
+    """Returns (A, x, y, width_x, width_y)
+    the gaussian parameters of a 2D distribution by calculating its
+    moments """
+    total = data.sum()
 
-	X, Y = numpy.indices(data.shape)
-	x = (X*data).sum()/total
-	y = (Y*data).sum()/total
+    X, Y = numpy.indices(data.shape)
+    x = (X*data).sum()/total
+    y = (Y*data).sum()/total
 
-	col = data[:, int(y)]
-	width_x = numpy.sqrt(abs((numpy.arange(col.size)-y)**2*col).sum()/col.sum())
+    col = data[:, int(y)]
+    width_x = numpy.sqrt(abs((numpy.arange(col.size)-y)**2*col).sum()/col.sum())
 
-	row = data[int(x), :]
-	width_y = numpy.sqrt(abs((numpy.arange(row.size)-x)**2*row).sum()/row.sum())
+    row = data[int(x), :]
+    width_y = numpy.sqrt(abs((numpy.arange(row.size)-x)**2*row).sum()/row.sum())
 
-	height = data.max()
+    height = data.max()
 
-	return height, x, y, width_x, width_y
+    return height, x, y, width_x, width_y
 
 
 
 def convert(file_in, file_out, index=None) :
 
-	i = 1
+    i = 1
 
-	#image = numpy.zeros(shape=(512,512))
-	signal = []
-	background = []
-	error  = []
+    #image = numpy.zeros(shape=(512,512))
+    signal = []
+    background = []
+    error  = []
 
-	while (True) :
-	    try :
-		#input_image  = numpy.load(file_in + '/image_%07d.npy' % (i))
-	        input_image = (imread(file_in + '/image_%07d.tif' % (i-1))).astype('int')
-	    except Exception :
-		break
+    while (True) :
+        try :
+            #input_image  = numpy.load(file_in + '/image_%07d.npy' % (i))
+            input_image = (imread(file_in + '/image_%07d.tif' % (i-1))).astype('int')
+        except Exception :
+            break
 
-	    image0 = numpy.array(input_image)
+        image0 = numpy.array(input_image)
 
-	    for j in range(len(coord)) :
+        for j in range(len(coord)) :
 
-	      if (i-1 == coord[j][0]) :
+            if (i-1 == coord[j][0]) :
 
-		x, y = coord[j][1], coord[j][2]
+                x, y = coord[j][1], coord[j][2]
 
-		image1 = input_image[y-8:y+8,x-8:x+8]
-		image0[y-8:y+8,x-8:x+8] = image0[y-8:y+8,x-8:x+8] - image1
+                image1 = input_image[y-8:y+8,x-8:x+8]
+                image0[y-8:y+8,x-8:x+8] = image0[y-8:y+8,x-8:x+8] - image1
 
-		I_all = float(image1.sum())
-		signal.append(I_all)
+                I_all = float(image1.sum())
+                signal.append(I_all)
 
-#	        params = moments(image0)
-#	        errorfunction = lambda p : numpy.ravel(gaussian(*p)(*numpy.indices(image0.shape)) - image0)
-#	        p, success = optimize.leastsq(errorfunction, params)
+#               params = moments(image0)
+#               errorfunction = lambda p : numpy.ravel(gaussian(*p)(*numpy.indices(image0.shape)) - image0)
+#               p, success = optimize.leastsq(errorfunction, params)
 
-	    I_bg = []
-	    array0 = image0.reshape((512*512))
+        I_bg = []
+        array0 = image0.reshape((512*512))
 
-	    for k in range(len(array0)) :
+        for k in range(len(array0)) :
 
-		if (array0[k] > 0) :
-		    I_bg.append(float(array0[k]))
+            if (array0[k] > 0) :
+                I_bg.append(float(array0[k]))
 
-	    I_bg = numpy.array(I_bg)
+        I_bg = numpy.array(I_bg)
 
-	    length = len(I_bg)
+        length = len(I_bg)
 
-	    b_avg = I_bg.sum()/length
-	    bdev2 = (I_bg - b_avg)**2
-	    dev_b = numpy.sqrt(bdev2.sum()/length)
+        b_avg = I_bg.sum()/length
+        bdev2 = (I_bg - b_avg)**2
+        dev_b = numpy.sqrt(bdev2.sum()/length)
 
-	    background.append(b_avg)
-	    error.append(dev_b)
+        background.append(b_avg)
+        error.append(dev_b)
 
-	    # 16-bit data format
-	    #image_array.astype('uint16')
-	    #toimage(image_array, high=cmax, low=cmin, mode='I').save(output_image)
+        # 16-bit data format
+        #image_array.astype('uint16')
+        #toimage(image_array, high=cmax, low=cmin, mode='I').save(output_image)
 
-	    # 8-bit data format (for making movie)
-	    #toimage(image, cmin=amin, cmax=410).save(output_image)
+        # 8-bit data format (for making movie)
+        #toimage(image, cmin=amin, cmax=410).save(output_image)
 
-	    i += 1
+        i += 1
 
-	# background
-	background = numpy.array(background)
-	length = len(background)
-	b_avg = background.sum()/length
+    # background
+    background = numpy.array(background)
+    length = len(background)
+    b_avg = background.sum()/length
 
-	error = numpy.array(error)
-	length = len(error)
-	err_b = error.sum()/length
+    error = numpy.array(error)
+    length = len(error)
+    err_b = error.sum()/length
 
-	# signal
-	signal = numpy.array(signal - 16*16*b_avg)
+    # signal
+    signal = numpy.array(signal - 16*16*b_avg)
 
-	length = len(signal)
-	s_avg = signal.sum()/length
-	dev2  = (signal - s_avg)**2
-	err_s = numpy.sqrt(dev2.sum()/length)
+    length = len(signal)
+    s_avg = signal.sum()/length
+    dev2  = (signal - s_avg)**2
+    err_s = numpy.sqrt(dev2.sum()/length)
 
-	print(210, s_avg, err_s, b_avg, err_b)
+    print(210, s_avg, err_s, b_avg, err_b)
 
-	# 8-bit data format (for making movie)
-	#toimage(image, cmin=100, cmax=1000).save(file_out + '/image_summed.png')
+    # 8-bit data format (for making movie)
+    #toimage(image, cmin=100, cmax=1000).save(file_out + '/image_summed.png')
 
 
 if __name__=='__main__':
 
-	file_in = '/home/masaki/bioimaging_4public/Data_fromMoriga_08-05-2015/images_0805/images_tif_210mW'
-	file_out = '/home/masaki/bioimaging_4public/images_png'
+    file_in = '/home/masaki/bioimaging_4public/Data_fromMoriga_08-05-2015/images_0805/images_tif_210mW'
+    file_out = '/home/masaki/bioimaging_4public/images_png'
 
-	convert(file_in, file_out)
-
-
-
+    convert(file_in, file_out)

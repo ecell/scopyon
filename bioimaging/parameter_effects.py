@@ -50,4 +50,3 @@ photoblinking_t0_on = 0.3
 photoblinking_a_on  = 0.58
 photoblinking_t0_off = 0.3
 photoblinking_a_off  = 0.48
-

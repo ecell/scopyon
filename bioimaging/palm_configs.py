@@ -2,7 +2,7 @@
 import numpy
 
 #-----------------------------
-# General 
+# General
 #-----------------------------
 ignore_open_errors = False
 electron_charge = 1.602e-19 # C
@@ -27,18 +27,18 @@ fluorophore_psf = numpy.array([[0.0 for i in range(len(radial))] for j in range(
 #fluorophore_rgb = numpy.array([(0, 0, 0) for j in range(len(depth))])
 
 #-----------------------------
-# Fluorophore PSF 
+# Fluorophore PSF
 #-----------------------------
 psf_wavelength = 600 # nm
 psf_intensity  = 1.00
-psf_width  = (200, 200)	# Gaussian function (radial width, lateral width) [nm]
-psf_cutoff = (400, 100)	# cutoff range (radius, depth)
-psf_file_name_format = 'psf_%04d.png'	# Image file name
+psf_width  = (200, 200) # Gaussian function (radial width, lateral width) [nm]
+psf_cutoff = (400, 100) # cutoff range (radius, depth)
+psf_file_name_format = 'psf_%04d.png'   # Image file name
 
 #-----------------------------
 # Excitation
-#----------------------------- 
-source_excitation_switch  = False       
+#-----------------------------
+source_excitation_switch  = False
 source_excitation_type = 'LASER'
 source_excitation_wavelength = 600. # nm
 source_excitation_flux = 20e-3 # W
@@ -50,8 +50,8 @@ source_excitation_flux = numpy.array([[0.0 for i in range(len(radial))] for j in
 
 #-----------------------------
 # Activation
-#----------------------------- 
-source_activation_switch  = False       
+#-----------------------------
+source_activation_switch  = False
 source_activation_type = 'LASER'
 source_activation_wavelength = 600. # nm
 source_activation_flux = 20e-3 # W

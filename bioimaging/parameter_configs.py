@@ -2,7 +2,7 @@
 import numpy
 
 #-----------------------------
-# General 
+# General
 #-----------------------------
 ignore_open_errors = False
 electron_charge = 1.602e-19 # C
@@ -40,19 +40,19 @@ fluoem_eff  = [0.0 for i in range(len(wave_length))]
 #fluorophore_rgb = numpy.array([(0, 0, 0) for j in range(len(depth))])
 
 #-----------------------------
-# Fluorophore PSF 
+# Fluorophore PSF
 #-----------------------------
 psf_wavelength = 600 # nm
 psf_normalization = 1.00
 psf_intensity_noise = 0.50
-psf_width  = (200, 200)	# Gaussian function (radial width, lateral width) [nm]
-psf_cutoff = (400, 100)	# cutoff range (radius, depth)
-psf_file_name_format = 'psf_%04d.png'	# Image file name
+psf_width  = (200, 200) # Gaussian function (radial width, lateral width) [nm]
+psf_cutoff = (400, 100) # cutoff range (radius, depth)
+psf_file_name_format = 'psf_%04d.png'   # Image file name
 
 #-----------------------------
 # Illumination
-#----------------------------- 
-source_switch  = False       
+#-----------------------------
+source_switch  = False
 source_type = 'LASER'
 source_wavelength = 600. # nm
 source_flux_density = 1 # W/cm2
