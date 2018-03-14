@@ -204,10 +204,10 @@ class CameraVisualizer() :
 
 		camera = self.detector_output(photons)
 
-		# save data to numpy-binary file
-		image_file_name = os.path.join(self.configs.image_file_dir,
-				self.configs.image_file_name_format % (index))
-		numpy.save(image_file_name, camera)
+#		# save data to numpy-binary file
+#		image_file_name = os.path.join(self.configs.image_file_dir,
+#				self.configs.image_file_name_format % (index))
+#		numpy.save(image_file_name, camera)
 
 
 

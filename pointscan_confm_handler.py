@@ -676,22 +676,27 @@ class PointScanConfocalVisualizer(FCSVisualizer) :
 		s2_y = alpha*(A**2 + 2*A*B)
 		s2_x = s2_y/(1 - c) - c*m_x**2
 
-		if (y < 10*A) :
-		    # Rayleigh approximation
-		    #s2 = (2.0/numpy.pi)*m_x**2
+		#if (y < 10*A) :
+		# Rayleigh approximation
+		#s2 = (2.0/numpy.pi)*m_x**2
+		#prob = y/s2*numpy.exp(-0.5*y**2/s2)
 
-		    #prob = y/s2*numpy.exp(-0.5*y**2/s2)
+		# probability distribution
+		prob = numpy.zeros(shape=(len(y)))
 
-		    # Gamma approximation
-		    k_1 = m_x
-		    k_2 = (m_y**2 + s2_y)/(1 - c)
+		# get index
+		k = (numpy.abs(10*A - y)).argmin()
 
-		    a = 1/(k_1*(k_2/k_1**2 - 1))
-		    b = a*k_1
+		# Gamma approximation
+		k_1 = m_x
+		k_2 = (m_y**2 + s2_y)/(1 - c)
 
-		    prob = a/gamma(b)*(a*y)**(b-1)*numpy.exp(-a*y)
+		a = 1/(k_1*(k_2/k_1**2 - 1))
+		b = a*k_1
 
-		else :
+		prob[0:k] = a/gamma(b)*(a*y[0:k])**(b-1)*numpy.exp(-a*y[0:k])
+
+		if (k < len(y)) :
 		    # Truncated Gaussian approximation
 		    Q = 0
 		    beta0 = m_x/numpy.sqrt(s2_x)
@@ -702,7 +707,7 @@ class PointScanConfocalVisualizer(FCSVisualizer) :
 			Q += numpy.exp(-0.5*beta**2)/numpy.sqrt(2*numpy.pi)*delta
 			beta += delta
 
-		    prob = numpy.exp(-0.5*(y - m_x)**2/s2_x)/(numpy.sqrt(2*numpy.pi*s2_x)*(1 - Q))
+		    prob[k:] = numpy.exp(-0.5*(y[k:] - m_x)**2/s2_x)/(numpy.sqrt(2*numpy.pi*s2_x)*(1 - Q))
 
 		return prob
 
@@ -866,7 +871,8 @@ class PointScanConfocalVisualizer(FCSVisualizer) :
 				s = numpy.array([k*delta+s_min for k in range(1000)])
 
 				# probability density fuction
-		    		p_signal = numpy.array(map(lambda y : self.prob_analog(y, Exp), s))
+		    		#p_signal = numpy.array(map(lambda y : self.prob_analog(y, Exp), s))
+				p_signal = self.prob_analog(s, Exp)
 				p_ssum = p_signal.sum()
 
 				# get signal (photoelectrons)
@@ -877,13 +883,13 @@ class PointScanConfocalVisualizer(FCSVisualizer) :
 				signal = 0
 
 			# get detector noise (photoelectrons)
-			Nr = self.configs.detector_readout_noise
+			Nr = QE*self.configs.detector_readout_noise
 
-			if (Nr*T > 0) : noise = numpy.random.normal(0, Nr*T, None)
+			if (Nr > 0) : noise = numpy.random.normal(0, Nr, None)
 			else : noise = 0
 
 			# A/D converter : Expectation --> ADC counts
-			EXP = self.get_ADC_value(pixel, Exp+Nr*T)
+			#EXP = self.get_ADC_value(pixel, Exp)
 
 			# A/D converter : Photoelectrons --> ADC counts
 			PE  = signal + noise
@@ -891,7 +897,7 @@ class PointScanConfocalVisualizer(FCSVisualizer) :
 
 			# set data in image array
 			#image_pixel[i][j] = [Photons, Exp, PE, ADC]
-			image_pixel[i][j] = [EXP, ADC]
+			image_pixel[i][j] = [Exp, ADC]
 
 		return image_pixel
 

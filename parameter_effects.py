@@ -1,42 +1,53 @@
-
 import numpy
 
-#-----------------------------
-# Linear conversion of input to output intensity
-#-----------------------------
-conversion_ratio = 1e-6
+avogadoros_number = 6.022e+23 # #/mol
 
 #-----------------------------
-# Background
+# Shutter Open/Close period
+#-----------------------------
+shutter_switch = False
+shutter_time_open  = 0
+shutter_time_lapse = 0
+
+#-----------------------------
+# Fluorescence
 #-----------------------------
 background_switch = False
 background_mean = 0
-background_width = 0
+quantum_yield = 1.0
+abs_coefficient = 1e+4
 
 #-----------------------------
-# Detectors Crosstalk
+# Photoelectron Crosstalk
 #-----------------------------
-detector_crosstalk_switch = False
-detector_crosstalk_width  = 0.0
-
-#-----------------------------
-# Photobleaching
-#-----------------------------
-bleaching_switch = False
-bleaching_rate = 0.00
-
-bleaching_state = []
+crosstalk_switch = False
+crosstalk_width = 0
 
 #-----------------------------
-# Photoblinking
+# Photo-bleaching
 #-----------------------------
-blinking_switch = False
-blinking_prob0 = 1.00
+photobleaching_switch = False
+photobleaching_tau0  = 6.8
+photobleaching_alpha = 0.73
 
-blinking_alpha_on  = 0.00
-blinking_alpha_off = 0.00
+fluorescence_bleach = []
+fluorescence_budget = []
+fluorescence_state  = []
 
-blinking_state  = []
-blinking_period = []
+#-----------------------------
+# Photo-activation
+#-----------------------------
+photoactivation_switch = False
+photoactivation_turn_on_ratio = 1000
+photoactivation_activation_yield = 0.1
+photoactivation_frac_preactivation = 0.00
 
+#-----------------------------
+# Photo-blinking
+#-----------------------------
+photoblinking_switch = False
+photoblinking_t0_on = 0.3
+photoblinking_a_on  = 0.58
+photoblinking_t0_off = 0.3
+photoblinking_a_off  = 0.48
 

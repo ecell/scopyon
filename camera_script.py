@@ -4,7 +4,7 @@ import os
 
 from camera_handler   import CameraConfigs, CameraVisualizer
 
-signal = [i for i in range(11)]
+signal = [100*i for i in range(11)]
 
 def test_camera(index) :
 
@@ -18,15 +18,15 @@ def test_camera(index) :
 
 	# Detector : EMCCD Camera
 	camera.set_Detector(detector='EMCCD', image_size=(100,100), pixel_length=16e-6, \
-			focal_point=(0.0,0.5,0.5), exposure_time=30e-3, QE=0.92, readout_noise=100, emgain=1)
+			focal_point=(0.0,0.5,0.5), exposure_time=150e-3, QE=0.92, readout_noise=100, emgain=300)
 	camera.set_ADConverter(bit=16, offset=2000, fullwell=370000)
 
 	### Output data
-	camera.set_OutputData(image_file_dir='./images_camera_emccd_bg05_x001')
+	camera.set_OutputData(image_file_dir='./images_camera')
 
 	# create image and movie
 	create = CameraVisualizer(configs=camera)
-	create.output_frames(index=index, signal=signal[index], background=5)
+	create.output_frames(index=index, signal=signal[index], background=0.01)
 
 
 

@@ -14,19 +14,6 @@ wave_length = numpy.array([i for i in range(300, 1000)])
 wave_number = numpy.array([2.*numpy.pi/wave_length[i] for i in range(len(wave_length))])
 
 #-----------------------------
-# Shutter Open/Close period
-#-----------------------------
-shutter_switch = False
-shutter_start_time = 0
-shutter_end_time = 0
-shutter_time_open  = 0
-shutter_time_lapse = 0
-shutter_time_array = []
-shutter_delta_array = []
-shutter_count_array = []
-shutter_index_array = []
-
-#-----------------------------
 # Fluorophore
 #-----------------------------
 fluorophore_type = 'Gauss'
@@ -43,7 +30,7 @@ fluoem_eff  = [0.0 for i in range(len(wave_length))]
 # Fluorophore PSF 
 #-----------------------------
 psf_wavelength = 600 # nm
-psf_normalization = 1.00
+psf_intensity  = 1.00
 psf_intensity_noise = 0.50
 psf_width  = (200, 200)	# Gaussian function (radial width, lateral width) [nm]
 psf_cutoff = (400, 100)	# cutoff range (radius, depth)
@@ -59,14 +46,16 @@ source_flux_density = 1 # W/cm2
 source_center = (0, 0.5, 0.5)
 source_radius = 20e-6 # m
 source_depth  = 20e-6 # m
-source_angle = 0 # rad
+source_angle  = 0 # degree
+#source_angle_left  = 0 # degree
+#source_angle_right = 0 # degree
 
 #-----------------------------
 # Shutter Open/Close period
 #-----------------------------
 shutter_switch = False
 shutter_time_open  = 0
-shutter_time_lapse = 0
+shutter_time_close = 0
 
 #-----------------------------
 # Resolution/Magnification
@@ -152,6 +141,8 @@ image_file_cleanup_dir = False
 # Spatiocyte
 #-----------------------------
 spatiocyte_file_directry = ''
+spatiocyte_start_time = 0
+spatiocyte_start_end  = 1
 spatiocyte_interval = 1e-3
 spatiocyte_data  = []
 spatiocyte_shape = []

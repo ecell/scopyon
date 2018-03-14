@@ -22,28 +22,27 @@ def test_tirfm(t0, t1) :
 
 	# Detector : EMCCD Camera
 	tirfm.set_Detector(detector='EMCCD', image_size=(512,512), pixel_length=16e-6, \
-			focal_point=(0.0,0.5,0.5), exposure_time=0.10, QE=0.92, readout_noise=100, emgain=300)
+			focal_point=(0.0,0.5,0.5), exposure_time=0.1, QE=0.92, readout_noise=100, emgain=300)
 	tirfm.set_ADConverter(bit=16, offset=2000, fullwell=800000)
 
-	# Output data
-	#tirfm.set_OutputData(image_file_dir='./numpys_tirfm_TEST')
-	tirfm.set_OutputData(image_file_dir='./numpys_tirfm_TEST_bleach')
+#	# Output data
+#	tirfm.set_OutputData(image_file_dir='./numpys_tirfm_01000A')
 
 	# Input data
-	#tirfm.set_InputData('/home/masaki/wrk/spatiocyte/models/Hiroshima/data_HRG-ErbB/SM/csv/TEST', start=t0, end=t1, observable="R")
-	tirfm.set_InputData('/home/masaki/bioimaging_4public/data_tirfm_TEST_bleach', start=t0, end=t1, observable="R")
+	tirfm.reset_InputData('/home/masaki/wrk/spatiocyte/models/Hiroshima/data_HRG-ErbB/SM/csv/TEST', start=t0, end=t1, observable="R")
 
 	# create physical effects
 	physics = PhysicalEffects()
 	physics.set_background(mean=0)
 	physics.set_fluorescence(quantum_yield=0.61, abs_coefficient=83400)
-	#physics.set_photobleaching(tau0=1.8, alpha=0.73)
+	physics.set_photobleaching(tau0=1.8, alpha=0.73)
 	#physics.set_photoblinking(t0_on=1.00, a_on=0.58, t0_off=10e-6, a_off=0.48)
 
 	# create image
 	create = TIRFMVisualizer(configs=tirfm, effects=physics)
-	#create.rewrite_InputData(output_file_dir='./data_tirfm_01000A')
-	create.output_frames(num_div=16)
+	create.rewrite_InputData(output_file_dir='./data_tirfm_TEST_bleach')
+	#create.rewrite_InputData(output_file_dir='./data_tirfm_TEST_blink')
+	#create.output_frames(num_div=16)
 
 
 

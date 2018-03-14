@@ -14,19 +14,6 @@ wave_length = numpy.array([i for i in range(300, 1000)])
 wave_number = numpy.array([2.*numpy.pi/wave_length[i] for i in range(len(wave_length))])
 
 #-----------------------------
-# Shutter Open/Close period
-#-----------------------------
-shutter_switch = False
-shutter_start_time = 0
-shutter_end_time = 0
-shutter_time_open  = 0
-shutter_time_lapse = 0
-shutter_time_array = []
-shutter_delta_array = []
-shutter_count_array = []
-shutter_index_array = []
-
-#-----------------------------
 # Fluorophore
 #-----------------------------
 fluorophore_type = 'Gauss'
@@ -43,7 +30,7 @@ fluoem_eff  = [0.0 for i in range(len(wave_length))]
 # Fluorophore PSF 
 #-----------------------------
 psf_wavelength = 600 # nm
-psf_normalization = 1.00
+psf_intensity  = 1.00
 psf_intensity_noise = 0.50
 psf_width  = (200, 200)	# Gaussian function (radial width, lateral width) [nm]
 psf_cutoff = (400, 100)	# cutoff range (radius, depth)
@@ -55,18 +42,18 @@ psf_file_name_format = 'psf_%04d.png'	# Image file name
 source_switch  = False       
 source_type = 'LASER'
 source_wavelength = 600. # nm
-source_flux_density = 1 # W/cm2
-source_center = (0, 0.5, 0.5)
 source_radius = 20e-6 # m
 source_depth  = 20e-6 # m
 source_angle = 0 # rad
+source_flux = 20e-3 # W
+source_flux_density = 1 # W/cm2
 
-#-----------------------------
-# Shutter Open/Close period
-#-----------------------------
-shutter_switch = False
-shutter_time_open  = 0
-shutter_time_lapse = 0
+# Bleaching profile
+source_bleaching_flux = 20e-3 # W
+source_bleaching_flux_density = 1 # W/cm2
+source_bleaching_size = (10, 10)# pixel
+source_bleaching_position = (512, 512) # pixel
+source_bleaching_time = 1.0 # sec
 
 #-----------------------------
 # Resolution/Magnification
@@ -109,8 +96,7 @@ detector_switch = False
 detector_type = 'Perfect'
 detector_mode = 'Photon-counting'
 detector_base_position = (-2.0, 0.5, 0.5) # Base position of x,y,z (This unit is world_size)
-detector_focal_point = (0.0, 0.5, 0.5) # Focal point of x,y,z (This unit is world_size)
-detector_focal_norm  = (0.0, 0.0, 1.0) # Focal point of x,y,z (This unit is world_size)
+detector_focal_point   = ( 0.0, 0.5, 0.5) # Focal point of x,y,z (This unit is world_size)
 detector_image_size   = (512, 512)        # detector image size in pixels
 detector_pixel_length = 16.0e-6           # Pixel size in micro-m scale
 detector_exposure_time = 0.03
@@ -145,16 +131,16 @@ ADConverter_fpn_count = 0.0
 image_file_dir = "./images"
 #image_file_name_format = 'image_%07d.png'
 image_file_name_format = 'image_%07d.npy'
-true_file_name_format = 'true_%07d.npy'
 image_file_cleanup_dir = False
 
 #-----------------------------
 # Spatiocyte
 #-----------------------------
 spatiocyte_file_directry = ''
+spatiocyte_start_time = 0
+spatiocyte_start_end  = 1
 spatiocyte_interval = 1e-3
-spatiocyte_data  = []
-spatiocyte_shape = []
+spatiocyte_data = []
 spatiocyte_observable = []
 
 spatiocyte_species_id = []

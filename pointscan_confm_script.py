@@ -29,7 +29,7 @@ def test_confm(t0, t1, index=None) :
 	confm.set_OutputData(image_file_dir='./images')
 
 	# Input data : EGF model file
-	confm.set_InputData('./data/tmr_lscm', start=t0, end=t1, observable="A")
+	confm.set_InputData('/home/masaki/ecell3/latest/data/csv/beads_07', start=t0, end=t1, observable="A")
 
 	# create physical effects
 	physics = PhysicalEffects()
