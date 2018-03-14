@@ -9,4 +9,6 @@ setup(name='bioimaging',
       packages=['bioimaging'],
       package_dir={'bioimaging': 'bioimaging'},
       package_data={'bioimaging': ['catalog/*.txt', 'catalog/*/*.csv']},
+      install_requires=['numpy', 'scipy'],
+      license='BSD-3-Clause',
       )
