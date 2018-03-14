@@ -43,7 +43,7 @@ class CameraConfigs() :
         # user setting
         if user_configs_dict is not None:
             if type(user_configs_dict) != type({}):
-                print 'Illegal argument type for constructor of Configs class'
+                print('Illegal argument type for constructor of Configs class')
                 sys.exit()
             configs_dict.update(user_configs_dict)
 
@@ -89,16 +89,16 @@ class CameraConfigs() :
         self._set_data('detector_dark_count', dark_count)
         self._set_data('detector_emgain', emgain)
 
-	print '--- Detector : ', self.detector_type
-        print '\tImage Size  = ', self.detector_image_size[0], 'x', self.detector_image_size[1]
-        print '\tPixel Size  = ', self.detector_pixel_length, 'm/pixel'
-        print '\tFocal Point = ', self.detector_focal_point
-        print '\tPosition    = ', self.detector_base_position
-        print '\tExposure Time = ', self.detector_exposure_time, 'sec'
-        print '\tQuantum Efficiency = ', 100*self.detector_qeff, '%'
-	print '\tReadout Noise = ', self.detector_readout_noise, 'electron'
-        print '\tDark Count = ', self.detector_dark_count, 'electron/sec'
-        print '\tEM gain = ', 'x', self.detector_emgain
+	print('--- Detector : ', self.detector_type)
+        print('\tImage Size  = ', self.detector_image_size[0], 'x', self.detector_image_size[1])
+        print('\tPixel Size  = ', self.detector_pixel_length, 'm/pixel')
+        print('\tFocal Point = ', self.detector_focal_point)
+        print('\tPosition    = ', self.detector_base_position)
+        print('\tExposure Time = ', self.detector_exposure_time, 'sec')
+        print('\tQuantum Efficiency = ', 100*self.detector_qeff, '%')
+	print('\tReadout Noise = ', self.detector_readout_noise, 'electron')
+        print('\tDark Count = ', self.detector_dark_count, 'electron/sec')
+        print('\tEM gain = ', 'x', self.detector_emgain)
 
 
 
@@ -116,11 +116,11 @@ class CameraConfigs() :
         self._set_data('ADConverter_fpn_type', fpn_type)
         self._set_data('ADConverter_fpn_count', fpn_count)
 
-        print '--- A/D Converter : %d-bit' % (self.ADConverter_bit)
-	print '\tGain = %.3f count/electron' % (self.ADConverter_gain)
-	print '\tOffset = ', self.ADConverter_offset, 'count'
-        print '\tFullwell = ', self.ADConverter_fullwell, 'electron'
-        print '\t%s-Fixed Pattern Noise :' % (self.ADConverter_fpn_type), self.ADConverter_fpn_count, 'count'
+        print('--- A/D Converter : %d-bit' % (self.ADConverter_bit))
+	print('\tGain = %.3f count/electron' % (self.ADConverter_gain))
+	print('\tOffset = ', self.ADConverter_offset, 'count')
+        print('\tFullwell = ', self.ADConverter_fullwell, 'electron')
+        print('\t%s-Fixed Pattern Noise :' % (self.ADConverter_fpn_type), self.ADConverter_fpn_count, 'count')
 
 	# image pixel-size
 	Nw_pixel = self.detector_image_size[0]

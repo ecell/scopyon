@@ -43,7 +43,7 @@ class PhysicalEffects() :
         # user setting
         if user_configs_dict is not None:
             if type(user_configs_dict) != type({}):
-                print 'Illegal argument type for constructor of Configs class'
+                print('Illegal argument type for constructor of Configs class')
                 sys.exit()
             configs_dict.update(user_configs_dict)
 
@@ -65,51 +65,51 @@ class PhysicalEffects() :
 
     def set_background(self, mean=None) :
 
-        print '--- Background :'
+        print('--- Background :')
 
         self._set_data('background_switch', True)
         self._set_data('background_mean', mean)
 
-        print '\tMean = ', self.background_mean, 'photons'
+        print('\tMean = ', self.background_mean, 'photons')
 
 
 
     def set_crosstalk(self, width=None) :
 
-        print '--- Photoelectron Crosstalk :'
+        print('--- Photoelectron Crosstalk :')
 
         self._set_data('crosstalk_switch', True)
         self._set_data('crosstalk_width', width)
 
-        print '\tWidth = ', self.crosstalk_width, 'pixels'
+        print('\tWidth = ', self.crosstalk_width, 'pixels')
 
 
 
     def set_fluorescence(self, quantum_yield=None,
 				abs_coefficient=None) :
 
-        print '--- Fluorescence :'
+        print('--- Fluorescence :')
 
         self._set_data('quantum_yield', quantum_yield)
         self._set_data('abs_coefficient', abs_coefficient)
 
-        print '\tQuantum Yield = ', self.quantum_yield
-        print '\tAbs. Coefficient = ', self.abs_coefficient, '1/(M cm)'
-        print '\tAbs. Cross-section = ', (numpy.log(10)*self.abs_coefficient*0.1/6.022e+23)*1e+4, 'cm^2'
+        print('\tQuantum Yield = ', self.quantum_yield)
+        print('\tAbs. Coefficient = ', self.abs_coefficient, '1/(M cm)')
+        print('\tAbs. Cross-section = ', (numpy.log(10)*self.abs_coefficient*0.1/6.022e+23)*1e+4, 'cm^2')
 
 
 
     def set_photobleaching(self, tau0=None, 
 				alpha=None) :
 
-        print '--- Photobleaching :'
+        print('--- Photobleaching :')
 
         self._set_data('photobleaching_switch', True)
         self._set_data('photobleaching_tau0', tau0)
         self._set_data('photobleaching_alpha', alpha)
 
-	print '\tPhotobleaching tau0  = ', self.photobleaching_tau0
-	print '\tPhotobleaching alpha = ', self.photobleaching_alpha
+	print('\tPhotobleaching tau0  = ', self.photobleaching_tau0)
+	print('\tPhotobleaching alpha = ', self.photobleaching_alpha)
 
 
 
@@ -117,24 +117,24 @@ class PhysicalEffects() :
 				activation_yield=None,
 				frac_preactivation=None) :
 
-        print '--- Photoactivation :'
+        print('--- Photoactivation :')
 
         self._set_data('photoactivation_switch', True)
         self._set_data('photoactivation_turn_on_ratio', turn_on_ratio)
         self._set_data('photoactivation_activation_yield', activation_yield)
         self._set_data('photoactivation_frac_preactivation', frac_preactivation)
 
-        print '\tTurn-on Ratio  = ', self.photoactivation_turn_on_ratio
-        print '\tEffective Ratio  = ', activation_yield*turn_on_ratio/(1 + frac_preactivation*turn_on_ratio)
-        print '\tReaction Yield = ', self.photoactivation_activation_yield
-        print '\tFraction of Preactivation = ', self.photoactivation_frac_preactivation
+        print('\tTurn-on Ratio  = ', self.photoactivation_turn_on_ratio)
+        print('\tEffective Ratio  = ', activation_yield*turn_on_ratio/(1 + frac_preactivation*turn_on_ratio))
+        print('\tReaction Yield = ', self.photoactivation_activation_yield)
+        print('\tFraction of Preactivation = ', self.photoactivation_frac_preactivation)
 
 
 
     def set_photoblinking(self, t0_on=None, a_on=None,
 				t0_off=None, a_off=None) :
 
-        print '--- Photo-blinking : '
+        print('--- Photo-blinking : ')
 
         self._set_data('photoblinking_switch', True)
         self._set_data('photoblinking_t0_on', t0_on)
@@ -142,10 +142,10 @@ class PhysicalEffects() :
         self._set_data('photoblinking_t0_off', t0_off)
         self._set_data('photoblinking_a_off', a_off)
 
-	print '\t(ON)  t0 = ', self.photoblinking_t0_on, 'sec'
-	print '\t(ON)  a  = ', self.photoblinking_a_on
-	print '\t(OFF) t0 = ', self.photoblinking_t0_off, 'sec'
-	print '\t(OFF) a  = ', self.photoblinking_a_off
+	print('\t(ON)  t0 = ', self.photoblinking_t0_on, 'sec')
+	print('\t(ON)  a  = ', self.photoblinking_a_on)
+	print('\t(OFF) t0 = ', self.photoblinking_t0_off, 'sec')
+	print('\t(OFF) a  = ', self.photoblinking_a_off)
 
 
 

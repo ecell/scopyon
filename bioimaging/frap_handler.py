@@ -52,7 +52,7 @@ class FRAPConfigs(LSCMConfigs) :
         # user setting
         if user_configs_dict is not None:
             if type(user_configs_dict) != type({}):
-                print 'Illegal argument type for constructor of Configs class'
+                print('Illegal argument type for constructor of Configs class')
                 sys.exit()
             configs_dict.update(user_configs_dict)
 
@@ -87,15 +87,15 @@ class FRAPConfigs(LSCMConfigs) :
         self._set_data('source_radius', radius)
         self._set_data('source_angle', angle)
 
-        print '--- Light Source :', self.source_type
-        print '\tWave Length = ', self.source_wavelength, 'nm'
-        print '\tImaging : Beam Flux = ', self.source_flux, 'W (=joule/sec)'
-        print '\tBleaching : Beam Flux = ', self.source_bleaching_flux, 'W (=joule/sec)'
-        print '\tBleaching : Size  = ', self.source_bleaching_size[0], 'x', self.source_bleaching_size[1], 'pixels'
-        print '\tBleaching : Position = ', self.source_bleaching_position, 'pixel'
-        print '\tBleaching : Time = ', self.source_bleaching_time, 'sec'
-        print '\t1/e2 Radius = ', self.source_radius, 'm'
-        print '\tAngle = ', self.source_angle, 'degree'
+        print('--- Light Source :', self.source_type)
+        print('\tWave Length = ', self.source_wavelength, 'nm')
+        print('\tImaging : Beam Flux = ', self.source_flux, 'W (=joule/sec)')
+        print('\tBleaching : Beam Flux = ', self.source_bleaching_flux, 'W (=joule/sec)')
+        print('\tBleaching : Size  = ', self.source_bleaching_size[0], 'x', self.source_bleaching_size[1], 'pixels')
+        print('\tBleaching : Position = ', self.source_bleaching_position, 'pixel')
+        print('\tBleaching : Time = ', self.source_bleaching_time, 'sec')
+        print('\t1/e2 Radius = ', self.source_radius, 'm')
+        print('\tAngle = ', self.source_angle, 'degree')
 
 
 
@@ -136,8 +136,8 @@ class FRAPConfigs(LSCMConfigs) :
 	# photon flux density for bleaching [photon/(sec m^2)]
         self.source_bleaching_flux_density = numpy.array(map(lambda x : 2*N_1/(numpy.pi*x**2)*numpy.exp(-2*(r*1e-9/x)**2), w_z))
 
-	print 'Photon Flux Density (Imaging) :', numpy.amax(self.source_flux_density)
-	print 'Photon Flux Density (Bleaching) :', numpy.amax(self.source_bleaching_flux_density)
+	print('Photon Flux Density (Imaging) :', numpy.amax(self.source_flux_density))
+	print('Photon Flux Density (Bleaching) :', numpy.amax(self.source_bleaching_flux_density))
 
 
 
@@ -325,7 +325,7 @@ class FRAPVisualizer(LSCMVisualizer) :
 
 		    count_imaging = int(round(time[0]/exposure_time))
 
-		    print 'time : ', time[0], '-', time[-1], ' sec/image (', count_imaging, ')'
+		    print('time : ', time[0], '-', time[-1], ' sec/image (', count_imaging, ')')
 
 		    # set frame datasets
 		    index1 = int(round(time[0]/dt))
@@ -347,7 +347,7 @@ class FRAPVisualizer(LSCMVisualizer) :
 			imaging = (time_bool*cell_bool).astype('int')
 			len_imaging = len(imaging[imaging > 0])
 
-			print index, index*dt+start, 'length :', len_imaging
+			print(index, index*dt+start, 'length :', len_imaging)
 
 			# set photo-bleaching-area
 			non_bleached_area = (time_bool*cell_bool*(1 - bleach_bool)).astype('int')

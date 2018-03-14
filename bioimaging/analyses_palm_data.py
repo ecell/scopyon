@@ -55,7 +55,7 @@ def convert(file_in, file_out, index=None) :
 	    amin = numpy.amin(image)
 	    amax = numpy.amax(image)
 
-	    print amin, amax
+	    print(amin, amax)
 
 	    # 16-bit data format
 	    #image_array.astype('uint16')

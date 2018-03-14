@@ -144,7 +144,7 @@ def convert(start, end) :
 	    # the number of active states (Total)
 	    N_tot = N_tot + N_act
 
-	    print time, N_on, N_off, N_pds, N_tot, N_emit
+	    print(time, N_on, N_off, N_pds, N_tot, N_emit)
 
 	    time += dt
 

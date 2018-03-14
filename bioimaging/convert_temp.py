@@ -59,7 +59,7 @@ def convert(file_in, file_out, cmin, cmax) :
 
 	    i += 1
 
-	print 'Max count : ', max_count, 'ADC'
+	print('Max count : ', max_count, 'ADC')
 
 
 

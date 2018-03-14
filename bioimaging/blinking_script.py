@@ -46,10 +46,10 @@ def test_palm(t0, t1) :
 	budget = physics.fluorescence_budget[0]
 	state  = physics.fluorescence_state[0]
 
-	print '#', budget, 'photons', (budget/n_emit0)*dt, 'sec'
+	print('#', budget, 'photons', (budget/n_emit0)*dt, 'sec')
 
 	for i in range(len(state)) :
-	    print dt*i, state[i], budget
+	    print(dt*i, state[i], budget)
 
 	    if (state[i] > 0) :
 	        budget = budget - n_emit0

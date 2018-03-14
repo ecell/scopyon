@@ -83,7 +83,7 @@ def convert(file_in, file_out) :
 	    errorfunction = lambda p : numpy.ravel(gaussian(*p)(*numpy.indices(image0.shape)) - image0)
 	    p, success = optimize.leastsq(errorfunction, params)
 
-	    print intensity, x_px-(x-8), y_px-(y-8), I_sum, p[2], p[1], B_avg, B_dev
+	    print(intensity, x_px-(x-8), y_px-(y-8), I_sum, p[2], p[1], B_avg, B_dev)
 	    #print intensity, x_px-(x-8), y_px-(y-8), p, success, B_avg, B_dev
 
 

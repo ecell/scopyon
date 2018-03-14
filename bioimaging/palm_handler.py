@@ -43,7 +43,7 @@ class PALMConfigs(TIRFMConfigs) :
         # user setting
         if user_configs_dict is not None:
             if type(user_configs_dict) != type({}):
-                print 'Illegal argument type for constructor of Configs class'
+                print('Illegal argument type for constructor of Configs class')
                 sys.exit()
             configs_dict.update(user_configs_dict)
 
@@ -70,11 +70,11 @@ class PALMConfigs(TIRFMConfigs) :
         self._set_data('source_excitation_radius', radius)
         self._set_data('source_excitation_angle', angle)
 
-        print '--- Excitation Source :', self.source_excitation_type
-        print '\tWave Length = ', self.source_excitation_wavelength, 'nm'
-        print '\tFlux Density = ', self.source_excitation_flux_density, 'W/cm2'
-        print '\t1/e2 Radius = ', self.source_excitation_radius, 'm'
-        print '\tAngle = ', self.source_excitation_angle, 'degree'
+        print('--- Excitation Source :', self.source_excitation_type)
+        print('\tWave Length = ', self.source_excitation_wavelength, 'nm')
+        print('\tFlux Density = ', self.source_excitation_flux_density, 'W/cm2')
+        print('\t1/e2 Radius = ', self.source_excitation_radius, 'm')
+        print('\tAngle = ', self.source_excitation_angle, 'degree')
 
 
 
@@ -96,14 +96,14 @@ class PALMConfigs(TIRFMConfigs) :
         self._set_data('source_activation_frame_time', frame_time)
         self._set_data('source_activation_bleaching_frames', F_bleach)
 
-        print '--- Activation Source :', self.source_activation_type
-        print '\tWave Length = ', self.source_activation_wavelength, 'nm'
-        print '\tFlux Density = ', self.source_activation_flux_density, 'W/cm2'
-        print '\t1/e2 Radius = ', self.source_activation_radius, 'm'
-        print '\tAngle = ', self.source_activation_angle, 'degree'
-	print '\t'
-        print '\tFrame time = ', self.source_activation_frame_time, 'sec'
-        print '\tBleaching frames = ', self.source_activation_bleaching_frames
+        print('--- Activation Source :', self.source_activation_type)
+        print('\tWave Length = ', self.source_activation_wavelength, 'nm')
+        print('\tFlux Density = ', self.source_activation_flux_density, 'W/cm2')
+        print('\t1/e2 Radius = ', self.source_activation_radius, 'm')
+        print('\tAngle = ', self.source_activation_angle, 'degree')
+	print('\t')
+        print('\tFrame time = ', self.source_activation_frame_time, 'sec')
+        print('\tBleaching frames = ', self.source_activation_bleaching_frames)
 
 
 
@@ -183,8 +183,8 @@ class PALMConfigs(TIRFMConfigs) :
 	# photon flux density [photon/(sec m^2)]
         self.source_excitation_flux_density = numpy.array(map(lambda x : I_r*x, I_d))
 
-	print 'Penetration depth :', depth, 'm'
-	print 'Photon Flux Density (Max) :', self.source_excitation_flux_density[0][0], '#photon/(sec m^2)'
+	print('Penetration depth :', depth, 'm')
+	print('Photon Flux Density (Max) :', self.source_excitation_flux_density[0][0], '#photon/(sec m^2)')
 
 
 
@@ -263,8 +263,8 @@ class PALMConfigs(TIRFMConfigs) :
 	# photon flux density [photon/(sec m^2)]
         self.source_activation_flux_density = numpy.array(map(lambda x : I_r*x, I_d))
 
-	print 'Penetration depth :', depth, 'm'
-	print 'Photon Flux Density (Max) :', self.source_activation_flux_density[0][0], '#photon/(sec m^2)'
+	print('Penetration depth :', depth, 'm')
+	print('Photon Flux Density (Max) :', self.source_activation_flux_density[0][0], '#photon/(sec m^2)')
 
 
 
@@ -281,7 +281,7 @@ class PALMConfigs(TIRFMConfigs) :
 
     def reset_InputData(self, csv_file_directry, start=0, end=None, observable=None) :
 
-	print '--- Input Spatiocyte Data : ', csv_file_directry
+	print('--- Input Spatiocyte Data : ', csv_file_directry)
 
 	### header	
 	f = open(csv_file_directry + '/pt-input.csv', 'r')
@@ -370,13 +370,13 @@ class PALMConfigs(TIRFMConfigs) :
         self.spatiocyte_observables = copy.copy(index)
 
 
-        print '\tStart time =', self.spatiocyte_start_time, 'sec'
-        print '\tEnd   time =', self.spatiocyte_end_time, 'sec'
-        print '\tInterval   =', self.spatiocyte_interval, 'sec'
-	print '\tVoxel radius =', self.spatiocyte_VoxelRadius, 'm'
-        print '\tCompartment lengths :', self.spatiocyte_lengths, 'voxels'
-        print '\tSpecies Index :', self.spatiocyte_index
-        print '\tObservable :', self.spatiocyte_observables
+        print('\tStart time =', self.spatiocyte_start_time, 'sec')
+        print('\tEnd   time =', self.spatiocyte_end_time, 'sec')
+        print('\tInterval   =', self.spatiocyte_interval, 'sec')
+	print('\tVoxel radius =', self.spatiocyte_VoxelRadius, 'm')
+        print('\tCompartment lengths :', self.spatiocyte_lengths, 'voxels')
+        print('\tSpecies Index :', self.spatiocyte_index)
+        print('\tObservable :', self.spatiocyte_observables)
 
 
 	# Visualization error	
@@ -396,7 +396,7 @@ class PALMConfigs(TIRFMConfigs) :
 
     def set_InputData(self, csv_file_directry, start=0, end=None, observable=None) :
 
-	print '--- Input Spatiocyte Data : ', csv_file_directry
+	print('--- Input Spatiocyte Data : ', csv_file_directry)
 
 	### header	
 	f = open(csv_file_directry + '/pt-input.csv', 'r')
@@ -452,7 +452,7 @@ class PALMConfigs(TIRFMConfigs) :
 
 
             except Exception :
-                print 'Error : ', csv_file_path, ' not found'
+                print('Error : ', csv_file_path, ' not found')
 		exit()
 
 	data.sort(lambda x, y:cmp(x[0], y[0]))
@@ -486,13 +486,13 @@ class PALMConfigs(TIRFMConfigs) :
 	#index = [False, True]
         self.spatiocyte_observables = copy.copy(index)
 
-        print '\tStart time =', self.spatiocyte_start_time, 'sec'
-        print '\tEnd   time =', self.spatiocyte_end_time, 'sec'
-        print '\tInterval   =', self.spatiocyte_interval, 'sec'
-	print '\tVoxel radius =', self.spatiocyte_VoxelRadius, 'm'
-        print '\tCompartment lengths :', self.spatiocyte_lengths, 'voxels'
-        print '\tSpecies Index :', self.spatiocyte_index
-        print '\tObservable :', self.spatiocyte_observables
+        print('\tStart time =', self.spatiocyte_start_time, 'sec')
+        print('\tEnd   time =', self.spatiocyte_end_time, 'sec')
+        print('\tInterval   =', self.spatiocyte_interval, 'sec')
+	print('\tVoxel radius =', self.spatiocyte_VoxelRadius, 'm')
+        print('\tCompartment lengths :', self.spatiocyte_lengths, 'voxels')
+        print('\tSpecies Index :', self.spatiocyte_index)
+        print('\tObservable :', self.spatiocyte_observables)
 
 
 	# Visualization error	

@@ -47,7 +47,7 @@ class PMTConfigs() :
         # user setting
         if user_configs_dict is not None:
             if type(user_configs_dict) != type({}):
-                print 'Illegal argument type for constructor of Configs class'
+                print('Illegal argument type for constructor of Configs class')
                 sys.exit()
             configs_dict.update(user_configs_dict)
 
@@ -90,14 +90,14 @@ class PMTConfigs() :
         self._set_data('detector_dyn_stages', dyn_stages)
         self._set_data('detector_pair_pulses', pair_pulses)
 
-	print '--- Detector : ', self.detector_type, ' (', self.detector_mode, 'mode )'
-        print '\tBandwidth = ', self.detector_exposure_time, 'Hz'
-        print '\tQuantum Efficiency = ', 100*self.detector_qeff, '%'
-	print '\tReadout Noise = ', self.detector_readout_noise, 'electron/sec'
-        print '\tDark Count = ', self.detector_dark_count, 'electron/sec'
-        print '\tGain = ', 'x', self.detector_gain
-        print '\tDynode = ', self.detector_dyn_stages, 'stages'
-        print '\tPair-pulses = ', self.detector_pair_pulses, 'sec'
+	print('--- Detector : ', self.detector_type, ' (', self.detector_mode, 'mode )')
+        print('\tBandwidth = ', self.detector_exposure_time, 'Hz')
+        print('\tQuantum Efficiency = ', 100*self.detector_qeff, '%')
+	print('\tReadout Noise = ', self.detector_readout_noise, 'electron/sec')
+        print('\tDark Count = ', self.detector_dark_count, 'electron/sec')
+        print('\tGain = ', 'x', self.detector_gain)
+        print('\tDynode = ', self.detector_dyn_stages, 'stages')
+        print('\tPair-pulses = ', self.detector_pair_pulses, 'sec')
 
 
 

@@ -29,7 +29,7 @@ def convert(file_in, file_out, start, end, nm, deg) :
 #	    zzz = [z0+r0*numpy.sin(45*numpy.pi/180.), z0+r0*numpy.sin(135*numpy.pi/180.), z0+r0*numpy.sin(225*numpy.pi/180.), z0+r0*numpy.sin(315*numpy.pi/180.)]
 
 	    with open(output_csv, 'w') as output :
-	        print output_csv
+	        print(output_csv)
 
 	    j = 0
 	    for row in csv.reader(open(file_in+'/pt-000000000.0.csv', 'r')) :

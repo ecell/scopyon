@@ -51,7 +51,7 @@ class LSCMConfigs(FCSConfigs) :
         # user setting
         if user_configs_dict is not None:
             if type(user_configs_dict) != type({}):
-                print 'Illegal argument type for constructor of Configs class'
+                print('Illegal argument type for constructor of Configs class')
                 sys.exit()
             configs_dict.update(user_configs_dict)
 
@@ -79,22 +79,22 @@ class LSCMConfigs(FCSConfigs) :
         self._set_data('source_radius', radius)
         self._set_data('source_angle', angle)
 
-        print '--- Light Source :', self.source_type
-        print '\tWave Length = ', self.source_wavelength, 'nm'
-        print '\tBeam Flux = ', self.source_flux, 'W'
-        print '\t1/e2 Radius = ', self.source_radius, 'm'
-        print '\tAngle = ', self.source_angle, 'degree'
+        print('--- Light Source :', self.source_type)
+        print('\tWave Length = ', self.source_wavelength, 'nm')
+        print('\tBeam Flux = ', self.source_flux, 'W')
+        print('\t1/e2 Radius = ', self.source_radius, 'm')
+        print('\tAngle = ', self.source_angle, 'degree')
 
 
 
 
     def set_Pinhole(self, radius = None) :
 
-        print '--- Pinhole :'
+        print('--- Pinhole :')
 
         self._set_data('pinhole_radius', radius)
 
-        print '\tRadius = ', self.pinhole_radius, 'm'
+        print('\tRadius = ', self.pinhole_radius, 'm')
 
 
 
@@ -128,18 +128,18 @@ class LSCMConfigs(FCSConfigs) :
         self._set_data('detector_dyn_stages', dyn_stages)
         self._set_data('detector_pair_pulses', pair_pulses)
 
-	print '--- Detector : ', self.detector_type, ' (', self.detector_mode, 'mode )'
-        print '\tImage Size  = ', self.detector_image_size[0], 'x', self.detector_image_size[1]
-        print '\tPixel Size  = ', self.detector_pixel_length, 'm/pixel'
-        print '\tFocal Point = ', self.detector_focal_point
-        print '\tPosition    = ', self.detector_base_position
-        print '\tScan Time = ', self.detector_exposure_time, 'sec/image'
-        print '\tQuantum Efficiency = ', 100*self.detector_qeff, '%'
-	print '\tReadout Noise = ', self.detector_readout_noise, 'electron'
-        print '\tDark Count = ', self.detector_dark_count, 'electron/sec'
-        print '\tGain = ', 'x', self.detector_gain
-        print '\tDynode = ', self.detector_dyn_stages, 'stages'
-        print '\tPair-pulses = ', self.detector_pair_pulses, 'sec'
+	print('--- Detector : ', self.detector_type, ' (', self.detector_mode, 'mode )')
+        print('\tImage Size  = ', self.detector_image_size[0], 'x', self.detector_image_size[1])
+        print('\tPixel Size  = ', self.detector_pixel_length, 'm/pixel')
+        print('\tFocal Point = ', self.detector_focal_point)
+        print('\tPosition    = ', self.detector_base_position)
+        print('\tScan Time = ', self.detector_exposure_time, 'sec/image')
+        print('\tQuantum Efficiency = ', 100*self.detector_qeff, '%')
+	print('\tReadout Noise = ', self.detector_readout_noise, 'electron')
+        print('\tDark Count = ', self.detector_dark_count, 'electron/sec')
+        print('\tGain = ', 'x', self.detector_gain)
+        print('\tDynode = ', self.detector_dyn_stages, 'stages')
+        print('\tPair-pulses = ', self.detector_pair_pulses, 'sec')
 
 
 
@@ -170,7 +170,7 @@ class LSCMConfigs(FCSConfigs) :
 	# photon flux density [photon/(sec m^2)]
         self.source_flux_density = numpy.array(map(lambda x : 2*N_0/(numpy.pi*x**2)*numpy.exp(-2*(r*1e-9/x)**2), w_z))
 
-	print 'Photon Flux Density (Max) :', numpy.amax(self.source_flux_density)
+	print('Photon Flux Density (Max) :', numpy.amax(self.source_flux_density))
 
 
 
@@ -191,9 +191,9 @@ class LSCMConfigs(FCSConfigs) :
 	# set image scaling factor
 	self.image_scaling = pixel_length/(2.0*voxel_radius)
 
-	print 'Magnification : x %d' % (Mag)
-	print 'Resolution :', pixel_length, 'm/pixel'
-	print 'Scaling :', self.image_scaling
+	print('Magnification : x %d' % (Mag))
+	print('Resolution :', pixel_length, 'm/pixel')
+	print('Scaling :', self.image_scaling)
 
         # Detector PSF
         self.set_PSF_detector()
@@ -216,7 +216,7 @@ class LSCMConfigs(FCSConfigs) :
 
     def reset_InputData(self, csv_file_directry, start=0, end=None, observable=None) :
 
-	print '--- Input Spatiocyte Data : ', csv_file_directry
+	print('--- Input Spatiocyte Data : ', csv_file_directry)
 
 	### header	
 	f = open(csv_file_directry + '/pt-input.csv', 'r')
@@ -305,13 +305,13 @@ class LSCMConfigs(FCSConfigs) :
         self.spatiocyte_observables = copy.copy(index)
 
 
-        print '\tStart time =', self.spatiocyte_start_time, 'sec'
-        print '\tEnd   time =', self.spatiocyte_end_time, 'sec'
-        print '\tInterval   =', self.spatiocyte_interval, 'sec'
-	print '\tVoxel radius =', self.spatiocyte_VoxelRadius, 'm'
-        print '\tCompartment lengths :', self.spatiocyte_lengths, 'voxels'
-        print '\tSpecies Index :', self.spatiocyte_index
-        print '\tObservable :', self.spatiocyte_observables
+        print('\tStart time =', self.spatiocyte_start_time, 'sec')
+        print('\tEnd   time =', self.spatiocyte_end_time, 'sec')
+        print('\tInterval   =', self.spatiocyte_interval, 'sec')
+	print('\tVoxel radius =', self.spatiocyte_VoxelRadius, 'm')
+        print('\tCompartment lengths :', self.spatiocyte_lengths, 'voxels')
+        print('\tSpecies Index :', self.spatiocyte_index)
+        print('\tObservable :', self.spatiocyte_observables)
 
 
 	# Visualization error	
@@ -331,7 +331,7 @@ class LSCMConfigs(FCSConfigs) :
 
     def set_InputData(self, csv_file_directry, start=0, end=None, observable=None) :
 
-	print '--- Input Spatiocyte Data : ', csv_file_directry
+	print('--- Input Spatiocyte Data : ', csv_file_directry)
 
 	### header	
 	f = open(csv_file_directry + '/pt-input.csv', 'r')
@@ -387,7 +387,7 @@ class LSCMConfigs(FCSConfigs) :
 
 
             except Exception :
-                print 'Error : ', csv_file_path, ' not found'
+                print('Error : ', csv_file_path, ' not found')
 		exit()
 
 	data.sort(lambda x, y:cmp(x[0], y[0]))
@@ -421,13 +421,13 @@ class LSCMConfigs(FCSConfigs) :
 	#index = [False, True]
         self.spatiocyte_observables = copy.copy(index)
 
-        print '\tStart time =', self.spatiocyte_start_time, 'sec'
-        print '\tEnd   time =', self.spatiocyte_end_time, 'sec'
-        print '\tInterval   =', self.spatiocyte_interval, 'sec'
-	print '\tVoxel radius =', self.spatiocyte_VoxelRadius, 'm'
-        print '\tCompartment lengths :', self.spatiocyte_lengths, 'voxels'
-        print '\tSpecies Index :', self.spatiocyte_index
-        print '\tObservable :', self.spatiocyte_observables
+        print('\tStart time =', self.spatiocyte_start_time, 'sec')
+        print('\tEnd   time =', self.spatiocyte_end_time, 'sec')
+        print('\tInterval   =', self.spatiocyte_interval, 'sec')
+	print('\tVoxel radius =', self.spatiocyte_VoxelRadius, 'm')
+        print('\tCompartment lengths :', self.spatiocyte_lengths, 'voxels')
+        print('\tSpecies Index :', self.spatiocyte_index)
+        print('\tObservable :', self.spatiocyte_observables)
 
 
 	# Visualization error	
@@ -603,7 +603,7 @@ class LSCMVisualizer(FCSVisualizer) :
 
 		    count_imaging = int(round(time[0]/exposure_time))
 
-		    print 'time : ', time[0], '-', time[-1], ' sec/image (', count_imaging, ')'
+		    print('time : ', time[0], '-', time[-1], ' sec/image (', count_imaging, ')')
 
 		    # set frame datasets
 		    index1 = int(round(time[0]/dt))
@@ -624,7 +624,7 @@ class LSCMVisualizer(FCSVisualizer) :
 			imaging = (time_bool*cell_bool).astype('int')
 			len_imaging = len(imaging[imaging > 0])
 
-			print index, index*dt+start, 'length :', len_imaging
+			print(index, index*dt+start, 'length :', len_imaging)
 
 			if (len_imaging > 0) :
 
@@ -1269,7 +1269,7 @@ class LSCMVisualizer(FCSVisualizer) :
 		    # set count number
 		    count_imaging = int(round(time[0]/exposure_time))
 
-		    print 'time : ', time[0], '-', time[-1], ' sec/image (', count_imaging, ')'
+		    print('time : ', time[0], '-', time[-1], ' sec/image (', count_imaging, ')')
 
                     image_file_name = os.path.join(self.configs.image_file_dir,
                                                 self.configs.image_file_name_format % (count_imaging))
@@ -1281,7 +1281,7 @@ class LSCMVisualizer(FCSVisualizer) :
 
                     frame_data = self.configs.spatiocyte_data[index_start:index_end]
 
-		    print 'data length :', len(frame_data), 'index :', index0, index1, index_start, index_end
+		    print('data length :', len(frame_data), 'index :', index0, index1, index_start, index_end)
 
 		    # set time_index
 		    time_index = (time/data_interval).astype('int')
@@ -1301,7 +1301,7 @@ class LSCMVisualizer(FCSVisualizer) :
 
 			    len_imaging = len(imaging[imaging > 0])
 
-			    print index+index0, (index+index0)*data_interval, 'length :', len_imaging
+			    print(index+index0, (index+index0)*data_interval, 'length :', len_imaging)
 
 			    if (len_imaging > 0) :
 

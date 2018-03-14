@@ -40,7 +40,7 @@ if __name__=='__main__':
 
 	    C_auto= get_auto_corr(I0, It)
 
-	    print It[i,0], It[i,2], C_auto
+	    print(It[i,0], It[i,2], C_auto)
 
 
 

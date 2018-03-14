@@ -139,8 +139,8 @@ def convert(file_in, file_out, index=None) :
 	    if (max_count < amax) :
 		max_count = amax
 
-	    print image_signal
-	    print i, amax, amin
+	    print(image_signal)
+	    print(i, amax, amin)
 
 	    image_signal2 = (image_signal - amin)*(4336-1424)/(amax-amin) + 1424
 
@@ -155,7 +155,7 @@ def convert(file_in, file_out, index=None) :
 	    break
 	    
 
-	print 'Max count : ', max_count, 'ADC'
+	print('Max count : ', max_count, 'ADC')
 
 
 

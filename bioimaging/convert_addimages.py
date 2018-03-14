@@ -49,7 +49,7 @@ def convert(file_in0, file_in1, file_out) :
 	    photons0 = 5.82*(numpy.sum(input_image0[256-128:256+128,306-128:306+128,1])-2000)/300/0.92
 	    photons1 = 5.82*(numpy.sum(input_image1[256-128:256+128,306-128:306+128,1])-2000)/300/0.92
 
-	    print i*0.150, photons0, photons1
+	    print(i*0.150, photons0, photons1)
 
 	    # 16-bit data format
 	    #image_array.astype('uint16')

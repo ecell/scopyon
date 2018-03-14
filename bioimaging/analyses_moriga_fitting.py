@@ -126,7 +126,7 @@ def convert(file_in, file_out, index=None) :
 	dev2  = (signal - s_avg)**2
 	err_s = numpy.sqrt(dev2.sum()/length)
 
-	print 210, s_avg, err_s, b_avg, err_b
+	print(210, s_avg, err_s, b_avg, err_b)
 
 	# 8-bit data format (for making movie)
 	#toimage(image, cmin=100, cmax=1000).save(file_out + '/image_summed.png')

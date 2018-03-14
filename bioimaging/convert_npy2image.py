@@ -49,7 +49,7 @@ def convert(file_in, file_out) :
 	    if (max_count < amax) :
 		max_count = amax
 
-	    print i, amax, amin
+	    print(i, amax, amin)
 
 	    # 16-bit data format
 	    #image_array.astype('uint16')
@@ -60,7 +60,7 @@ def convert(file_in, file_out) :
 
 	    i += 1
 
-	print 'Max count : ', max_count, 'ADC'
+	print('Max count : ', max_count, 'ADC')
 
 
 

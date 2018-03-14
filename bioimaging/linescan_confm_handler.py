@@ -46,7 +46,7 @@ class LineScanConfocalConfigs(EPIFMConfigs) :
         # user setting
         if user_configs_dict is not None:
             if type(user_configs_dict) != type({}):
-                print 'Illegal argument type for constructor of Configs class'
+                print('Illegal argument type for constructor of Configs class')
                 sys.exit()
             configs_dict.update(user_configs_dict)
 
@@ -62,11 +62,11 @@ class LineScanConfocalConfigs(EPIFMConfigs) :
 
     def set_Slits(self, size = None) :
 
-        print '--- Slit :'
+        print('--- Slit :')
 
         self._set_data('slit_size', size)
 
-        print '\tSize = ', self.slit_size, 'm'
+        print('\tSize = ', self.slit_size, 'm')
 
 
 
@@ -104,7 +104,7 @@ class LineScanConfocalConfigs(EPIFMConfigs) :
 	# photon flux density [photon/(sec m^2)]
         self.source_flux = numpy.array(map(lambda x : 2*N_0/(numpy.pi*x**2)*numpy.exp(-2*(r*1e-9/x)**2), w_z))
 
-	print 'Photon Flux Density (Max) :', numpy.amax(self.source_flux)
+	print('Photon Flux Density (Max) :', numpy.amax(self.source_flux))
 
 
 
@@ -127,8 +127,8 @@ class LineScanConfocalConfigs(EPIFMConfigs) :
 	self.image_resolution = pixel_length
 	self.image_scaling = pixel_length/(2.0*voxel_radius)
 
-	print 'Resolution :', self.image_resolution, 'm'
-	print 'Scaling :', self.image_scaling
+	print('Resolution :', self.image_resolution, 'm')
+	print('Scaling :', self.image_scaling)
 
         # Detector PSF
         self.set_PSF_detector()
@@ -437,7 +437,7 @@ class LineScanConfocalVisualizer(EPIFMVisualizer) :
                     image_file_name = os.path.join(self.configs.image_file_dir,
                                         self.configs.image_file_name_format % (count))
 
-                    print 'time : ', time, ' sec (', count, ')'
+                    print('time : ', time, ' sec (', count, ')')
 
                     # define cell
                     cell = numpy.zeros(shape=(Nz, Ny))

@@ -42,7 +42,7 @@ class MorigaConfigs(TIRFMConfigs) :
         # user setting
         if user_configs_dict is not None:
             if type(user_configs_dict) != type({}):
-                print 'Illegal argument type for constructor of Configs class'
+                print('Illegal argument type for constructor of Configs class')
                 sys.exit()
             configs_dict.update(user_configs_dict)
 
@@ -64,7 +64,7 @@ class MorigaConfigs(TIRFMConfigs) :
                               cutoff = None,
                               file_name_format = None) :
 
-        print '--- Fluorophore : Point Spreading Function [Gaussian]'
+        print('--- Fluorophore : Point Spreading Function [Gaussian]')
 
         self._set_data('psf_wavelength', wave_length)
         self._set_data('psf_intensity', intensity)
@@ -78,13 +78,13 @@ class MorigaConfigs(TIRFMConfigs) :
 	self.fluoex_eff[index] = 100
 	self.fluoem_eff[index] = 100
 
-        print '\tWave Length   = ', self.psf_wavelength, 'nm'
-	print '\tIntensity = ', self.psf_intensity
+        print('\tWave Length   = ', self.psf_wavelength, 'nm')
+	print('\tIntensity = ', self.psf_intensity)
 	#print '\tIntensity Noise = ', self.psf_intensity_noise
-        print '\tLateral Width = ', self.psf_width[0], 'nm'
-        print '\tAxial Width = ', self.psf_width[1], 'nm'
-	print '\tLateral Cutoff = ', self.psf_cutoff[0], 'nm'
-        print '\tAxial Cutoff = ', self.psf_cutoff[1], 'nm'
+        print('\tLateral Width = ', self.psf_width[0], 'nm')
+        print('\tAxial Width = ', self.psf_width[1], 'nm')
+	print('\tLateral Cutoff = ', self.psf_cutoff[0], 'nm')
+        print('\tAxial Cutoff = ', self.psf_cutoff[1], 'nm')
                         
 	# Normalization
 	norm = sum(self.fluoex_eff)
@@ -128,7 +128,7 @@ class MorigaConfigs(TIRFMConfigs) :
 
     def reset_InputData(self, csv_file_directry, start=0, end=None, observable=None) :
 
-	print '--- Input Spatiocyte Data : ', csv_file_directry
+	print('--- Input Spatiocyte Data : ', csv_file_directry)
 
 	### header	
 	f = open(csv_file_directry + '/pt-input.csv', 'r')
@@ -217,13 +217,13 @@ class MorigaConfigs(TIRFMConfigs) :
         self.spatiocyte_observables = copy.copy(index)
 
 
-        print '\tStart time =', self.spatiocyte_start_time, 'sec'
-        print '\tEnd   time =', self.spatiocyte_end_time, 'sec'
-        print '\tInterval   =', self.spatiocyte_interval, 'sec'
-	print '\tVoxel radius =', self.spatiocyte_VoxelRadius, 'm'
-        print '\tCompartment lengths :', self.spatiocyte_lengths, 'voxels'
-        print '\tSpecies Index :', self.spatiocyte_index
-        print '\tObservable :', self.spatiocyte_observables
+        print('\tStart time =', self.spatiocyte_start_time, 'sec')
+        print('\tEnd   time =', self.spatiocyte_end_time, 'sec')
+        print('\tInterval   =', self.spatiocyte_interval, 'sec')
+	print('\tVoxel radius =', self.spatiocyte_VoxelRadius, 'm')
+        print('\tCompartment lengths :', self.spatiocyte_lengths, 'voxels')
+        print('\tSpecies Index :', self.spatiocyte_index)
+        print('\tObservable :', self.spatiocyte_observables)
 
 
 	# Visualization error	
@@ -243,7 +243,7 @@ class MorigaConfigs(TIRFMConfigs) :
 
     def set_InputData(self, csv_file_directry, start=0, end=None, observable=None) :
 
-	print '--- Input Spatiocyte Data : ', csv_file_directry
+	print('--- Input Spatiocyte Data : ', csv_file_directry)
 
 	### header	
 	f = open(csv_file_directry + '/pt-input.csv', 'r')
@@ -300,7 +300,7 @@ class MorigaConfigs(TIRFMConfigs) :
 			intensity = numpy.random.choice(I, None, p=ext_func/ext_sum)
 
 		    except Exception :
-			print 'Error : Missing intensity'
+			print('Error : Missing intensity')
 
 		    particles.append((c_id, s_id, l_id, intensity))
 
@@ -308,7 +308,7 @@ class MorigaConfigs(TIRFMConfigs) :
 
 
             except Exception :
-                print 'Error : ', csv_file_path, ' not found'
+                print('Error : ', csv_file_path, ' not found')
 		exit()
 
 	data.sort(lambda x, y:cmp(x[0], y[0]))
@@ -342,13 +342,13 @@ class MorigaConfigs(TIRFMConfigs) :
 	#index = [False, True]
         self.spatiocyte_observables = copy.copy(index)
 
-        print '\tStart time =', self.spatiocyte_start_time, 'sec'
-        print '\tEnd   time =', self.spatiocyte_end_time, 'sec'
-        print '\tInterval   =', self.spatiocyte_interval, 'sec'
-	print '\tVoxel radius =', self.spatiocyte_VoxelRadius, 'm'
-        print '\tCompartment lengths :', self.spatiocyte_lengths, 'voxels'
-        print '\tSpecies Index :', self.spatiocyte_index
-        print '\tObservable :', self.spatiocyte_observables
+        print('\tStart time =', self.spatiocyte_start_time, 'sec')
+        print('\tEnd   time =', self.spatiocyte_end_time, 'sec')
+        print('\tInterval   =', self.spatiocyte_interval, 'sec')
+	print('\tVoxel radius =', self.spatiocyte_VoxelRadius, 'm')
+        print('\tCompartment lengths :', self.spatiocyte_lengths, 'voxels')
+        print('\tSpecies Index :', self.spatiocyte_index)
+        print('\tObservable :', self.spatiocyte_observables)
 
 
 	# Visualization error	
@@ -573,7 +573,7 @@ class MorigaVisualizer(TIRFMVisualizer) :
                 #self.effects.set_states(t0, length0)
 
                 while (time < end-1e-9) :
-                    print 'time : ', time, ' sec (', count, ')'
+                    print('time : ', time, ' sec (', count, ')')
 
                     # define cell
                     cell = numpy.zeros(shape=(Nz, Ny))
@@ -585,7 +585,7 @@ class MorigaVisualizer(TIRFMVisualizer) :
 
                     # loop for frame data
                     for i, (i_time, data) in enumerate(frame_data):
-                        print '\t', '%02d-th frame : ' % (i), i_time, ' sec'
+                        print('\t', '%02d-th frame : ' % (i), i_time, ' sec')
                         # loop for particles
                         for j, data_j in enumerate(data):
                             self.get_molecule_plane(cell, i_time, data_j, j, p_b, p_0)
@@ -708,9 +708,9 @@ class MorigaVisualizer(TIRFMVisualizer) :
 		# place cell_pixel data to camera image
 		camera_pixel[w_cam_from:w_cam_to, h_cam_from:h_cam_to, 0] = cell_pixel[w_cel_from:w_cel_to, h_cel_from:h_cel_to]
 
-		print 'scaling [nm/pixel] :', Np
-		print 'width  :', w_cam_from, w_cam_to
-		print 'height :', h_cam_from, h_cam_to
+		print('scaling [nm/pixel] :', Np)
+		print('width  :', w_cam_from, w_cam_to)
+		print('height :', h_cam_from, h_cam_to)
 
 		# set seed for random number
 		numpy.random.seed()

@@ -46,7 +46,7 @@ class HiroshimaConfigs(EPIFMConfigs) :
         # user setting
         if user_configs_dict is not None:
             if type(user_configs_dict) != type({}):
-                print 'Illegal argument type for constructor of Configs class'
+                print('Illegal argument type for constructor of Configs class')
                 sys.exit()
             configs_dict.update(user_configs_dict)
 
@@ -76,11 +76,11 @@ class HiroshimaConfigs(EPIFMConfigs) :
         #self._set_data('source_angle_left',  angle_left)
         #self._set_data('source_angle_right', angle_right)
 
-        print '--- Light Source :', self.source_type
-        print '\tWave Length = ', self.source_wavelength, 'nm'
-        print '\tBeam Flux Density = ', self.source_flux_density, 'W/cm2'
-        print '\t1/e2 Radius = ', self.source_radius, 'm'
-        print '\tAngle = ', self.source_angle, 'degree'
+        print('--- Light Source :', self.source_type)
+        print('\tWave Length = ', self.source_wavelength, 'nm')
+        print('\tBeam Flux Density = ', self.source_flux_density, 'W/cm2')
+        print('\t1/e2 Radius = ', self.source_radius, 'm')
+        print('\tAngle = ', self.source_angle, 'degree')
         #print '\tAngle (1) = ', self.source_angle_left, 'degree'
         #print '\tAngle (2) = ', self.source_angle_right, 'degree'
 
@@ -146,7 +146,7 @@ class HiroshimaConfigs(EPIFMConfigs) :
 
 
             except Exception :
-                print 'Error : ', csv_file_path, ' not found'
+                print('Error : ', csv_file_path, ' not found')
 		#exit()
 
 	data.sort(lambda x, y:cmp(x[0], y[0]))
