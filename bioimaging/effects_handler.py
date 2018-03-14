@@ -14,7 +14,7 @@ import multiprocessing
 import scipy
 import numpy
 
-import parameter_effects
+from . import parameter_effects
 
 from time import sleep
 

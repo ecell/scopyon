@@ -13,9 +13,9 @@ import csv
 import scipy
 import numpy
 
-import parameter_configs
-from epifm_handler import VisualizerError, EPIFMConfigs, EPIFMVisualizer
-from effects_handler import PhysicalEffects
+from . import parameter_configs
+from .epifm_handler import VisualizerError, EPIFMConfigs, EPIFMVisualizer
+from .effects_handler import PhysicalEffects
 
 from scipy.special import j0
 from scipy.misc    import toimage

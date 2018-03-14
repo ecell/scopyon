@@ -7,7 +7,11 @@ How to
 ------
 
 ```
-python script.py (initial time) (final time)
+$ python setup.py test install
+```
+
+```
+$ python script.py (initial time) (final time)
 ```
 
 Citation

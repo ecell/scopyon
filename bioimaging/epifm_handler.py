@@ -16,10 +16,10 @@ import multiprocessing
 import scipy
 import numpy
 
-import parameter_configs
-import parameter_effects
+from . import parameter_configs
+from . import parameter_effects
 
-from effects_handler import PhysicalEffects
+from .effects_handler import PhysicalEffects
 
 from ast import literal_eval
 from scipy.special import j0, i1, i1e
