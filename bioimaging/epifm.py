@@ -5,8 +5,7 @@ import copy
 import tempfile
 import math
 import operator
-import random
-#import h5py
+# import h5py
 import csv
 import string
 import ctypes
@@ -27,6 +26,8 @@ from scipy.ndimage import map_coordinates
 from . import parameter_configs
 from . import parameter_effects
 from .effects import PhysicalEffects
+
+ # import numpy.random as rng
 
 from logging import getLogger
 _log = getLogger(__name__)
@@ -84,7 +85,7 @@ class EPIFMConfigs():
         self._set_data('shutter_start_time', start_time)
         self._set_data('shutter_end_time', end_time)
 
-        if (time_open == None or time_lapse == None):
+        if (time_open is None or time_lapse is None):
             time_open  = end_time - start_time
             time_lapse = end_time - start_time
 
@@ -326,7 +327,7 @@ class EPIFMConfigs():
         _log.info('    Dark Count =  {} electron/sec'.format(self.detector_dark_count))
         _log.info('    EM gain = x {}'.format(self.detector_emgain))
 
-    def set_analog_to_digital_converter(self, bit = None,
+    def set_analog_to_digital_converter(self, rng, bit = None,
                         gain = None,
                         offset = None,
                         fullwell = None,
@@ -358,16 +359,16 @@ class EPIFMConfigs():
         FPN_type  = self.ADConverter_fpn_type
         FPN_count = self.ADConverter_fpn_count
 
-        if (FPN_type == None):
+        if (FPN_type is None):
             # offset = numpy.empty(Nw_pixel*Nh_pixel)
             # offset.fill(ADC0)
             offset = numpy.array([ADC0 for i in range(Nw_pixel*Nh_pixel)])
 
         elif (FPN_type == 'pixel'):
-            offset = numpy.rint(numpy.random.normal(ADC0, FPN_count, Nw_pixel*Nh_pixel))
+            offset = numpy.rint(rng.normal(ADC0, FPN_count, Nw_pixel*Nh_pixel))
 
         elif (FPN_type == 'column'):
-            column = numpy.random.normal(ADC0, FPN_count, Nh_pixel)
+            column = rng.normal(ADC0, FPN_count, Nh_pixel)
             temporal = numpy.array([column for i in range(Nw_pixel)])
 
             offset = numpy.rint(temporal.reshape(Nh_pixel*Nw_pixel))
@@ -843,12 +844,14 @@ class EPIFMVisualizer:
     EPIFM Visualization class of e-cell simulator
     '''
 
-    def __init__(self, csv_file_directory, configs=EPIFMConfigs(), effects=PhysicalEffects()):
+    def __init__(self, csv_file_directory, configs=EPIFMConfigs(), effects=PhysicalEffects(), nprocs=1):
         assert isinstance(configs, EPIFMConfigs)
         self.configs = configs
 
         assert isinstance(effects, PhysicalEffects)
         self.effects = effects
+
+        self.__nprocs = nprocs
 
         """
         Check and create the folders for image and output files.
@@ -959,9 +962,8 @@ class EPIFMVisualizer:
 
     def set_photobleaching_dataset(self, count, dataset):
         if (len(dataset) > 0):
-            if self.use_multiprocess():
-
-            # set arrays for photobleaching-state and photon-budget
+            if self.get_nprocs() != 1:
+                # set arrays for photobleaching-state and photon-budget
                 state_pb = {}
                 budget = {}
 
@@ -1468,7 +1470,7 @@ class EPIFMVisualizer:
             # add to cellular plane
             cell[z0_from:z0_to, y0_from:y0_to] += signal[zi_from:zi_to, yi_from:yi_to]
 
-    def output_frames(self, num_div=1):
+    def output_frames(self, rng, num_div=1):
         # set Fluorophores PSF
         self.set_fluo_psf()
 
@@ -1476,10 +1478,8 @@ class EPIFMVisualizer:
         num_timesteps = len(index_array)
         index0 = index_array[0]
 
-        envname = 'ECELL_MICROSCOPE_SINGLE_PROCESS'
-
-        if envname in os.environ and os.environ[envname]:
-            self.output_frames_each_process(index0, num_timesteps)
+        if self.get_nprocs() == 1:
+            self.output_frames_each_process(rng, index0, num_timesteps)
         else:
             num_processes = multiprocessing.cpu_count()
             n, m = divmod(num_timesteps, num_processes)
@@ -1493,9 +1493,10 @@ class EPIFMVisualizer:
             for chunk in chunks:
                 stop_index = start_index + chunk
 
+                #XXX: Initialize rng for each process
                 process = multiprocessing.Process(
                     target=self.output_frames_each_process,
-                    args=(start_index, stop_index))
+                    args=(rng, start_index, stop_index))
                 process.start()
                 processes.append(process)
                 start_index = stop_index
@@ -1503,7 +1504,10 @@ class EPIFMVisualizer:
             for process in processes:
                 process.join()
 
-    def output_frames_each_process(self, start_index, stop_index):
+    def output_frames_each_process(self, rng, start_index, stop_index):
+        # # set seed for random number
+        # rng.seed()
+
         # cell size (nm scale)
         Nx, Ny, Nz = self.get_cell_size()
 
@@ -1553,7 +1557,7 @@ class EPIFMVisualizer:
                     self.get_molecule_plane(cell, j, data_j, p_b, p_0, true_data)
 
             # convert image in pixel-scale
-            camera, true_data = self.detector_output(cell, true_data)
+            camera, true_data = self.detector_output(rng, cell, true_data)
 
             # save image to numpy-binary file
             image_file_name = os.path.join(self.configs.image_file_dir,
@@ -1646,7 +1650,7 @@ class EPIFMVisualizer:
 
         return prob
 
-    def detector_output(self, cell, true_data):
+    def detector_output(self, rng, cell, true_data):
         # Detector Output
         voxel_radius = self.configs.spatiocyte_VoxelRadius
         voxel_size = (2.0*voxel_radius)/1e-9
@@ -1740,8 +1744,8 @@ class EPIFMVisualizer:
 
                         width = self.effects.crosstalk_width
 
-                        n_i = numpy.random.normal(0, width, int(photons))
-                        n_j = numpy.random.normal(0, width, int(photons))
+                        n_i = rng.normal(0, width, int(photons))
+                        n_j = rng.normal(0, width, int(photons))
 
                         smeared_photons, edge_i, edge_j = numpy.histogram2d(n_i, n_j, bins=(24, 24),
                                                                             range=[[-12,12],[-12,12]])
@@ -1794,9 +1798,6 @@ class EPIFMVisualizer:
         true_data[:,4] = true_data[:,4]/Np - w_cel0 + w_cam0 - (w0 - (Nw_pixel-1)/2.0)
         true_data[:,5] = true_data[:,5]/Np - h_cel0 + h_cam0 - (h0 - (Nh_pixel-1)/2.0)
 
-        # set seed for random number
-        numpy.random.seed()
-
         # CMOS (readout noise probability ditributions)
         if (self.configs.detector_type == "CMOS"):
             noise_data = numpy.loadtxt(os.path.join(os.path.abspath(os.path.dirname(__file__)),
@@ -1830,10 +1831,10 @@ class EPIFMVisualizer:
                 if (self.configs.detector_type == "CMOS"):
 
                     # get signal (poisson distributions)
-                    signal = numpy.random.poisson(Exp, None)
+                    signal = rng.poisson(Exp, None)
 
                     # get detector noise (photoelectrons)
-                    noise  = numpy.random.choice(Nr_cmos, None, p=p_noise/p_nsum)
+                    noise  = rng.choice(Nr_cmos, None, p=p_noise/p_nsum)
                     Nr = 1.3
 
 
@@ -1856,7 +1857,7 @@ class EPIFMVisualizer:
                         p_ssum = p_signal.sum()
 
                         # get signal (photoelectrons)
-                        signal = numpy.random.choice(s, None, p=p_signal/p_ssum)
+                        signal = rng.choice(s, None, p=p_signal/p_ssum)
 
                     else:
                         signal = 0
@@ -1865,20 +1866,20 @@ class EPIFMVisualizer:
                     Nr = self.configs.detector_readout_noise
 
                     if (Nr > 0):
-                        noise = numpy.random.normal(0, Nr, None)
+                        noise = rng.normal(0, Nr, None)
                     else: noise = 0
 
 
                 elif (self.configs.detector_type == "CCD"):
 
                     # get signal (poisson distributions)
-                    signal = numpy.random.poisson(Exp, None)
+                    signal = rng.poisson(Exp, None)
 
                     # get detector noise (photoelectrons)
                     Nr = self.configs.detector_readout_noise
 
                     if (Nr > 0):
-                        noise = numpy.random.normal(0, Nr, None)
+                        noise = rng.normal(0, Nr, None)
                     else: noise = 0
 
                 # A/D converter: Photoelectrons --> ADC counts
@@ -1913,9 +1914,8 @@ class EPIFMVisualizer:
         #return int(ADC)
         return ADC
 
-    def use_multiprocess(self):
-        envname = 'ECELL_MICROSCOPE_SINGLE_PROCESS'
-        return not (envname in os.environ and os.environ[envname])
+    def get_nprocs(self):
+        return self.__nprocs
 
     def set_fluo_psf(self):
         depths = set()
@@ -1958,8 +1958,7 @@ class EPIFMVisualizer:
         depths = list(depths)
 
         if (len(depths) > 0):
-            if self.use_multiprocess():
-
+            if self.get_nprocs() != 1:
                 self.fluo_psf = {}
                 num_processes = min(multiprocessing.cpu_count(), len(depths))
 
@@ -2010,3 +2009,11 @@ class EPIFMVisualizer:
 
     def get_fluo_psf_process(self, depths, pipe):
         pipe.send(self.get_fluo_psf(depths))
+
+    def use_multiprocess(self):
+        """Deprecated."""
+        warnings.warn('This is no longer supported.')
+        return (self.get_nprocs() != 1)
+        # envname = 'ECELL_MICROSCOPE_SINGLE_PROCESS'
+        # return not (envname in os.environ and os.environ[envname])
+
