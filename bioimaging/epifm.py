@@ -72,13 +72,13 @@ class EPIFMConfigs():
                 setattr(self, key, copy_val)
 
     def _set_data(self, key, val):
-        if val != None:
+        if val is not None:
             setattr(self, key, val)
 
-    def set_Shutter(self, start_time = None,
-                        end_time   = None,
-                        time_open  = None,
-                        time_lapse = None):
+    def set_shutter(self, start_time = None,
+                          end_time   = None,
+                          time_open  = None,
+                          time_lapse = None):
         self._set_data('shutter_switch', True)
         self._set_data('shutter_start_time', start_time)
         self._set_data('shutter_end_time', end_time)
@@ -96,12 +96,12 @@ class EPIFMConfigs():
         _log.info('    Time-open  = {} sec'.format(self.shutter_time_open))
         _log.info('    Time-lapse = {} sec'.format(self.shutter_time_lapse))
 
-    def set_LightSource(self,  source_type = None,
-                                wave_length = None,
-                                flux_density = None,
-                                center = None,
-                                radius = None,
-                                angle  = None ):
+    def set_light_source(self, source_type = None,
+                               wave_length = None,
+                               flux_density = None,
+                               center = None,
+                               radius = None,
+                               angle  = None):
         self._set_data('source_switch', True)
         self._set_data('source_type', source_type)
         self._set_data('source_wavelength', wave_length)
@@ -148,7 +148,7 @@ class EPIFMConfigs():
         self.excitation_eff = self.set_efficiency(excitation_filter)
         self._set_data('excitation_switch', True)
 
-    def set_Fluorophore(self, fluorophore_type = None,
+    def set_fluorophore(self, fluorophore_type = None,
                               wave_length = None,
                               normalization = None,
                               width = None,
@@ -224,7 +224,7 @@ class EPIFMConfigs():
         norm = sum(self.fluoem_eff)
         self.fluoem_norm = numpy.array(self.fluoem_eff)/norm
 
-    def set_DichroicMirror(self, dm = None):
+    def set_dichroic_mirror(self, dm = None):
         _log.info('--- Dichroic Mirror:')
         filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/dichroic/') + dm + '.csv'
 
@@ -288,13 +288,11 @@ class EPIFMConfigs():
         self.emission_eff = self.set_efficiency(emission_filter)
         self._set_data('emission_switch', True)
 
-    def set_Magnification(self, Mag = None):
-
-        self._set_data('image_magnification', Mag)
-
+    def set_magnification(self, magnification = None):
+        self._set_data('image_magnification', magnification)
         _log.info('--- Magnification: x {}'.format(self.image_magnification))
 
-    def set_Detector(self, detector = None,
+    def set_detector(self, detector = None,
                    image_size = None,
                    pixel_length = None,
                    exposure_time = None,
@@ -327,7 +325,7 @@ class EPIFMConfigs():
         _log.info('    Dark Count =  {} electron/sec'.format(self.detector_dark_count))
         _log.info('    EM gain = x {}'.format(self.detector_emgain))
 
-    def set_ADConverter(self, bit = None,
+    def set_adconverter(self, bit = None,
                         gain = None,
                         offset = None,
                         fullwell = None,
@@ -381,23 +379,19 @@ class EPIFMConfigs():
         self.ADConverter_offset = offset.reshape([Nw_pixel, Nh_pixel])
         self.ADConverter_gain = gain.reshape([Nw_pixel, Nh_pixel])
 
-    def set_ShapeFile(self, csv_file_directry):
-        _log.info('--- Spatiocyte Cell Shape Data:  {}'.format(csv_file_directry))
+    def load_shape(self, filename):
+        _log.info('--- Load Cell Shape Data:  {}'.format(filename))
+        cell_shape = numpy.genfromtxt(filename, delimiter=',')
+        cell_shape = numpy.array(cell_shape.tolist())  #XXX: == cell_shape?
+        self._set_data('spatiocyte_shape', cell_shape)
 
-        # get shape data file
-        cell_shape = numpy.genfromtxt(csv_file_directry + '/pt-shape.csv', delimiter=',')
-
-        # get cell shape
-        self._set_data('spatiocyte_shape', cell_shape.tolist())
-
-    def set_InputFile(self, csv_file_directry, observable=None):
-        _log.info('--- Input Spatiocyte Data: {}'.format(csv_file_directry))
+    def load_input(self, filename, observable=None):
+        _log.info('--- Input Spatiocyte Data: {}'.format(filename))
 
         ### header
-        f = open(csv_file_directry + '/pt-input.csv', 'r')
-        header = f.readline().rstrip().split(',')
-        header[:5] = [float(_) for _ in header[:5]]
-        f.close()
+        with open(filename, 'r') as f:
+            header = f.readline().rstrip().split(',')
+            header[:5] = [float(_) for _ in header[:5]]
 
         interval, lengths, voxel_r, species_info = header[0], (header[3:0:-1]), header[4], header[5:]
 
@@ -406,7 +400,7 @@ class EPIFMConfigs():
         species_radius = [float(_.split('=')[1]) for _ in species_info[0:len(species_info)-2]]
 
         # get run time
-        self._set_data('spatiocyte_file_directry', csv_file_directry)
+        # self._set_data('spatiocyte_file_directory', csv_file_directory)
         self._set_data('spatiocyte_interval', interval)
 
         # get species properties
@@ -441,16 +435,14 @@ class EPIFMConfigs():
             raise VisualizerError('Cannot find species_id in any given csv files')
 
         if len(self.spatiocyte_index) == 0:
-            raise VisualizerError('Cannot find spatiocyte_index in any given csv files: ' \
-                            + ', '.join(csv_file_directry))
+            # raise VisualizerError('Cannot find spatiocyte_index in any given csv files: ' \
+            #                 + ', '.join(csv_file_directory))
+            raise VisualizerError('Cannot find spatiocyte_index: {}'.format(filename))
 
-
-
-    def set_OutputData(self, image_file_dir = None,
+    def set_output_path(self, image_file_dir = None,
                         image_file_name_format = None,
                         image_file_cleanup_dir=False):
         if image_file_dir is None:
-
             image_file_dir = tempfile.mkdtemp(dir=os.getcwd())
             image_file_cleanup_dir = True
 
@@ -470,10 +462,10 @@ class EPIFMConfigs():
 
         return efficiency.tolist()
 
-    def set_Optical_path(self):
+    def set_Optical_path(self, csv_file_directory):
         # (0) Data: Cell Model Sample
         self.set_Time_arrays()
-        self.set_Spatiocyte_data_arrays()
+        self.set_Spatiocyte_data_arrays(csv_file_directory)
 
         # (1) Illumination path: Light source --> Cell Model Sample
         #self.set_Illumination_path()
@@ -509,9 +501,9 @@ class EPIFMConfigs():
         self._set_data('shutter_count_array', count_array.tolist())
         self._set_data('shutter_index_array', index_array.tolist())
 
-    def set_Spatiocyte_data_arrays(self):
-        # get spatiocyte file directry
-        csv_file_directry = self.spatiocyte_file_directry
+    def set_Spatiocyte_data_arrays(self, csv_file_directory):
+        # get spatiocyte file directory
+        # csv_file_directory = self.spatiocyte_file_directory
 
         # set data-array
         data = []
@@ -522,7 +514,7 @@ class EPIFMConfigs():
         # read lattice file
         for i in range(len(count_array)):
 
-            csv_file_path = csv_file_directry + '/pt-%09d.0.csv' % (count_array[i])
+            csv_file_path = csv_file_directory + '/pt-%09d.0.csv' % (count_array[i])
 
             try:
 
@@ -568,7 +560,7 @@ class EPIFMConfigs():
 
     def set_Illumination_path(self):
         # get cell-shape data
-        cell_shape = numpy.array(self.spatiocyte_shape)
+        cell_shape = self.spatiocyte_shape
 
         # define observational image plane in nm-scale
         voxel_size = 2.0*self.spatiocyte_VoxelRadius
@@ -741,12 +733,106 @@ class EPIFMConfigs():
         psf = Norm*numpy.array(list(map(lambda x: abs(x)**2, I_sum)))
         return psf
 
+    def set_Shutter(self, start_time = None,
+                        end_time   = None,
+                        time_open  = None,
+                        time_lapse = None):
+        """Deprecated"""
+        self.set_shutter(start_time, end_time, time_open, time_lapse)
+
+    def set_LightSource(self, source_type = None,
+                              wave_length = None,
+                              flux_density = None,
+                              center = None,
+                              radius = None,
+                              angle  = None):
+        """Deprecated"""
+        self.set_light_source(source_type,
+                             wave_length,
+                             flux_density,
+                             center,
+                             radius,
+                             angle)
+
+    def set_Fluorophore(self, fluorophore_type = None,
+                              wave_length = None,
+                              normalization = None,
+                              width = None,
+                              cutoff = None,
+                              file_name_format = None ):
+        """Deprecated"""
+        self.set_fluorophore(fluorophore_type,
+                              wave_length,
+                              normalization,
+                              width,
+                              cutoff,
+                              file_name_format)
+
+    def set_DichroicMirror(self, dm = None):
+        """Deprecated"""
+        self.set_dichroic_mirror(dm)
+
+    def set_Magnification(self, Mag = None):
+        """Deprecated"""
+        self.set_magnification(Mag)
+
+    def set_Detector(self, detector = None,
+                   image_size = None,
+                   pixel_length = None,
+                   exposure_time = None,
+                   focal_point = None,
+                   QE = None,
+                   readout_noise = None,
+                   dark_count = None,
+                   emgain = None
+                   ):
+        """Deprecated"""
+        self.set_detector(detector,
+                       image_size,
+                       pixel_length,
+                       exposure_time,
+                       focal_point,
+                       QE,
+                       readout_noise,
+                       dark_count,
+                       emgain)
+
+    def set_ADConverter(self, bit = None,
+                        gain = None,
+                        offset = None,
+                        fullwell = None,
+                        fpn_type = None,
+                        fpn_count = None):
+        """Deprecated"""
+        self.set_adconverter(bit,
+                        gain,
+                        offset,
+                        fullwell,
+                        fpn_type,
+                        fpn_count)
+
+    def set_OutputData(self, image_file_dir = None,
+                        image_file_name_format = None,
+                        image_file_cleanup_dir=False):
+        """Deprecated"""
+        self.set_output_path(image_file_dir,
+                        image_file_name_format,
+                        image_file_cleanup_dir)
+
+    def set_ShapeFile(self, csv_file_directory):
+        """Deprecated. Use load_shape instead."""
+        self.load_shape(os.path.join(csv_file_directory, 'pt-shape.csv'))
+
+    def set_InputFile(self, csv_file_directory, observable=None):
+        """Deprecated. Use load_shape instead."""
+        self.load_input(os.path.join(csv_file_directory, 'pt-input.csv'), observable)
+
 class EPIFMVisualizer:
     '''
     EPIFM Visualization class of e-cell simulator
     '''
 
-    def __init__(self, configs=EPIFMConfigs(), effects=PhysicalEffects()):
+    def __init__(self, csv_file_directory, configs=EPIFMConfigs(), effects=PhysicalEffects()):
         assert isinstance(configs, EPIFMConfigs)
         self.configs = configs
 
@@ -762,7 +848,7 @@ class EPIFMVisualizer:
         """
         set Optical path from light source to detector
         """
-        self.configs.set_Optical_path()
+        self.configs.set_Optical_path(csv_file_directory)
 
     def get_cell_size(self):
         # define observational image plane in nm-scale
@@ -785,67 +871,67 @@ class EPIFMVisualizer:
 
         return p_0
 
-    def rewrite_InputFile(self, output_file_dir=None):
-        if not os.path.exists(output_file_dir):
-            os.makedirs(output_file_dir)
+    # def rewrite_InputFile(self, output_file_dir=None):
+    #     if not os.path.exists(output_file_dir):
+    #         os.makedirs(output_file_dir)
 
-        # get focal point
-        p_0 = self.get_focal_center()
+    #     # get focal point
+    #     p_0 = self.get_focal_center()
 
-        # beam position: Assuming beam position = focal point (for temporary)
-        p_b = copy.copy(p_0)
+    #     # beam position: Assuming beam position = focal point (for temporary)
+    #     p_b = copy.copy(p_0)
 
-        # set time, delta and count arrays
-        time_array  = numpy.array(self.configs.shutter_time_array)
-        delta_array = numpy.array(self.configs.shutter_delta_array)
-        count_array = numpy.array(self.configs.shutter_count_array)
+    #     # set time, delta and count arrays
+    #     time_array  = numpy.array(self.configs.shutter_time_array)
+    #     delta_array = numpy.array(self.configs.shutter_delta_array)
+    #     count_array = numpy.array(self.configs.shutter_count_array)
 
-        # Snell's law
-        amplitude0, penet_depth = self.snells_law(p_0, p_0)
+    #     # Snell's law
+    #     amplitude0, penet_depth = self.snells_law(p_0, p_0)
 
-        # get the number of emitted photons
-        N_emit0 = self.get_emit_photons(amplitude0)
+    #     # get the number of emitted photons
+    #     N_emit0 = self.get_emit_photons(amplitude0)
 
-        # copy input-file
-        csv_input = self.configs.spatiocyte_file_directry + '/pt-input.csv'
-        shutil.copyfile(csv_input, output_file_dir + '/pt-input.csv')
+    #     # copy input-file
+    #     csv_input = self.configs.spatiocyte_file_directory + '/pt-input.csv'
+    #     shutil.copyfile(csv_input, output_file_dir + '/pt-input.csv')
 
-        # copy shape-file
-        csv_shape = self.configs.spatiocyte_file_directry + '/pt-shape.csv'
-        shutil.copyfile(csv_shape, output_file_dir + '/pt-shape.csv')
+    #     # copy shape-file
+    #     csv_shape = self.configs.spatiocyte_file_directory + '/pt-shape.csv'
+    #     shutil.copyfile(csv_shape, output_file_dir + '/pt-shape.csv')
 
-        # get the total number of particles
-        N_particles = 4117#len(csv_list)
+    #     # get the total number of particles
+    #     N_particles = 4117#len(csv_list)
 
-        # set molecule-states
-        self.molecule_states = numpy.zeros(shape=(N_particles))
+    #     # set molecule-states
+    #     self.molecule_states = numpy.zeros(shape=(N_particles))
 
-        # set fluorescence
-        self.effects.set_photophysics_4epifm(time_array, delta_array, N_emit0, N_particles)
+    #     # set fluorescence
+    #     self.effects.set_photophysics_4epifm(time_array, delta_array, N_emit0, N_particles)
 
-        for k in range(len(count_array)):
+    #     for k in range(len(count_array)):
 
-            # read input file
-            csv_file_path = self.configs.spatiocyte_file_directry + '/pt-%09d.0.csv' % (count_array[k])
+    #         # read input file
+    #         csv_file_path = self.configs.spatiocyte_file_directory + '/pt-%09d.0.csv' % (count_array[k])
 
-            csv_list = list(csv.reader(open(csv_file_path, 'r')))
-            dataset = numpy.array(csv_list)
+    #         csv_list = list(csv.reader(open(csv_file_path, 'r')))
+    #         dataset = numpy.array(csv_list)
 
-            # set molecular-states (unbound-bound)
-            self.set_molecular_states(k, dataset)
+    #         # set molecular-states (unbound-bound)
+    #         self.set_molecular_states(k, dataset)
 
-            # set photobleaching-dataset arrays
-            self.set_photobleaching_dataset(k, dataset)
+    #         # set photobleaching-dataset arrays
+    #         self.set_photobleaching_dataset(k, dataset)
 
-            # get new-dataset
-            new_dataset = self.get_new_dataset(k, N_emit0, dataset)
+    #         # get new-dataset
+    #         new_dataset = self.get_new_dataset(k, N_emit0, dataset)
 
-            # write output file
-            output_file = output_file_dir + '/pt-%09d.0.csv' % (count_array[k])
+    #         # write output file
+    #         output_file = output_file_dir + '/pt-%09d.0.csv' % (count_array[k])
 
-            with open(output_file, 'w') as f:
-                writer = csv.writer(f)
-                writer.writerows(new_dataset)
+    #         with open(output_file, 'w') as f:
+    #             writer = csv.writer(f)
+    #             writer.writerows(new_dataset)
 
     def set_molecular_states(self, count, dataset):
         # reset molecule-states
@@ -1117,7 +1203,7 @@ class EPIFMVisualizer:
 
             # Normal vector: Perpendicular to apical surface of the cell
             voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius
-            cell_shape = numpy.array(self.configs.spatiocyte_shape)
+            cell_shape = self.configs.spatiocyte_shape
 
             diff = numpy.sqrt(numpy.sum((cell_shape - p_i*1e-9)**2, axis=1))
             k0 = numpy.nonzero(diff < 1.5*voxel_size)[0]
@@ -1898,7 +1984,6 @@ class EPIFMVisualizer:
                 self.fluo_psf = self.get_fluo_psf(depths)
 
     def get_fluo_psf(self, depths):
-
         r = self.configs.radial
 
         theta = numpy.linspace(0, 90, 91)
