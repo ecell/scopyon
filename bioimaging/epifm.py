@@ -463,10 +463,10 @@ class EPIFMConfigs():
 
         return efficiency.tolist()
 
-    def set_optical_path(self, csv_file_directory):
+    def set_optical_path(self, csv_file_directory, max_count=None):
         # (0) Data: Cell Model Sample
         self.set_Time_arrays()
-        self.set_Spatiocyte_data_arrays(csv_file_directory)
+        self.set_Spatiocyte_data_arrays(csv_file_directory, max_count)
 
         # (1) Illumination path: Light source --> Cell Model Sample
         #self.set_Illumination_path()
@@ -502,7 +502,7 @@ class EPIFMConfigs():
         self._set_data('shutter_count_array', count_array.tolist())
         self._set_data('shutter_index_array', index_array.tolist())
 
-    def set_Spatiocyte_data_arrays(self, csv_file_directory):
+    def set_Spatiocyte_data_arrays(self, csv_file_directory, max_count=None):
         # get spatiocyte file directory
         # csv_file_directory = self.spatiocyte_file_directory
 
@@ -514,54 +514,49 @@ class EPIFMConfigs():
 
         # read lattice file
         for i in range(len(count_array)):
+            csv_file_path = os.path.join(csv_file_directory, 'pt-{:09d}.0.csv'.format(count_array[i]))
+            if not os.path.isfile(csv_file_path):
+                _log.err('{} not found'.format(csv_file_path))
+                #XXX: raise an axception
 
-            csv_file_path = csv_file_directory + '/pt-%09d.0.csv' % (count_array[i])
-
-            try:
-
-                csv_file = open(csv_file_path, 'r')
-
-                dataset = []
-
-                for row in csv.reader(csv_file):
-                    dataset.append(row)
-
-                ### particle data
-                time = float(dataset[0][0])
-
+            with open(csv_file_path, 'r') as csv_file:
                 particles = []
+                t = None
+                for row in csv.reader(csv_file):
+                    t_ = float(row[0])
+                    coordinate = (float(row[1]), float(row[2]), float(row[3]))
+                    # radius = float(row[4])
+                    id1 = literal_eval(row[5])
+                    assert isinstance(id1, tuple) and len(id1) == 2
+                    id2 = literal_eval(row[6])
+                    assert isinstance(id2, tuple) and len(id2) == 2
 
-                for data_id in dataset:
-                    # Coordinate
-                    c_id = (float(data_id[1]), float(data_id[2]), float(data_id[3]))
-                    # Molecule-ID and its state
-                    m_id, s_id = literal_eval(data_id[5])
-                    # Fluorophore-ID and Compartment-ID
-                    f_id, l_id = literal_eval(data_id[6])
-
-                    try:
-                        p_state, cyc_id = float(data_id[7]), float(data_id[8])
-                    except Exception:
+                    if len(row) >= 9:
+                        p_state, cyc_id = float(row[7]), float(row[8])
+                    else:
                         p_state, cyc_id = 1.0, float('inf')
 
-                    particles.append((c_id, m_id, s_id, l_id, p_state, cyc_id))
+                    particles.append((coordinate, id1[0], id1[1], id2[1], p_state, cyc_id))
+                    if t is None:
+                        t = t_
+                    elif t != t_:
+                        raise RuntimeError('File [{}] contains multiple time'.format(csv_file_path))
 
-                data.append([time, particles])
+                # Just for debugging
+                if max_count is not None and len(particles) > max_count:
+                    particles = particles[: max_count]
 
-
-            except Exception:
-                _log.err('Error: {} not found'.format(csv_file_path))
-                #exit()  #XXX: WHY NOT?
+                _log.debug('File [{}] was loaded. [t={}, #particles={}]'.format(csv_file_path, t, len(particles)))
+                data.append([t, particles])
 
         data.sort(key=lambda x: x[0])
-        # data.sort(lambda x, y:cmp(x[0], y[0]))
 
         # set data
         self._set_data('spatiocyte_data', data)
 
     def set_Illumination_path(self):
         # get cell-shape data
-        cell_shape = self.spatiocyte_shape
+        cell_shape = self.spatiocyte_shape.copy()
 
         # define observational image plane in nm-scale
         voxel_size = 2.0*self.spatiocyte_VoxelRadius
@@ -1214,7 +1209,7 @@ class EPIFMVisualizer:
 
             # Normal vector: Perpendicular to apical surface of the cell
             voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius
-            cell_shape = self.configs.spatiocyte_shape
+            cell_shape = self.configs.spatiocyte_shape.copy()
 
             diff = numpy.sqrt(numpy.sum((cell_shape - p_i*1e-9)**2, axis=1))
             k0 = numpy.nonzero(diff < 1.5*voxel_size)[0]
