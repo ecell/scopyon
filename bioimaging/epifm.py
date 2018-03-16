@@ -11,6 +11,7 @@ import csv
 import string
 import ctypes
 import multiprocessing
+import warnings
 
 from ast import literal_eval
 
@@ -325,7 +326,7 @@ class EPIFMConfigs():
         _log.info('    Dark Count =  {} electron/sec'.format(self.detector_dark_count))
         _log.info('    EM gain = x {}'.format(self.detector_emgain))
 
-    def set_adconverter(self, bit = None,
+    def set_analog_to_digital_converter(self, bit = None,
                         gain = None,
                         offset = None,
                         fullwell = None,
@@ -462,7 +463,7 @@ class EPIFMConfigs():
 
         return efficiency.tolist()
 
-    def set_Optical_path(self, csv_file_directory):
+    def set_optical_path(self, csv_file_directory):
         # (0) Data: Cell Model Sample
         self.set_Time_arrays()
         self.set_Spatiocyte_data_arrays(csv_file_directory)
@@ -738,6 +739,7 @@ class EPIFMConfigs():
                         time_open  = None,
                         time_lapse = None):
         """Deprecated"""
+        warnings.warn('This is no longer supported.')
         self.set_shutter(start_time, end_time, time_open, time_lapse)
 
     def set_LightSource(self, source_type = None,
@@ -747,6 +749,7 @@ class EPIFMConfigs():
                               radius = None,
                               angle  = None):
         """Deprecated"""
+        warnings.warn('This is no longer supported.')
         self.set_light_source(source_type,
                              wave_length,
                              flux_density,
@@ -761,6 +764,7 @@ class EPIFMConfigs():
                               cutoff = None,
                               file_name_format = None ):
         """Deprecated"""
+        warnings.warn('This is no longer supported.')
         self.set_fluorophore(fluorophore_type,
                               wave_length,
                               normalization,
@@ -770,10 +774,12 @@ class EPIFMConfigs():
 
     def set_DichroicMirror(self, dm = None):
         """Deprecated"""
+        warnings.warn('This is no longer supported.')
         self.set_dichroic_mirror(dm)
 
     def set_Magnification(self, Mag = None):
         """Deprecated"""
+        warnings.warn('This is no longer supported.')
         self.set_magnification(Mag)
 
     def set_Detector(self, detector = None,
@@ -787,6 +793,7 @@ class EPIFMConfigs():
                    emgain = None
                    ):
         """Deprecated"""
+        warnings.warn('This is no longer supported.')
         self.set_detector(detector,
                        image_size,
                        pixel_length,
@@ -804,7 +811,8 @@ class EPIFMConfigs():
                         fpn_type = None,
                         fpn_count = None):
         """Deprecated"""
-        self.set_adconverter(bit,
+        warnings.warn('This is no longer supported.')
+        self.set_analog_to_digital_converter(bit,
                         gain,
                         offset,
                         fullwell,
@@ -815,17 +823,25 @@ class EPIFMConfigs():
                         image_file_name_format = None,
                         image_file_cleanup_dir=False):
         """Deprecated"""
+        warnings.warn('This is no longer supported.')
         self.set_output_path(image_file_dir,
                         image_file_name_format,
                         image_file_cleanup_dir)
 
     def set_ShapeFile(self, csv_file_directory):
         """Deprecated. Use load_shape instead."""
+        warnings.warn('This is no longer supported.')
         self.load_shape(os.path.join(csv_file_directory, 'pt-shape.csv'))
 
     def set_InputFile(self, csv_file_directory, observable=None):
         """Deprecated. Use load_shape instead."""
+        warnings.warn('This is no longer supported.')
         self.load_input(os.path.join(csv_file_directory, 'pt-input.csv'), observable)
+
+    def set_Optical_path(self, csv_file_directory):
+        """Deprecated. Use load_shape instead."""
+        warnings.warn('This is no longer supported.')
+        self.set_optical_path(csv_file_directory)
 
 class EPIFMVisualizer:
     '''
@@ -844,11 +860,6 @@ class EPIFMVisualizer:
         """
         if not os.path.exists(self.configs.image_file_dir):
             os.makedirs(self.configs.image_file_dir)
-
-        """
-        set Optical path from light source to detector
-        """
-        self.configs.set_Optical_path(csv_file_directory)
 
     def get_cell_size(self):
         # define observational image plane in nm-scale
