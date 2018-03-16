@@ -1,4 +1,3 @@
-
 import sys
 import os
 import copy
@@ -23,10 +22,13 @@ from scipy.interpolate import interp1d
 from scipy.ndimage import map_coordinates
 from scipy.misc    import toimage
 
+from logging import getLogger
+_log = getLogger(__name__)
+
 IMAGE_SIZE_LIMIT=3000
 
-class PhysicalEffects() :
 
+class PhysicalEffects:
     '''
     Physical effects setting class
 
@@ -36,14 +38,13 @@ class PhysicalEffects() :
     '''
 
     def __init__(self, user_configs_dict = None):
-
         # default setting
         configs_dict = parameter_effects.__dict__.copy()
 
         # user setting
         if user_configs_dict is not None:
             if type(user_configs_dict) != type({}):
-                print('Illegal argument type for constructor of Configs class')
+                _log.info('Illegal argument type for constructor of Configs class')
                 sys.exit()
             configs_dict.update(user_configs_dict)
 
@@ -55,86 +56,66 @@ class PhysicalEffects() :
                     copy_val = val
                 setattr(self, key, copy_val)
 
-
     def _set_data(self, key, val) :
-
         if val != None:
             setattr(self, key, val)
 
-
-
     def set_background(self, mean=None) :
-
-        print('--- Background :')
+        _log.info('--- Background :')
 
         self._set_data('background_switch', True)
         self._set_data('background_mean', mean)
 
-        print('\tMean = ', self.background_mean, 'photons')
-
-
+        _log.info('    Mean = {} photons'.format(self.background_mean))
 
     def set_crosstalk(self, width=None) :
-
-        print('--- Photoelectron Crosstalk :')
+        _log.info('--- Photoelectron Crosstalk :')
 
         self._set_data('crosstalk_switch', True)
         self._set_data('crosstalk_width', width)
 
-        print('\tWidth = ', self.crosstalk_width, 'pixels')
-
-
+        _log.info('    Width = {} pixels'.format(self.crosstalk_width))
 
     def set_fluorescence(self, quantum_yield=None,
                                 abs_coefficient=None) :
-
-        print('--- Fluorescence :')
+        _log.info('--- Fluorescence :')
 
         self._set_data('quantum_yield', quantum_yield)
         self._set_data('abs_coefficient', abs_coefficient)
 
-        print('\tQuantum Yield = ', self.quantum_yield)
-        print('\tAbs. Coefficient = ', self.abs_coefficient, '1/(M cm)')
-        print('\tAbs. Cross-section = ', (numpy.log(10)*self.abs_coefficient*0.1/6.022e+23)*1e+4, 'cm^2')
-
-
+        _log.info('    Quantum Yield =  {}'.format(self.quantum_yield))
+        _log.info('    Abs. Coefficient =  {} 1/(M cm)'.format(self.abs_coefficient))
+        _log.info('    Abs. Cross-section =  {} cm^2'.format((numpy.log(10)*self.abs_coefficient*0.1/6.022e+23)*1e+4))
 
     def set_photobleaching(self, tau0=None,
                                 alpha=None) :
-
-        print('--- Photobleaching :')
+        _log.info('--- Photobleaching :')
 
         self._set_data('photobleaching_switch', True)
         self._set_data('photobleaching_tau0', tau0)
         self._set_data('photobleaching_alpha', alpha)
 
-        print('\tPhotobleaching tau0  = ', self.photobleaching_tau0)
-        print('\tPhotobleaching alpha = ', self.photobleaching_alpha)
-
-
+        _log.info('    Photobleaching tau0  =  {}'.format(self.photobleaching_tau0))
+        _log.info('    Photobleaching alpha =  {}'.format(self.photobleaching_alpha))
 
     def set_photoactivation(self, turn_on_ratio=None,
                                 activation_yield=None,
                                 frac_preactivation=None) :
-
-        print('--- Photoactivation :')
+        _log.info('--- Photoactivation :')
 
         self._set_data('photoactivation_switch', True)
         self._set_data('photoactivation_turn_on_ratio', turn_on_ratio)
         self._set_data('photoactivation_activation_yield', activation_yield)
         self._set_data('photoactivation_frac_preactivation', frac_preactivation)
 
-        print('\tTurn-on Ratio  = ', self.photoactivation_turn_on_ratio)
-        print('\tEffective Ratio  = ', activation_yield*turn_on_ratio/(1 + frac_preactivation*turn_on_ratio))
-        print('\tReaction Yield = ', self.photoactivation_activation_yield)
-        print('\tFraction of Preactivation = ', self.photoactivation_frac_preactivation)
-
-
+        _log.info('    Turn-on Ratio  =  {}'.format(self.photoactivation_turn_on_ratio))
+        _log.info('    Effective Ratio  =  {}'.format(activation_yield*turn_on_ratio/(1 + frac_preactivation*turn_on_ratio)))
+        _log.info('    Reaction Yield =  {}'.format(self.photoactivation_activation_yield))
+        _log.info('    Fraction of Preactivation =  {}'.format(self.photoactivation_frac_preactivation))
 
     def set_photoblinking(self, t0_on=None, a_on=None,
                                 t0_off=None, a_off=None) :
-
-        print('--- Photo-blinking : ')
+        _log.info('--- Photo-blinking : ')
 
         self._set_data('photoblinking_switch', True)
         self._set_data('photoblinking_t0_on', t0_on)
@@ -142,24 +123,17 @@ class PhysicalEffects() :
         self._set_data('photoblinking_t0_off', t0_off)
         self._set_data('photoblinking_a_off', a_off)
 
-        print('\t(ON)  t0 = ', self.photoblinking_t0_on, 'sec')
-        print('\t(ON)  a  = ', self.photoblinking_a_on)
-        print('\t(OFF) t0 = ', self.photoblinking_t0_off, 'sec')
-        print('\t(OFF) a  = ', self.photoblinking_a_off)
-
-
+        _log.info('    (ON)  t0 =  {} sec'.format(self.photoblinking_t0_on))
+        _log.info('    (ON)  a  =  {}'.format(self.photoblinking_a_on))
+        _log.info('    (OFF) t0 =  {} sec'.format(self.photoblinking_t0_off))
+        _log.info('    (OFF) a  =  {}'.format(self.photoblinking_a_off))
 
     def prob_levy(self, t, t0, a) :
-
         prob = (a/t0)*(t0/t)**(1+a)
         #prob = (t0/t)**(1+a)
-
         return prob
 
-
-
     def get_prob_bleach(self, tau, dt) :
-
         # set the photobleaching-time
         tau0  = self.photobleaching_tau0
         alpha = self.photobleaching_alpha
@@ -171,10 +145,7 @@ class PhysicalEffects() :
 
         return p_bleach
 
-
-
     def get_prob_blink(self, tau_on, tau_off, dt) :
-
         # time scale
         t0_on  = self.photoblinking_t0_on
         a_on   = self.photoblinking_a_on
@@ -193,10 +164,7 @@ class PhysicalEffects() :
 
         return p_blink_on, p_blink_off
 
-
-
     def get_photobleaching_property(self, dt, n_emit0) :
-
         # set the photobleaching-time
         tau0  = self.photobleaching_tau0
         alpha = self.photobleaching_alpha
@@ -213,10 +181,7 @@ class PhysicalEffects() :
 
         return tau, budget
 
-
-
     def set_photophysics_4epifm(self, time, delta, n_emit0, N_part) :
-
         state = numpy.zeros(shape=(len(delta)))
         dt = delta[0]
 
@@ -238,7 +203,6 @@ class PhysicalEffects() :
 
             # get photon budget and photobleaching-time
             tau = numpy.random.choice(tau_bleach, N_part, p=p_bleach)
-
 
         # sequences
         budget = []
@@ -264,10 +228,7 @@ class PhysicalEffects() :
         self.fluorescence_budget = numpy.array(budget)
         self.fluorescence_state  = numpy.array(state)
 
-
-
     def set_photophysics_4palm(self, start, end, dt, f, F, N_part) :
-
         ##### PALM Configuration
         NNN = int(1e+7)
 
@@ -336,19 +297,6 @@ class PhysicalEffects() :
             index = numpy.abs(s - 1).argmin()
             t0 = (index/f*F + numpy.remainder(index, f))*dt + start
 
-#           t0 = end
-#
-#           for k in range(N/F) :
-#               for l in range(f) :
-#                   # random
-#                   r = numpy.random.uniform(0, 1)
-#
-#                   if (r < PE) :
-#                       t0 = (k + l)*dt
-#                       break
-#
-#               if (t0 < end) : break
-
             t1 = t0 + tau[i]
 
             N0 = (numpy.abs(time - t0)).argmin()
@@ -381,21 +329,6 @@ class PhysicalEffects() :
 
                     i_on = f_off
 
-#               time_blinking = numpy.cumsum(t)
-#
-#               # set state array
-#               s_on  = numpy.ones(shape=(k))
-#               s_off = numpy.zeros(shape=(k))
-#               s = numpy.array([s_on, s_off])
-#
-#               state_blinking = numpy.reshape(s, 2*k, order='F')
-#               state_blinking = numpy.reshape(s, 2*k, order='F')
-#
-#               # set fluorescence state (with photoblinking)
-#               budget.append(photons)
-#               time_act.append(time_blinking)
-#               state_act.append(state_blinking)
-
             # set fluorescence state (without photoblinking)
             budget.append(photons)
             state_act.append(state)
@@ -404,10 +337,7 @@ class PhysicalEffects() :
         self.fluorescence_budget = numpy.array(budget)
         self.fluorescence_state  = numpy.array(state_act)
 
-
-
     def set_photophysics_4lscm(self, start, end, dt, N_part) :
-
         ##### LSCM Configuration
 
         NNN = int(1e+7)
@@ -465,16 +395,6 @@ class PhysicalEffects() :
 
             time  = numpy.array([j*dt + start for j in range(N)])
             state = numpy.zeros(shape=(N))
-
-#           #### Photoactivation : overall activation yeild
-#           p = self.photoactivation_activation_yield
-#           q = self.photoactivation_frac_preactivation
-#
-#           r = numpy.random.uniform(0, 1, N/F*f)
-#           s = (r < p).astype('int')
-#
-#           index = numpy.abs(s - 1).argmin()
-#           t0 = (index/f*F + numpy.remainder(index, f))*dt + start
 
             t0 = start
             t1 = t0 + tau[i]

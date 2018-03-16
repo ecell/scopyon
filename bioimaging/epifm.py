@@ -27,6 +27,10 @@ from . import parameter_configs
 from . import parameter_effects
 from .effects import PhysicalEffects
 
+from logging import getLogger
+_log = getLogger(__name__)
+
+
 class VisualizerError(Exception):
     "Exception class for visualizer"
 
@@ -55,7 +59,7 @@ class EPIFMConfigs():
         # user setting
         if user_configs_dict is not None:
             if type(user_configs_dict) != type({}):
-                print('Illegal argument type for constructor of Configs class')
+                _log.info('Illegal argument type for constructor of Configs class')
                 sys.exit()
             configs_dict.update(user_configs_dict)
 
@@ -86,11 +90,11 @@ class EPIFMConfigs():
         self._set_data('shutter_time_open', time_open)
         self._set_data('shutter_time_lapse', time_lapse)
 
-        print('--- Shutter:')
-        print('\tStart-Time = ', self.shutter_start_time, 'sec')
-        print('\tEnd-Time   = ', self.shutter_end_time, 'sec')
-        print('\tTime-open  = ', self.shutter_time_open, 'sec')
-        print('\tTime-lapse = ', self.shutter_time_lapse, 'sec')
+        _log.info('--- Shutter:')
+        _log.info('    Start-Time = {} sec'.format(self.shutter_start_time))
+        _log.info('    End-Time   = {} sec'.format(self.shutter_end_time))
+        _log.info('    Time-open  = {} sec'.format(self.shutter_time_open))
+        _log.info('    Time-lapse = {} sec'.format(self.shutter_time_lapse))
 
     def set_LightSource(self,  source_type = None,
                                 wave_length = None,
@@ -105,14 +109,14 @@ class EPIFMConfigs():
         self._set_data('source_radius', radius)
         self._set_data('source_angle', angle)
 
-        print('--- Light Source:', self.source_type)
-        print('\tWave Length = ', self.source_wavelength, 'nm')
-        print('\tBeam Flux Density = ', self.source_flux_density, 'W/cm2')
-        print('\t1/e2 Radius = ', self.source_radius, 'm')
-        print('\tAngle = ', self.source_angle, 'degree')
+        _log.info('--- Light Source:{}'.format(self.source_type))
+        _log.info('    Wave Length = {} nm'.format(self.source_wavelength))
+        _log.info('    Beam Flux Density = {} W/cm2'.format(self.source_flux_density))
+        _log.info('    1/e2 Radius = {} m'.format(self.source_radius))
+        _log.info('    Angle = {} degree'.format(self.source_angle))
 
     def set_ExcitationFilter(self, excitation = None):
-        print('--- Excitation Filter:')
+        _log.info('--- Excitation Filter:')
         filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/excitation/') + excitation + '.csv'
 
         try:
@@ -129,7 +133,7 @@ class EPIFMConfigs():
                 dummy  = header[i].split('\r\n')
                 a_data = dummy[0].split(',')
                 excitation_header.append(a_data)
-                print('\t', a_data)
+                _log.info('    {}'.format(a_data))
 
             for i in range(len(data)):
                 dummy0 = data[i].split('\r\n')
@@ -137,7 +141,7 @@ class EPIFMConfigs():
                 excitation_filter.append(a_data)
 
         except Exception:
-            print('Error: ', filename, ' is NOT found')
+            _log.error('Error: {} is NOT found'.format(filename))
             exit()
 
         ####
@@ -151,33 +155,33 @@ class EPIFMConfigs():
                               cutoff = None,
                               file_name_format = None ):
         if (fluorophore_type == 'Gaussian'):
-            print('--- Fluorophore: %s PSF' % (fluorophore_type))
+            _log.info('--- Fluorophore: %s PSF' % (fluorophore_type))
 
-            self._set_data('fluorophore_type', fluorophore_type)
-            self._set_data('psf_wavelength', wave_length)
-            self._set_data('psf_normalization', normalization)
-            self._set_data('psf_width', width)
-            self._set_data('psf_cutoff', cutoff)
-            self._set_data('psf_file_name_format', file_name_format)
+            self._set_data('fluorophore_type {}'.format(fluorophore_type))
+            self._set_data('psf_wavelength {}'.format(wave_length))
+            self._set_data('psf_normalization {}'.format(normalization))
+            self._set_data('psf_width {}'.format(width))
+            self._set_data('psf_cutoff {}'.format(cutoff))
+            self._set_data('psf_file_name_format {}'.format(file_name_format))
 
             index = (numpy.abs(self.wave_length - self.psf_wavelength)).argmin()
 
             self.fluoex_eff[index] = 100
             self.fluoem_eff[index] = 100
 
-            print('\tWave Length   = ', self.psf_wavelength, 'nm')
-            print('\tNormalization = ', self.psf_normalization)
-            print('\tLateral Width = ', self.psf_width[0], 'nm')
-            print('\tAxial Width = ', self.psf_width[1], 'nm')
-            #print '\tLateral Cutoff = ', self.psf_cutoff[0], 'nm'
-            #print '\tAxial Cutoff = ', self.psf_cutoff[1], 'nm'
+            _log.info('    Wave Length   =  {} nm'.format(self.psf_wavelength))
+            _log.info('    Normalization =  {}'.format(self.psf_normalization))
+            _log.info('    Lateral Width =  {} nm'.format(self.psf_width[0]))
+            _log.info('    Axial Width =  {} nm'.format(self.psf_width[1]))
+            #print '    Lateral Cutoff = ', self.psf_cutoff[0], 'nm'
+            #print '    Axial Cutoff = ', self.psf_cutoff[1], 'nm'
 
         else:
-            print('--- Fluorophore:')
+            _log.info('--- Fluorophore:')
             filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/fluorophore/', fluorophore_type + '.csv')
 
             if not os.path.exists(filename):
-                print('Error: ', filename, ' is NOT found')
+                _log.info('Error: ', filename, ' is NOT found')
                 exit()
 
             with open(filename) as csvfile:
@@ -187,7 +191,7 @@ class EPIFMConfigs():
                 data   = lines[5:]
 
                 fluorophore_header     = [_.split(',') for _ in header]
-                for _ in fluorophore_header: print("\t", _)
+                for _ in fluorophore_header: _log.info("     {}".format(_))
 
                 em_idx = data.index('Emission')
                 fluorophore_excitation = [_.split(',') for _ in data[1:em_idx]]
@@ -209,9 +213,9 @@ class EPIFMConfigs():
             self.fluoex_eff[index_ex] = 100
             self.fluoem_eff[index_em] = 100
 
-            print('\tPSF Normalization Factor = ', self.psf_normalization)
-            print('\tExcitation: Wave Length = ', self.wave_length[index_ex], 'nm')
-            print('\tEmission  : Wave Length = ', self.psf_wavelength, 'nm')
+            _log.info('    PSF Normalization Factor =  {}'.format(self.psf_normalization))
+            _log.info('    Excitation: Wave Length =  {} nm'.format(self.wave_length[index_ex]))
+            _log.info('    Emission  : Wave Length =  {} nm'.format(self.psf_wavelength))
 
         # Normalization
         norm = sum(self.fluoex_eff)
@@ -221,7 +225,7 @@ class EPIFMConfigs():
         self.fluoem_norm = numpy.array(self.fluoem_eff)/norm
 
     def set_DichroicMirror(self, dm = None):
-        print('--- Dichroic Mirror:')
+        _log.info('--- Dichroic Mirror:')
         filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/dichroic/') + dm + '.csv'
 
         try:
@@ -238,7 +242,7 @@ class EPIFMConfigs():
                 dummy  = header[i].split('\r\n')
                 a_data = dummy[0].split(',')
                 dichroic_header.append(a_data)
-                print('\t', a_data)
+                _log.info('     {}'.format(a_data))
 
             for i in range(len(data)):
                 dummy0 = data[i].split('\r\n')
@@ -246,14 +250,14 @@ class EPIFMConfigs():
                 dichroic_mirror.append(a_data)
 
         except Exception:
-            print('Error: ', filename, ' is NOT found')
+            _log.error('Error: {} is NOT found'.format(filename))
             exit()
 
         self.dichroic_eff = self.set_efficiency(dichroic_mirror)
         self._set_data('dichroic_switch', True)
 
     def set_EmissionFilter(self, emission = None):
-        print('--- Emission Filter:')
+        _log.info('--- Emission Filter:')
         filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/emission/') + emission + '.csv'
 
         try:
@@ -270,7 +274,7 @@ class EPIFMConfigs():
                 dummy  = header[i].split('\r\n')
                 a_data = dummy[0].split(',')
                 emission_header.append(a_data)
-                print('\t', a_data)
+                _log.info('    {}'.format(a_data))
 
             for i in range(len(data)):
                 dummy0 = data[i].split('\r\n')
@@ -278,7 +282,7 @@ class EPIFMConfigs():
                 emission_filter.append(a_data)
 
         except Exception:
-            print('Error: ', filename, ' is NOT found')
+            _log.info('Error: ', filename, ' is NOT found')
             exit()
 
         self.emission_eff = self.set_efficiency(emission_filter)
@@ -288,7 +292,7 @@ class EPIFMConfigs():
 
         self._set_data('image_magnification', Mag)
 
-        print('--- Magnification: x', self.image_magnification)
+        _log.info('--- Magnification: x {}'.format(self.image_magnification))
 
     def set_Detector(self, detector = None,
                    image_size = None,
@@ -312,16 +316,16 @@ class EPIFMConfigs():
         self._set_data('detector_dark_count', dark_count)
         self._set_data('detector_emgain', emgain)
 
-        print('--- Detector: ', self.detector_type)
-        print('\tImage Size  = ', self.detector_image_size[0], 'x', self.detector_image_size[1])
-        print('\tPixel Size  = ', self.detector_pixel_length, 'm/pixel')
-        print('\tFocal Point = ', self.detector_focal_point)
-        #print '\tPosition    = ', self.detector_base_position
-        print('\tExposure Time = ', self.detector_exposure_time, 'sec')
-        print('\tQuantum Efficiency = ', 100*self.detector_qeff, '%')
-        print('\tReadout Noise = ', self.detector_readout_noise, 'electron')
-        print('\tDark Count = ', self.detector_dark_count, 'electron/sec')
-        print('\tEM gain = ', 'x', self.detector_emgain)
+        _log.info('--- Detector:  {}'.format(self.detector_type))
+        _log.info('    Image Size  =  {} x {}'.format(self.detector_image_size[0], self.detector_image_size[1]))
+        _log.info('    Pixel Size  =  {} m/pixel'.format(self.detector_pixel_length))
+        _log.info('    Focal Point =  {}'.format(self.detector_focal_point))
+        #print '    Position    =  {}'.format(self.detector_base_position)
+        _log.info('    Exposure Time =  {} sec'.format(self.detector_exposure_time))
+        _log.info('    Quantum Efficiency =  {} %'.format(100*self.detector_qeff))
+        _log.info('    Readout Noise =  {} electron'.format(self.detector_readout_noise))
+        _log.info('    Dark Count =  {} electron/sec'.format(self.detector_dark_count))
+        _log.info('    EM gain = x {}'.format(self.detector_emgain))
 
     def set_ADConverter(self, bit = None,
                         gain = None,
@@ -336,11 +340,11 @@ class EPIFMConfigs():
         self._set_data('ADConverter_fpn_type', fpn_type)
         self._set_data('ADConverter_fpn_count', fpn_count)
 
-        print('--- A/D Converter: %d-bit' % (self.ADConverter_bit))
-        print('\tGain = %.3f electron/count' % (self.ADConverter_gain))
-        print('\tOffset = ', self.ADConverter_offset, 'count')
-        print('\tFullwell = ', self.ADConverter_fullwell, 'electron')
-        print('\t%s-Fixed Pattern Noise:' % (self.ADConverter_fpn_type), self.ADConverter_fpn_count, 'count')
+        _log.info('--- A/D Converter: %d-bit' % (self.ADConverter_bit))
+        _log.info('    Gain = %.3f electron/count' % (self.ADConverter_gain))
+        _log.info('    Offset =  {} count'.format(self.ADConverter_offset))
+        _log.info('    Fullwell =  {} electron'.format(self.ADConverter_fullwell))
+        _log.info('    {}-Fixed Pattern Noise: {} count'.format(self.ADConverter_fpn_type, self.ADConverter_fpn_count))
 
         # image pixel-size
         Nw_pixel = self.detector_image_size[0]
@@ -378,7 +382,7 @@ class EPIFMConfigs():
         self.ADConverter_gain = gain.reshape([Nw_pixel, Nh_pixel])
 
     def set_ShapeFile(self, csv_file_directry):
-        print('--- Spatiocyte Cell Shape Data: ', csv_file_directry)
+        _log.info('--- Spatiocyte Cell Shape Data:  {}'.format(csv_file_directry))
 
         # get shape data file
         cell_shape = numpy.genfromtxt(csv_file_directry + '/pt-shape.csv', delimiter=',')
@@ -387,7 +391,7 @@ class EPIFMConfigs():
         self._set_data('spatiocyte_shape', cell_shape.tolist())
 
     def set_InputFile(self, csv_file_directry, observable=None):
-        print('--- Input Spatiocyte Data: ', csv_file_directry)
+        _log.info('--- Input Spatiocyte Data: {}'.format(csv_file_directry))
 
         ### header
         f = open(csv_file_directry + '/pt-input.csv', 'r')
@@ -426,11 +430,11 @@ class EPIFMConfigs():
         #index = [False, True]
         self.spatiocyte_observables = copy.copy(index)
 
-        print('\tTime Interval =', self.spatiocyte_interval, 'sec')
-        print('\tVoxel radius  =', self.spatiocyte_VoxelRadius, 'm')
-        print('\tCompartment lengths:', self.spatiocyte_lengths, 'voxels')
-        print('\tSpecies Index:', self.spatiocyte_index)
-        print('\tObservable:', self.spatiocyte_observables)
+        _log.info('    Time Interval = {} sec'.format(self.spatiocyte_interval))
+        _log.info('    Voxel radius  = {} m'.format(self.spatiocyte_VoxelRadius))
+        _log.info('    Compartment lengths: {} voxels'.format(self.spatiocyte_lengths))
+        _log.info('    Species Index: {}'.format(self.spatiocyte_index))
+        _log.info('    Observable: {}'.format(self.spatiocyte_observables))
 
         # Visualization error
         if self.spatiocyte_species_id is None:
@@ -553,8 +557,8 @@ class EPIFMConfigs():
 
 
             except Exception:
-                print('Error: ', csv_file_path, ' not found')
-                #exit()
+                _log.err('Error: {} not found'.format(csv_file_path))
+                #exit()  #XXX: WHY NOT?
 
         data.sort(key=lambda x: x[0])
         # data.sort(lambda x, y:cmp(x[0], y[0]))
@@ -650,10 +654,8 @@ class EPIFMConfigs():
         self.detector_focal_point = f0
         self.detector_focal_norm  = f0_norm
 
-        print('Focal Center:', self.detector_focal_point)
-        print('Normal Vector:', self.detector_focal_norm)
-
-
+        _log.info('Focal Center: {}'.format(self.detector_focal_point))
+        _log.info('Normal Vector: {}'.format(self.detector_focal_norm))
 
     def set_Detection_path(self):
         wave_length = self.psf_wavelength*1e-9
@@ -670,8 +672,8 @@ class EPIFMConfigs():
         self.image_resolution = pixel_length
         self.image_scaling = pixel_length/(2.0*voxel_radius)
 
-        print('Resolution:', self.image_resolution, 'm')
-        print('Scaling:', self.image_scaling)
+        _log.info('Resolution: {} m'.format(self.image_resolution))
+        _log.info('Scaling: {}'.format(self.image_scaling))
 
         # Detector PSF
         self.set_PSF_detector()
@@ -1435,7 +1437,7 @@ class EPIFMVisualizer:
             # frame-time in sec
             time = exposure_time*index
 
-            print('time: ', time, 'sec (', index, ')')
+            _log.info('time: {} sec ({})'.format(time, index))
 
             # define cell in nm-scale
             cell = numpy.zeros(shape=(Nz, Ny))
@@ -1447,7 +1449,7 @@ class EPIFMVisualizer:
 
             # loop for frame data
             for i, (i_time, data) in enumerate(frame_data):
-                print('\t', '%02d-th frame: ' % (i), i_time, ' sec')
+                _log.info('     {:02d}-th frame: {} sec'.format(i, i_time))
 
                 # define true-dataset in last-frame
                 # [frame-time, m-ID, m-state, p-state, (depth,y0,z0), sqrt(<dr2>)]
@@ -1693,8 +1695,8 @@ class EPIFMVisualizer:
         camera_pixel = numpy.zeros([Nw_pixel, Nh_pixel, 2])
         camera_pixel[:,:,0] = dummy_pixel[w0-Nw_pixel/2:w0+Nw_pixel/2, h0-Nh_pixel/2:h0+Nh_pixel/2]
 
-        print('scaling [nm/pixel]:', Np)
-        print('center (width, height):', w0, h0)
+        _log.info('scaling [nm/pixel]: {}'.format(Np))
+        _log.info('center (width, height): {} {}'.format(w0, h0))
 
         # set true-dataset in pixel-scale
         true_data[:,4] = true_data[:,4]/Np - w_cel0 + w_cam0 - (w0 - (Nw_pixel-1)/2.0)
