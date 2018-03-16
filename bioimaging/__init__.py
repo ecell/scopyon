@@ -1,6 +1,6 @@
 __all__ = [
-    "epifm_handler",
-    "effects_handler",
+    "epifm",
+    "effects",
     "camera_handler",
     "tirfm_handler",
     "pmt_handler",
