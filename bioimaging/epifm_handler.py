@@ -262,7 +262,7 @@ class EPIFMConfigs() :
                 exit()
 
             with open(filename) as csvfile:
-                lines = [string.rstrip(_) for _ in csvfile.readlines()]
+                lines = [_.rstrip() for _ in csvfile.readlines()]
 
                 header = lines[0:5]
                 data   = lines[5:]
@@ -480,8 +480,7 @@ class EPIFMConfigs() :
         print('--- Spatiocyte Cell Shape Data : ', csv_file_directry)
 
         # get shape data file
-        f = open(csv_file_directry + '/pt-shape.csv', 'r')
-        cell_shape = numpy.genfromtxt(f, delimiter=',')
+        cell_shape = numpy.genfromtxt(csv_file_directry + '/pt-shape.csv', delimiter=',')
 
         # get cell shape
         self._set_data('spatiocyte_shape', cell_shape.tolist())
@@ -525,7 +524,7 @@ class EPIFMConfigs() :
         if observable is None :
             index = [True for i in range(len(self.spatiocyte_index))]
         else :
-            index = map(lambda x :  True if x.find(observable) > -1 else False, self.spatiocyte_index)
+            index = list(map(lambda x :  True if x.find(observable) > -1 else False, self.spatiocyte_index))
 
         #index = [False, True]
         self.spatiocyte_observables = copy.copy(index)
@@ -722,7 +721,8 @@ class EPIFMConfigs() :
                 print('Error : ', csv_file_path, ' not found')
                 #exit()
 
-        data.sort(lambda x, y:cmp(x[0], y[0]))
+        data.sort(key=lambda x: x[0])
+        # data.sort(lambda x, y:cmp(x[0], y[0]))
 
         # set data
         self._set_data('spatiocyte_data', data)
@@ -960,7 +960,7 @@ class EPIFMConfigs() :
             I = I*0.01*self.emission_eff
 
         # For normalization
-        norm = map(lambda x : True if x > 1e-4 else False, I)
+        norm = list(map(lambda x : True if x > 1e-4 else False, I))
 
         # PSF : Fluorophore
         psf_fl = None
@@ -968,10 +968,10 @@ class EPIFMConfigs() :
         if (self.fluorophore_type == 'Gaussian') :
 
             N0 = self.psf_normalization
-            Ir = sum(map(lambda x : x*numpy.exp(-0.5*(r/self.psf_width[0])**2), norm))
-            Iz = sum(map(lambda x : x*numpy.exp(-0.5*(z/self.psf_width[1])**2), norm))
+            Ir = sum(list(map(lambda x : x*numpy.exp(-0.5*(r/self.psf_width[0])**2), norm)))
+            Iz = sum(list(map(lambda x : x*numpy.exp(-0.5*(z/self.psf_width[1])**2), norm)))
 
-            psf_fl = numpy.sum(I)*N0*numpy.array(map(lambda x : Ir*x, Iz))
+            psf_fl = numpy.sum(I)*N0*numpy.array(list(map(lambda x : Ir*x, Iz)))
 
         else :
             # make the norm and wave_length array shorter
@@ -1007,16 +1007,16 @@ class EPIFMConfigs() :
         drho = 1.0/N
         rho = numpy.array([(i+1)*drho for i in range(N)])
 
-        J0 = numpy.array(map(lambda x : j0(x*alpha*rho), r))
-        Y  = numpy.array(map(lambda x : numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z))
-        I  = numpy.array(map(lambda x : x*J0, Y))
+        J0 = numpy.array(list(map(lambda x : j0(x*alpha*rho), r)))
+        Y  = numpy.array(list(map(lambda x : numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z)))
+        I  = numpy.array(list(map(lambda x : x*J0, Y)))
         I_sum = I.sum(axis=2)
 
         # set normalization factor
         Norm = self.psf_normalization
 
         # set PSF
-        psf = Norm*numpy.array(map(lambda x : abs(x)**2, I_sum))
+        psf = Norm*numpy.array(list(map(lambda x : abs(x)**2, I_sum)))
 
 #       for i in range(len(wave_length)) :
 #
@@ -2460,7 +2460,7 @@ class EPIFMVisualizer() :
 
         for depth in depths:
             psf_r = self.configs.fluorophore_psf[depth]
-            psf_polar = numpy.array(map(lambda x: psf_t * x, psf_r))
+            psf_polar = numpy.array(list(map(lambda x: psf_t * x, psf_r)))
             result[depth] = self.polar2cartesian(psf_polar, coordinates, (len(r), len(r)))
 
         return result
