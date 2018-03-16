@@ -1780,12 +1780,12 @@ class EPIFMVisualizer:
         f_x, f_y, f_z = self.configs.detector_focal_point
 
         # get dummy-image center and focal position
-        w0 = Nw_dummy/2 - int(Nw_cell/Np*(0.5-f_z))
-        h0 = Nh_dummy/2 - int(Nh_cell/Np*(0.5-f_y))
+        w0 = Nw_dummy//2 - int(Nw_cell/Np*(0.5-f_z))
+        h0 = Nh_dummy//2 - int(Nh_cell/Np*(0.5-f_y))
 
         # dummy_pixel image to camera_pixel image
         camera_pixel = numpy.zeros([Nw_pixel, Nh_pixel, 2])
-        camera_pixel[:,:,0] = dummy_pixel[w0-Nw_pixel/2:w0+Nw_pixel/2, h0-Nh_pixel/2:h0+Nh_pixel/2]
+        camera_pixel[:,:,0] = dummy_pixel[w0-Nw_pixel//2:w0+Nw_pixel//2, h0-Nh_pixel//2:h0+Nh_pixel//2]
 
         _log.info('scaling [nm/pixel]: {}'.format(Np))
         _log.info('center (width, height): {} {}'.format(w0, h0))
