@@ -1,23 +1,50 @@
 import os.path
 import csv
 from ast import literal_eval
+from collections import namedtuple
 
 from logging import getLogger
 _log = getLogger(__name__)
 
 
-def read_spatiocyte_shape(self, filename):
+def read_spatiocyte(pathto, tstart, tend, interval, max_count=None):
+    (count_array, index_array_size, index0) = spatiocyte_time_arrays(tstart, tend, interval)
+    data = read_spatiocyte_data(pathto, count_array, max_count=max_count)
+
+    SpatiocyteDataSet = namedtuple('SpatiocyteDataSet', ('data', 'index_array_size', 'index0'))
+    return SpatiocyteDataSet(data, index_array_size=index_array_size, index0=index0)
+
+def spatiocyte_time_arrays(start_time, end_time, interval):
+    # set count arrays by spatiocyte interval
+    interval = self.spatiocyte_interval
+    N_count = int(round((end_time - start_time)/interval))
+    c0 = int(round(start_time/interval))
+
+    delta_array = numpy.zeros(shape=(N_count))
+    delta_array.fill(interval)
+    time_array  = numpy.cumsum(delta_array) + start_time
+    count_array = numpy.array([c + c0 for c in range(N_count)])
+
+    # set index arrays by exposure time
+    exposure = self.detector_exposure_time
+    N_index = int(round((end_time - start_time)/exposure))
+    i0 = int(round(start_time/exposure))
+    index_array = numpy.array([i + i0 for i in range(N_index)])
+
+    return (count_array, len(index_array), index_array[0])
+
+def read_spatiocyte_shape(filename):
     cell_shape = numpy.genfromtxt(filename, delimiter=',')
     cell_shape = numpy.array(cell_shape.tolist())  #XXX: == cell_shape?
     return cell_shape
 
-def read_spatiocyte_data(csv_file_directory, shutter_count_array=None, max_count=None):
+def read_spatiocyte_data(pathto, shutter_count_array=None, max_count=None):
     # set data-array
     data = []
 
     # read lattice file
     for i in range(len(shutter_count_array)):
-        csv_file_path = os.path.join(csv_file_directory, 'pt-{:09d}.0.csv'.format(shutter_count_array[i]))
+        csv_file_path = os.path.join(pathto, 'pt-{:09d}.0.csv'.format(shutter_count_array[i]))
         if not os.path.isfile(csv_file_path):
             _log.err('{} not found'.format(csv_file_path))
             #XXX: raise an axception
@@ -54,4 +81,3 @@ def read_spatiocyte_data(csv_file_directory, shutter_count_array=None, max_count
 
     data.sort(key=lambda x: x[0])
     return data
-

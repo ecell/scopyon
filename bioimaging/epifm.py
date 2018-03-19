@@ -408,13 +408,13 @@ class EPIFMConfigs():
         self._set_data('spatiocyte_species_id', species_id)
         self._set_data('spatiocyte_index',  species_index)
         #self._set_data('spatiocyte_diffusion', species_diffusion)
-        self._set_data('spatiocyte_radius', species_radius)
+        # self._set_data('spatiocyte_radius', species_radius)
 
         # get lattice properties
-        #self._set_data('spatiocyte_lattice_id', map(lambda x: x[0], lattice))
+        # self._set_data('spatiocyte_lattice_id', map(lambda x: x[0], lattice))
         self._set_data('spatiocyte_lengths', lengths)
         self._set_data('spatiocyte_VoxelRadius', voxel_r)
-        self._set_data('spatiocyte_theNormalizedVoxelRadius', 0.5)
+        # self._set_data('spatiocyte_theNormalizedVoxelRadius', 0.5)
 
         # set observable
         if observable is None:
@@ -463,46 +463,47 @@ class EPIFMConfigs():
 
         return efficiency.tolist()
 
-    def set_optical_path(self):
-        # (0) Data: Cell Model Sample
-        self.set_Time_arrays()
-        # self.set_Spatiocyte_data_arrays(csv_file_directory, max_count)
+    # def set_optical_path(self):
+    #     # (0) Data: Cell Model Sample
+    #     self.set_Time_arrays()
+    #     # self.set_Spatiocyte_data_arrays(csv_file_directory, max_count)
 
-        # (1) Illumination path: Light source --> Cell Model Sample
-        # self.set_Illumination_path()
-        # exit()
+    #     # (1) Illumination path: Light source --> Cell Model Sample
+    #     # self.set_Illumination_path()
+    #     # exit()
 
-        # (2) Detection path: Cell Model Sample --> Detector
-        self.set_Detection_path()
+    #     # (2) Detection path: Cell Model Sample --> Detector
+    #     self.set_Detection_path()
 
-    def set_Time_arrays(self):
-        # set time-arrays
-        start = self.shutter_start_time
-        end = self.shutter_end_time
+    # def set_Time_arrays(self):
+    #     # set time-arrays
+    #     start = self.shutter_start_time
+    #     end = self.shutter_end_time
 
-        # set count arrays by spatiocyte interval
-        interval = self.spatiocyte_interval
-        N_count = int(round((end - start)/interval))
-        c0 = int(round(start/interval))
+    #     # set count arrays by spatiocyte interval
+    #     interval = self.spatiocyte_interval
+    #     N_count = int(round((end - start)/interval))
+    #     c0 = int(round(start/interval))
 
-        delta_array = numpy.zeros(shape=(N_count))
-        delta_array.fill(interval)
-        time_array  = numpy.cumsum(delta_array) + start
-        count_array = numpy.array([c + c0 for c in range(N_count)])
+    #     delta_array = numpy.zeros(shape=(N_count))
+    #     delta_array.fill(interval)
+    #     time_array  = numpy.cumsum(delta_array) + start
+    #     count_array = numpy.array([c + c0 for c in range(N_count)])
 
-        # set index arrays by exposure time
-        exposure = self.detector_exposure_time
-        N_index = int(round((end - start)/exposure))
-        i0 = int(round(start/exposure))
-        index_array = numpy.array([i + i0 for i in range(N_index)])
+    #     # set index arrays by exposure time
+    #     exposure = self.detector_exposure_time
+    #     N_index = int(round((end - start)/exposure))
+    #     i0 = int(round(start/exposure))
+    #     index_array = numpy.array([i + i0 for i in range(N_index)])
 
-        # set time, count and delta arrays
-        # self._set_data('shutter_time_array', time_array.tolist())
-        # self._set_data('shutter_delta_array', delta_array.tolist())
-        self._set_data('shutter_count_array', count_array)
-        # self._set_data('shutter_index_array', index_array)
-        self._set_data('shutter_index_array_size', len(index_array))
-        self._set_data('shutter_index_array_first', index_array[0])
+    #     # set time, count and delta arrays
+    #     # self._set_data('shutter_time_array', time_array.tolist())
+    #     # self._set_data('shutter_delta_array', delta_array.tolist())
+    #     # self._set_data('shutter_count_array', count_array)
+    #     # self._set_data('shutter_index_array', index_array)
+    #     # self._set_data('shutter_index_array_size', len(index_array))
+    #     # self._set_data('shutter_index_array_first', index_array[0])
+    #     return (count_array, len(index_array), index_array[0])
 
     def set_illumination_path(self, detector_focal_point, detector_focal_norm):
         self.detector_focal_point = detector_focal_point
@@ -789,10 +790,10 @@ class EPIFMConfigs():
         warnings.warn('This is no longer supported.')
         self.load_input(os.path.join(csv_file_directory, 'pt-input.csv'), observable)
 
-    def set_Optical_path(self, csv_file_directory):
-        """Deprecated. Use load_shape instead."""
-        warnings.warn('This is no longer supported.')
-        self.set_optical_path(csv_file_directory)
+    # def set_Optical_path(self, csv_file_directory):
+    #     """Deprecated. Use load_shape instead."""
+    #     warnings.warn('This is no longer supported.')
+    #     self.set_optical_path(csv_file_directory)
 
 class EPIFMVisualizer:
     '''
@@ -1425,15 +1426,15 @@ class EPIFMVisualizer:
             # add to cellular plane
             cell[z0_from:z0_to, y0_from:y0_to] += signal[zi_from:zi_to, yi_from:yi_to]
 
-    def output_frames(self, rng, spatiocyte_data):
+    def output_frames(self, rng, spatiocyte_data, num_timesteps, index0, count_array_size):
         # set Fluorophores PSF
-        self.set_fluo_psf(spatiocyte_data)
+        self.set_fluo_psf(spatiocyte_data, count_array_size)
 
-        num_timesteps = self.configs.shutter_index_array_size
-        index0 = self.configs.shutter_index_array_first
+        # num_timesteps = self.configs.shutter_index_array_size
+        # index0 = self.configs.shutter_index_array_first
 
         if self.get_nprocs() == 1:
-            self.output_frames_each_process(rng, spatiocyte_data, index0, num_timesteps)
+            self.output_frames_each_process(rng, spatiocyte_data, index0, num_timesteps, index0)
         else:
             num_processes = multiprocessing.cpu_count()
             n, m = divmod(num_timesteps, num_processes)
@@ -1450,7 +1451,7 @@ class EPIFMVisualizer:
                 #XXX: Initialize rng for each process
                 process = multiprocessing.Process(
                     target=self.output_frames_each_process,
-                    args=(rng, spatiocyte_data, start_index, stop_index))
+                    args=(rng, spatiocyte_data, start_index, stop_index, index0))
                 process.start()
                 processes.append(process)
                 start_index = stop_index
@@ -1458,7 +1459,7 @@ class EPIFMVisualizer:
             for process in processes:
                 process.join()
 
-    def output_frames_each_process(self, rng, spatiocyte_data, start_index, stop_index):
+    def output_frames_each_process(self, rng, spatiocyte_data, start_index, stop_index, index0):
         # # set seed for random number
         # rng.seed()
 
@@ -1480,7 +1481,7 @@ class EPIFMVisualizer:
         # set delta_count
         delta_count = int(round(exposure_time / data_interval))
 
-        index0 = self.configs.shutter_index_array_first  # index_array[0]
+        # index0 = self.configs.shutter_index_array_first  # index_array[0]
 
         for index in range(start_index, stop_index, 1):
             # frame-time in sec
@@ -1871,13 +1872,13 @@ class EPIFMVisualizer:
     def get_nprocs(self):
         return self.__nprocs
 
-    def set_fluo_psf(self, spatiocyte_data):
+    def set_fluo_psf(self, spatiocyte_data, count_array_size):
         depths = set()
 
         # get cell size
         Nx, Ny, Nz = self.get_cell_size()
 
-        count_array_size = len(self.configs.shutter_count_array)
+        # count_array_size = len(self.configs.shutter_count_array)
 
         exposure_time = self.configs.detector_exposure_time
         data_interval = self.configs.spatiocyte_interval
