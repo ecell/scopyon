@@ -328,7 +328,7 @@ class EPIFMConfigs():
         _log.info('    Dark Count =  {} electron/sec'.format(self.detector_dark_count))
         _log.info('    EM gain = x {}'.format(self.detector_emgain))
 
-    def set_analog_to_digital_converter(self, rng, bit = None,
+    def set_analog_to_digital_converter(self, bit = None,
                         gain = None,
                         offset = None,
                         fullwell = None,
@@ -347,6 +347,9 @@ class EPIFMConfigs():
         _log.info('    Fullwell =  {} electron'.format(self.ADConverter_fullwell))
         _log.info('    {}-Fixed Pattern Noise: {} count'.format(self.ADConverter_fpn_type, self.ADConverter_fpn_count))
 
+        # self.set_analog_to_digital_converter_gain(rng)
+
+    def set_analog_to_digital_converter_gain(self, rng):
         # image pixel-size
         Nw_pixel = self.detector_image_size[0]
         Nh_pixel = self.detector_image_size[1]
@@ -363,20 +366,19 @@ class EPIFMConfigs():
         if (FPN_type is None):
             # offset = numpy.empty(Nw_pixel*Nh_pixel)
             # offset.fill(ADC0)
-            offset = numpy.array([ADC0 for i in range(Nw_pixel*Nh_pixel)])
+            offset = numpy.array([ADC0 for i in range(Nw_pixel * Nh_pixel)])
 
         elif (FPN_type == 'pixel'):
-            offset = numpy.rint(rng.normal(ADC0, FPN_count, Nw_pixel*Nh_pixel))
+            offset = numpy.rint(rng.normal(ADC0, FPN_count, Nw_pixel * Nh_pixel))
 
         elif (FPN_type == 'column'):
             column = rng.normal(ADC0, FPN_count, Nh_pixel)
             temporal = numpy.array([column for i in range(Nw_pixel)])
-
             offset = numpy.rint(temporal.reshape(Nh_pixel*Nw_pixel))
 
         # set ADC gain
-#        gain = numpy.array(map(lambda x: (fullwell - 0.0)/(pow(2.0, bit) - x), offset))
-        gain = (fullwell - 0.0)/(pow(2.0, bit) - offset)
+        # gain = numpy.array(map(lambda x: (fullwell - 0.0)/(pow(2.0, bit) - x), offset))
+        gain = (fullwell - 0.0) / ( pow(2.0, bit) - offset)
 
         # reshape
         self.ADConverter_offset = offset.reshape([Nw_pixel, Nh_pixel])
@@ -1423,7 +1425,7 @@ class EPIFMVisualizer:
             # add to cellular plane
             cell[z0_from:z0_to, y0_from:y0_to] += signal[zi_from:zi_to, yi_from:yi_to]
 
-    def output_frames(self, rng, dataset, pathto='./images', image_fmt='image_%07d.npy', true_fmt='true_%07d.npy', clean=False):
+    def output_frames(self, rng, dataset, pathto='./images', image_fmt='image_%07d.npy', true_fmt='true_%07d.npy'):
         # Check and create the folders for image and output files.
         if not os.path.exists(pathto):
             os.makedirs(pathto)
@@ -1845,14 +1847,14 @@ class EPIFMVisualizer:
 
                 # A/D converter: Photoelectrons --> ADC counts
                 PE  = signal + noise
-                ADC = self.get_ADC_value(pixel, PE)
+                ADC = self.get_ADC_value(rng, pixel, PE)
 
                 # set data in image array
                 camera_pixel[i][j] = [Exp, ADC]
 
         return camera_pixel, true_data
 
-    def get_ADC_value(self, pixel, photoelectron):
+    def get_ADC_value(self, rng, pixel, photoelectron):
         # pixel position
         i, j = pixel
 
