@@ -26,6 +26,7 @@ from scipy.ndimage import map_coordinates
 from . import parameter_configs
 from . import parameter_effects
 from .effects import PhysicalEffects
+from . import io
 
  # import numpy.random as rng
 
@@ -381,11 +382,9 @@ class EPIFMConfigs():
         self.ADConverter_offset = offset.reshape([Nw_pixel, Nh_pixel])
         self.ADConverter_gain = gain.reshape([Nw_pixel, Nh_pixel])
 
-    def load_shape(self, filename):
-        _log.info('--- Load Cell Shape Data:  {}'.format(filename))
-        cell_shape = numpy.genfromtxt(filename, delimiter=',')
-        cell_shape = numpy.array(cell_shape.tolist())  #XXX: == cell_shape?
-        self._set_data('spatiocyte_shape', cell_shape)
+    # def load_shape(self, filename):
+    #     _log.info('--- Load Cell Shape Data:  {}'.format(filename))
+    #     self._set_data('spatiocyte_shape', io.read_spatiocyte_shape(filename))
 
     def load_input(self, filename, observable=None):
         _log.info('--- Input Spatiocyte Data: {}'.format(filename))
@@ -464,14 +463,14 @@ class EPIFMConfigs():
 
         return efficiency.tolist()
 
-    def set_optical_path(self, csv_file_directory, max_count=None):
+    def set_optical_path(self):
         # (0) Data: Cell Model Sample
         self.set_Time_arrays()
-        self.set_Spatiocyte_data_arrays(csv_file_directory, max_count)
+        # self.set_Spatiocyte_data_arrays(csv_file_directory, max_count)
 
         # (1) Illumination path: Light source --> Cell Model Sample
-        #self.set_Illumination_path()
-        #exit()
+        # self.set_Illumination_path()
+        # exit()
 
         # (2) Detection path: Cell Model Sample --> Detector
         self.set_Detection_path()
@@ -495,146 +494,98 @@ class EPIFMConfigs():
         exposure = self.detector_exposure_time
         N_index = int(round((end - start)/exposure))
         i0 = int(round(start/exposure))
-
         index_array = numpy.array([i + i0 for i in range(N_index)])
+
         # set time, count and delta arrays
-        self._set_data('shutter_time_array', time_array.tolist())
-        self._set_data('shutter_delta_array', delta_array.tolist())
-        self._set_data('shutter_count_array', count_array.tolist())
-        self._set_data('shutter_index_array', index_array.tolist())
-
-    def set_Spatiocyte_data_arrays(self, csv_file_directory, max_count=None):
-        # get spatiocyte file directory
-        # csv_file_directory = self.spatiocyte_file_directory
-
-        # set data-array
-        data = []
-
-        # get count-array
-        count_array = numpy.array(self.shutter_count_array)
-
-        # read lattice file
-        for i in range(len(count_array)):
-            csv_file_path = os.path.join(csv_file_directory, 'pt-{:09d}.0.csv'.format(count_array[i]))
-            if not os.path.isfile(csv_file_path):
-                _log.err('{} not found'.format(csv_file_path))
-                #XXX: raise an axception
-
-            with open(csv_file_path, 'r') as csv_file:
-                particles = []
-                t = None
-                for row in csv.reader(csv_file):
-                    t_ = float(row[0])
-                    coordinate = (float(row[1]), float(row[2]), float(row[3]))
-                    # radius = float(row[4])
-                    id1 = literal_eval(row[5])
-                    assert isinstance(id1, tuple) and len(id1) == 2
-                    id2 = literal_eval(row[6])
-                    assert isinstance(id2, tuple) and len(id2) == 2
-
-                    if len(row) >= 9:
-                        p_state, cyc_id = float(row[7]), float(row[8])
-                    else:
-                        p_state, cyc_id = 1.0, float('inf')
-
-                    particles.append((coordinate, id1[0], id1[1], id2[1], p_state, cyc_id))
-                    if t is None:
-                        t = t_
-                    elif t != t_:
-                        raise RuntimeError('File [{}] contains multiple time'.format(csv_file_path))
-
-                # Just for debugging
-                if max_count is not None and len(particles) > max_count:
-                    particles = particles[: max_count]
-
-                _log.debug('File [{}] was loaded. [t={}, #particles={}]'.format(csv_file_path, t, len(particles)))
-                data.append([t, particles])
-
-        data.sort(key=lambda x: x[0])
-
-        # set data
-        self._set_data('spatiocyte_data', data)
+        # self._set_data('shutter_time_array', time_array.tolist())
+        # self._set_data('shutter_delta_array', delta_array.tolist())
+        self._set_data('shutter_count_array', count_array)
+        # self._set_data('shutter_index_array', index_array)
+        self._set_data('shutter_index_array_size', len(index_array))
+        self._set_data('shutter_index_array_first', index_array[0])
 
     def set_Illumination_path(self):
         # get cell-shape data
         cell_shape = self.spatiocyte_shape.copy()
 
         # define observational image plane in nm-scale
-        voxel_size = 2.0*self.spatiocyte_VoxelRadius
+        voxel_size = 2.0 * self.spatiocyte_VoxelRadius
 
         # cell size (nm scale)
-        Nz = self.spatiocyte_lengths[2]*voxel_size
-        Ny = self.spatiocyte_lengths[1]*voxel_size
-        Nx = self.spatiocyte_lengths[0]*voxel_size
+        Nz = self.spatiocyte_lengths[2] * voxel_size
+        Ny = self.spatiocyte_lengths[1] * voxel_size
+        Nx = self.spatiocyte_lengths[0] * voxel_size
 
         # beam center
-        #b_0 = self.source_center
+        # b_0 = self.source_center
         b_0 = self.detector_focal_point
-        x_0, y_0, z_0 = numpy.array([Nx, Ny, Nz])*b_0
+        x_0, y_0, z_0 = numpy.array([Nx, Ny, Nz]) * b_0
 
         # Incident beam: 1st beam angle to basal region of the cell
-        theta_in = (self.source_angle/180.)*numpy.pi
+        theta_in = (self.source_angle / 180.0) * numpy.pi
         sin_th1 = numpy.sin(theta_in)
-        sin2 = sin_th1**2
+        sin2 = sin_th1 * sin_th1
 
         # Index of refraction
         n_1 = 1.460 # fused silica
         n_2 = 1.384 # cell
         n_3 = 1.337 # culture medium
 
-        r  = n_2/n_1
-        r2 = r**2
+        r  = n_2 / n_1
+        r2 = r * r
 
-        if (sin2/r2 < 1):
-            # find cross point of beam center and cell surface
-            #rho = numpy.sqrt(Nx**2 + Ny**2)
-            rho = Nx
+        if (sin2 / r2 < 1):
+            raise RuntimeError('Not supported.')
 
-            while (rho > 0):
-                # set beam position
-                #x_b, y_b, z_b = rho*cos_th2, rho*sin_th2 + y_0, z_0
-                x_b, y_b, z_b = rho, y_0, z_0
-                r_b = numpy.array([x_b, y_b, z_b])
+            # # find cross point of beam center and cell surface
+            # # rho = numpy.sqrt(Nx * Nx + Ny * Ny)
+            # rho = Nx
 
-                # evaluate for intersection of beam-line to cell-surface
-                diff  = numpy.sqrt(numpy.sum((cell_shape - r_b)**2, axis=1))
-                index = numpy.nonzero(diff < voxel_size)[0]
+            # while (rho > 0):
+            #     # set beam position
+            #     #x_b, y_b, z_b = rho*cos_th2, rho*sin_th2 + y_0, z_0
+            #     x_b, y_b, z_b = rho, y_0, z_0
+            #     r_b = numpy.array([x_b, y_b, z_b])
 
-                if (len(index) > 0):
+            #     # evaluate for intersection of beam-line to cell-surface
+            #     diff  = numpy.sqrt(numpy.sum((cell_shape - r_b) ** 2, axis=1))
+            #     index = numpy.nonzero(diff < voxel_size)[0]
 
-                    p_0 = cell_shape[index[0]]
-                    x_b, y_b, z_b = p_0
+            #     if (len(index) > 0):
 
-                    f0 = (x_b/Nx, y_b/Ny, z_b/Nz)
+            #         p_0 = cell_shape[index[0]]
+            #         x_b, y_b, z_b = p_0
 
-                    # evaluate for normal vector of cell-surface
-                    diff = numpy.sqrt(numpy.sum((cell_shape - p_0)**2, axis=1))
-                    k0 = numpy.nonzero(diff < 1.5*voxel_size)[0]
-                    k1 = numpy.nonzero(k0 != diff.argmin())[0]
+            #         f0 = (x_b / Nx, y_b / Ny, z_b / Nz)
 
-                    r_n = cell_shape[k0[k1]]
+            #         # evaluate for normal vector of cell-surface
+            #         diff = numpy.sqrt(numpy.sum((cell_shape - p_0) ** 2, axis=1))
+            #         k0 = numpy.nonzero(diff < 1.5 * voxel_size)[0]
+            #         k1 = numpy.nonzero(k0 != diff.argmin())[0]
 
-                    # Optimization is definitely required!!
-                    f0_norm = numpy.array([0, 0, 0])
-                    count = 0
-                    for kk in range(len(r_n)):
-                        for ii in range(len(r_n)):
-                            for jj in range(len(r_n)):
-                                if (kk!=ii and kk!=jj and ii!=jj):
-                                    t = r_n[ii] - r_n[kk]
-                                    s = r_n[jj] - r_n[kk]
+            #         r_n = cell_shape[k0[k1]]
 
-                                    vec = numpy.cross(s, t)
-                                    if (vec[0] < 0): vec = numpy.cross(t, s)
-                                    len_vec = numpy.sqrt(numpy.sum(vec**2))
-                                    if (len_vec > 0):
-                                        f0_norm = f0_norm + vec/len_vec
-                                        count += 1
+            #         # Optimization is definitely required!!
+            #         f0_norm = numpy.array([0, 0, 0])
+            #         count = 0
+            #         for kk in range(len(r_n)):
+            #             for ii in range(len(r_n)):
+            #                 for jj in range(len(r_n)):
+            #                     if (kk!=ii and kk!=jj and ii!=jj):
+            #                         t = r_n[ii] - r_n[kk]
+            #                         s = r_n[jj] - r_n[kk]
 
-                    f0_norm = f0_norm/count
-                    break
+            #                         vec = numpy.cross(s, t)
+            #                         if (vec[0] < 0): vec = numpy.cross(t, s)
+            #                         len_vec = numpy.sqrt(numpy.sum(vec**2))
+            #                         if (len_vec > 0):
+            #                             f0_norm = f0_norm + vec/len_vec
+            #                             count += 1
 
-                rho -= voxel_size/2
+            #         f0_norm = f0_norm / count
+            #         break
+
+            #     rho -= voxel_size / 2
         else:
             f0 = b_0
             f0_norm = numpy.array([1, 0, 0])
@@ -808,7 +759,11 @@ class EPIFMConfigs():
                         fpn_count = None):
         """Deprecated"""
         warnings.warn('This is no longer supported.')
-        self.set_analog_to_digital_converter(bit,
+        import numpy.random
+        rng = numpy.random
+        self.set_analog_to_digital_converter(
+                        rng,
+                        bit,
                         gain,
                         offset,
                         fullwell,
@@ -1203,115 +1158,115 @@ class EPIFMVisualizer:
 
         # Epi-illumination at apical surface
         if (sin2/r2 < 1):
+            raise RuntimeError('Not supported.')
 
-            # Refracted beam: 2nd beam angle to basal region of the cell
-            sin_th2 = (n_1/n_2)*sin_th1
-            cos_th2 = numpy.sqrt(1 - sin_th2**2)
-            beam = numpy.array([cos_th2, sin_th2, 0])
+            # # Refracted beam: 2nd beam angle to basal region of the cell
+            # sin_th2 = (n_1/n_2)*sin_th1
+            # cos_th2 = numpy.sqrt(1 - sin_th2**2)
+            # beam = numpy.array([cos_th2, sin_th2, 0])
 
-            # Normal vector: Perpendicular to apical surface of the cell
-            voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius
-            cell_shape = self.configs.spatiocyte_shape.copy()
+            # # Normal vector: Perpendicular to apical surface of the cell
+            # voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius
+            # cell_shape = self.configs.spatiocyte_shape.copy()
 
-            diff = numpy.sqrt(numpy.sum((cell_shape - p_i*1e-9)**2, axis=1))
-            k0 = numpy.nonzero(diff < 1.5*voxel_size)[0]
-            k1 = numpy.nonzero(k0 != diff.argmin())[0]
+            # diff = numpy.sqrt(numpy.sum((cell_shape - p_i*1e-9)**2, axis=1))
+            # k0 = numpy.nonzero(diff < 1.5*voxel_size)[0]
+            # k1 = numpy.nonzero(k0 != diff.argmin())[0]
 
-            r_n = cell_shape[k0[k1]]
+            # r_n = cell_shape[k0[k1]]
 
-            # Optimization is definitely required!!
-            norm = numpy.array([0, 0, 0])
-            count = 0
-            for kk in range(len(r_n)):
-                for ii in range(len(r_n)):
-                    for jj in range(len(r_n)):
-                        if (kk!=ii and kk!=jj and ii!=jj):
-                            t = r_n[ii] - r_n[kk]
-                            s = r_n[jj] - r_n[kk]
+            # # Optimization is definitely required!!
+            # norm = numpy.array([0, 0, 0])
+            # count = 0
+            # for kk in range(len(r_n)):
+            #     for ii in range(len(r_n)):
+            #         for jj in range(len(r_n)):
+            #             if (kk!=ii and kk!=jj and ii!=jj):
+            #                 t = r_n[ii] - r_n[kk]
+            #                 s = r_n[jj] - r_n[kk]
 
-                            vec = numpy.cross(s, t)
-                            if (vec[0] < 0): vec = numpy.cross(t, s)
-                            len_vec = numpy.sqrt(numpy.sum(vec**2))
-                            if (len_vec > 0):
-                                norm = norm + vec/len_vec
-                                count += 1
+            #                 vec = numpy.cross(s, t)
+            #                 if (vec[0] < 0): vec = numpy.cross(t, s)
+            #                 len_vec = numpy.sqrt(numpy.sum(vec**2))
+            #                 if (len_vec > 0):
+            #                     norm = norm + vec/len_vec
+            #                     count += 1
 
-            norm = norm/count
+            # norm = norm/count
 
-            # Plane to separate between apical and basal cell-surface regions
-            v_0 = numpy.array([voxel_size/1e-9, y_0, 0])
-            v_1 = numpy.array([voxel_size/1e-9, 0, z_0])
-            v_2 = numpy.cross(v_0, v_1)
-            len_v2 = numpy.sqrt(numpy.sum(v_2**2))
-            plane_vec = v_2/len_v2
+            # # Plane to separate between apical and basal cell-surface regions
+            # v_0 = numpy.array([voxel_size/1e-9, y_0, 0])
+            # v_1 = numpy.array([voxel_size/1e-9, 0, z_0])
+            # v_2 = numpy.cross(v_0, v_1)
+            # len_v2 = numpy.sqrt(numpy.sum(v_2**2))
+            # plane_vec = v_2/len_v2
 
-            # Apical region (>0) and Basal region (<0)
-            a, b, c = plane_vec
-            plane_eqn = a*(x_i - voxel_size/1e-9) + b*y_i + c*z_i
+            # # Apical region (>0) and Basal region (<0)
+            # a, b, c = plane_vec
+            # plane_eqn = a*(x_i - voxel_size/1e-9) + b*y_i + c*z_i
 
-            # check the direction of normal vector at each regions
-            check = numpy.dot(plane_vec, norm)
+            # # check the direction of normal vector at each regions
+            # check = numpy.dot(plane_vec, norm)
 
-            if (plane_eqn < 0 and check > 0):
-                norm = -norm
-            elif (plane_eqn > 0 and check < 0):
-                norm = -norm
+            # if (plane_eqn < 0 and check > 0):
+            #     norm = -norm
+            # elif (plane_eqn > 0 and check < 0):
+            #     norm = -norm
 
-            # Incident beam: 3rd beam angle to apical surface of the cell
-            #cos_th3 = numpy.dot(beam, norm)
-            norm_x, norm_y, norm_z = norm
-            len_norm_xy = numpy.sqrt(norm_x**2 + norm_y**2)
-            norm_xy = numpy.array([norm_x, norm_y, 0])/len_norm_xy
-            cos_th3 = numpy.dot(beam, norm_xy)
+            # # Incident beam: 3rd beam angle to apical surface of the cell
+            # #cos_th3 = numpy.dot(beam, norm)
+            # norm_x, norm_y, norm_z = norm
+            # len_norm_xy = numpy.sqrt(norm_x**2 + norm_y**2)
+            # norm_xy = numpy.array([norm_x, norm_y, 0])/len_norm_xy
+            # cos_th3 = numpy.dot(beam, norm_xy)
 
-            if (cos_th3 > 0 and plane_eqn > 0):
+            # if (cos_th3 > 0 and plane_eqn > 0):
 
-                # Incident beam to apical surface: amplitude
-                cosT = numpy.sqrt(1 - sin2/r2)
+            #     # Incident beam to apical surface: amplitude
+            #     cosT = numpy.sqrt(1 - sin2/r2)
 
-                A2_Ip = A2_Ip*(2*cos/(cosT + r*cos))**2
-                A2_Is = A2_Is*(2*cos/(r*cosT + cos))**2
+            #     A2_Ip = A2_Ip*(2*cos/(cosT + r*cos))**2
+            #     A2_Is = A2_Is*(2*cos/(r*cosT + cos))**2
 
-                # Incident beam to apical surface: 3rd beam angle
-                cos = cos_th3
-                sin = numpy.sqrt(1 - cos**2)
-                sin2 = sin**2
-                cos2 = cos**2
+            #     # Incident beam to apical surface: 3rd beam angle
+            #     cos = cos_th3
+            #     sin = numpy.sqrt(1 - cos**2)
+            #     sin2 = sin**2
+            #     cos2 = cos**2
 
-                r  = n_3/n_2 # must be < 1
-                r2 = r**2
+            #     r  = n_3/n_2 # must be < 1
+            #     r2 = r**2
 
-                if (sin2/r2 > 1):
-                    # Evanescent field: Amplitude and Penetration depth
-                    # Assume that the s-polar direction is parallel to y-axis
-                    A2_x = A2_Ip*(4*cos2*(sin2 - r2)/(r2**2*cos2 + sin2 - r2))
-                    A2_y = A2_Is*(4*cos2/(1 - r2))
-                    A2_z = A2_Ip*(4*cos2*sin2/(r2**2*cos2 + sin2 - r2))
+            #     if (sin2/r2 > 1):
+            #         # Evanescent field: Amplitude and Penetration depth
+            #         # Assume that the s-polar direction is parallel to y-axis
+            #         A2_x = A2_Ip*(4*cos2*(sin2 - r2)/(r2**2*cos2 + sin2 - r2))
+            #         A2_y = A2_Is*(4*cos2/(1 - r2))
+            #         A2_z = A2_Ip*(4*cos2*sin2/(r2**2*cos2 + sin2 - r2))
 
-                    A2_Tp = A2_x + A2_z
-                    A2_Ts = A2_y
+            #         A2_Tp = A2_x + A2_z
+            #         A2_Ts = A2_y
 
-                    #penetration_depth = wave_length/(4.0*numpy.pi*numpy.sqrt(n_2**2*sin2 - n_3**2))
-                else:
-                    # Epi-fluorescence field: Amplitude and Penetration depth
-                    cosT = numpy.sqrt(1 - sin2/r2)
+            #         #penetration_depth = wave_length/(4.0*numpy.pi*numpy.sqrt(n_2**2*sin2 - n_3**2))
+            #     else:
+            #         # Epi-fluorescence field: Amplitude and Penetration depth
+            #         cosT = numpy.sqrt(1 - sin2/r2)
 
-                    A2_Tp = A2_Ip*(2*cos/(cosT + r*cos))**2
-                    A2_Ts = A2_Is*(2*cos/(r*cosT + cos))**2
+            #         A2_Tp = A2_Ip*(2*cos/(cosT + r*cos))**2
+            #         A2_Ts = A2_Is*(2*cos/(r*cosT + cos))**2
 
-                    #penetration_depth = float('inf')
-            else:
-                # Epi-fluorescence field: Amplitude and Penetration depth
-                A2_Tp = A2_Ip
-                A2_Ts = A2_Is
+            #         #penetration_depth = float('inf')
+            # else:
+            #     # Epi-fluorescence field: Amplitude and Penetration depth
+            #     A2_Tp = A2_Ip
+            #     A2_Ts = A2_Is
 
-                #penetration_depth = float('inf')
+            #     #penetration_depth = float('inf')
 
-            # for temp
-            penetration_depth = float('inf')
-
-            # TIRF-illumination at basal cell-surface
+            # # for temp
+            # penetration_depth = float('inf')
         else:
+            # TIRF-illumination at basal cell-surface
             # Evanescent field: Amplitude and Depth
             # Assume that the s-polar direction is parallel to y-axis
             A2_x = A2_Ip*(4*cos2*(sin2 - r2)/(r2**2*cos2 + sin2 - r2))
@@ -1470,16 +1425,15 @@ class EPIFMVisualizer:
             # add to cellular plane
             cell[z0_from:z0_to, y0_from:y0_to] += signal[zi_from:zi_to, yi_from:yi_to]
 
-    def output_frames(self, rng, num_div=1):
+    def output_frames(self, rng, spatiocyte_data):
         # set Fluorophores PSF
-        self.set_fluo_psf()
+        self.set_fluo_psf(spatiocyte_data)
 
-        index_array = numpy.array(self.configs.shutter_index_array)
-        num_timesteps = len(index_array)
-        index0 = index_array[0]
+        num_timesteps = self.configs.shutter_index_array_size
+        index0 = self.configs.shutter_index_array_first
 
         if self.get_nprocs() == 1:
-            self.output_frames_each_process(rng, index0, num_timesteps)
+            self.output_frames_each_process(rng, spatiocyte_data, index0, num_timesteps)
         else:
             num_processes = multiprocessing.cpu_count()
             n, m = divmod(num_timesteps, num_processes)
@@ -1496,7 +1450,7 @@ class EPIFMVisualizer:
                 #XXX: Initialize rng for each process
                 process = multiprocessing.Process(
                     target=self.output_frames_each_process,
-                    args=(rng, start_index, stop_index))
+                    args=(rng, spatiocyte_data, start_index, stop_index))
                 process.start()
                 processes.append(process)
                 start_index = stop_index
@@ -1504,7 +1458,7 @@ class EPIFMVisualizer:
             for process in processes:
                 process.join()
 
-    def output_frames_each_process(self, rng, start_index, stop_index):
+    def output_frames_each_process(self, rng, spatiocyte_data, start_index, stop_index):
         # # set seed for random number
         # rng.seed()
 
@@ -1524,24 +1478,23 @@ class EPIFMVisualizer:
         data_interval = self.configs.spatiocyte_interval
 
         # set delta_count
-        delta_count = int(round(exposure_time/data_interval))
+        delta_count = int(round(exposure_time / data_interval))
 
-        index_array = numpy.array(self.configs.shutter_index_array)
-        index0 = index_array[0]
+        index0 = self.configs.shutter_index_array_first  # index_array[0]
 
         for index in range(start_index, stop_index, 1):
             # frame-time in sec
-            time = exposure_time*index
+            time = exposure_time * index
 
             _log.info('time: {} sec ({})'.format(time, index))
 
             # define cell in nm-scale
             cell = numpy.zeros(shape=(Nz, Ny))
 
-            c0 = (index - index0)*delta_count
-            c1 = (index - index0 + 1)*delta_count
+            c0 = (index - index0) * delta_count
+            c1 = (index - index0 + 1) * delta_count
 
-            frame_data = self.configs.spatiocyte_data[c0:c1]
+            frame_data = spatiocyte_data[c0: c1]
 
             # loop for frame data
             for i, (i_time, data) in enumerate(frame_data):
@@ -1549,8 +1502,8 @@ class EPIFMVisualizer:
 
                 # define true-dataset in last-frame
                 # [frame-time, m-ID, m-state, p-state, (depth,y0,z0), sqrt(<dr2>)]
-                true_data = numpy.zeros(shape=(len(data),7))
-                true_data[:,0] = time
+                true_data = numpy.zeros(shape=(len(data), 7))
+                true_data[:, 0] = time
 
                 # loop for particles
                 for j, data_j in enumerate(data):
@@ -1560,13 +1513,11 @@ class EPIFMVisualizer:
             camera, true_data = self.detector_output(rng, cell, true_data)
 
             # save image to numpy-binary file
-            image_file_name = os.path.join(self.configs.image_file_dir,
-                                        self.configs.image_file_name_format % (index))
+            image_file_name = os.path.join(self.configs.image_file_dir, self.configs.image_file_name_format % (index))
             numpy.save(image_file_name, camera)
 
             # save true-dataset to numpy-binary file
-            true_file_name = os.path.join(self.configs.image_file_dir,
-                                        self.configs.true_file_name_format % (index))
+            true_file_name = os.path.join(self.configs.image_file_dir, self.configs.true_file_name_format % (index))
             numpy.save(true_file_name, true_data)
 
     def overwrite_smeared(self, cell_pixel, photon_dist, i, j):
@@ -1917,27 +1868,27 @@ class EPIFMVisualizer:
     def get_nprocs(self):
         return self.__nprocs
 
-    def set_fluo_psf(self):
+    def set_fluo_psf(self, spatiocyte_data):
         depths = set()
 
         # get cell size
         Nx, Ny, Nz = self.get_cell_size()
 
-        count_array = numpy.array(self.configs.shutter_count_array)
+        count_array_size = len(self.configs.shutter_count_array)
 
         exposure_time = self.configs.detector_exposure_time
         data_interval = self.configs.spatiocyte_interval
 
         delta_count = int(round(exposure_time/data_interval))
 
-        for count in range(0, len(count_array), delta_count):
+        for count in range(0, count_array_size, delta_count):
 
             # focal point
             f_0 = self.configs.detector_focal_point
             p_0 = numpy.array([Nx, Ny, Nz])*f_0
             x_0, y_0, z_0 = p_0
 
-            frame_data = self.configs.spatiocyte_data[count:count+delta_count]
+            frame_data = spatiocyte_data[count:count+delta_count]
 
             for _, data in frame_data:
                 for data_j in data:
