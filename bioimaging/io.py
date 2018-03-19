@@ -1,24 +1,27 @@
 import os.path
 import csv
+import copy
 from ast import literal_eval
 from collections import namedtuple
+
+import numpy
 
 from logging import getLogger
 _log = getLogger(__name__)
 
 
-def read_spatiocyte(pathto, tstart, tend, interval, max_count=None):
-    (count_array, index_array_size, index0) = spatiocyte_time_arrays(tstart, tend, interval)
+def read_spatiocyte(pathto, tstart, tend, interval, exposure_time, observable=None, max_count=None):
+    (interval, species_id, species_index, lengths, voxel_radius, observables) = read_spatiocyte_input(os.path.join(pathto, 'pt-input.csv'), observable)
+    (count_array, index_array_size, index0) = spatiocyte_time_arrays(tstart, tend, interval, exposure_time)
     data = read_spatiocyte_data(pathto, count_array, max_count=max_count)
 
-    SpatiocyteDataSet = namedtuple('SpatiocyteDataSet', ('data', 'index_array_size', 'index0'))
-    return SpatiocyteDataSet(data, index_array_size=index_array_size, index0=index0)
+    SpatiocyteDataSet = namedtuple('SpatiocyteDataSet', ('data', 'index_array_size', 'index0', 'count_array_size', 'interval', 'species_id', 'species_index', 'lengths', 'voxel_radius', 'observables'))
+    return SpatiocyteDataSet(data, index_array_size=index_array_size, index0=index0, count_array_size=len(count_array), interval=interval, species_id=species_id, species_index=species_index, lengths=lengths, voxel_radius=voxel_radius, observables=observables)
 
-def spatiocyte_time_arrays(start_time, end_time, interval):
+def spatiocyte_time_arrays(start_time, end_time, interval, exposure_time):
     # set count arrays by spatiocyte interval
-    interval = self.spatiocyte_interval
-    N_count = int(round((end_time - start_time)/interval))
-    c0 = int(round(start_time/interval))
+    N_count = int(round((end_time - start_time) / interval))
+    c0 = int(round(start_time / interval))
 
     delta_array = numpy.zeros(shape=(N_count))
     delta_array.fill(interval)
@@ -26,12 +29,64 @@ def spatiocyte_time_arrays(start_time, end_time, interval):
     count_array = numpy.array([c + c0 for c in range(N_count)])
 
     # set index arrays by exposure time
-    exposure = self.detector_exposure_time
-    N_index = int(round((end_time - start_time)/exposure))
-    i0 = int(round(start_time/exposure))
+    N_index = int(round((end_time - start_time) / exposure_time))
+    i0 = int(round(start_time / exposure_time))
     index_array = numpy.array([i + i0 for i in range(N_index)])
 
     return (count_array, len(index_array), index_array[0])
+
+def read_spatiocyte_input(filename, observable=None):
+    with open(filename, 'r') as f:
+        header = f.readline().rstrip().split(',')
+
+    header[:5] = [float(_) for _ in header[:5]]
+    interval, lengths, voxel_r, species_info = header[0], (header[3:0:-1]), header[4], header[5:]
+
+    species_id = range(len(species_info)-2)
+    species_index  = [_.split(':')[1].split(']')[0] for _ in species_info[0:len(species_info)-2]]
+    species_radius = [float(_.split('=')[1]) for _ in species_info[0:len(species_info)-2]]
+
+    # # get run time
+    # # self._set_data('spatiocyte_file_directory', csv_file_directory)
+    # self._set_data('spatiocyte_interval', interval)
+
+    # # get species properties
+    # self._set_data('spatiocyte_species_id', species_id)
+    # self._set_data('spatiocyte_index',  species_index)
+    # #self._set_data('spatiocyte_diffusion', species_diffusion)
+    # # self._set_data('spatiocyte_radius', species_radius)
+
+    # # get lattice properties
+    # # self._set_data('spatiocyte_lattice_id', map(lambda x: x[0], lattice))
+    # self._set_data('spatiocyte_lengths', lengths)
+    # self._set_data('spatiocyte_VoxelRadius', voxel_r)
+    # # self._set_data('spatiocyte_theNormalizedVoxelRadius', 0.5)
+
+    # set observable
+    if observable is None:
+        index = [True for i in range(len(species_index))]
+    else:
+        index = list(map(lambda x:  True if x.find(observable) > -1 else False, species_index))
+
+    # #index = [False, True]
+    # self.spatiocyte_observables = copy.copy(index)
+
+    _log.info('    Time Interval = {} sec'.format(interval))
+    _log.info('    Voxel radius  = {} m'.format(voxel_r))
+    _log.info('    Compartment lengths: {} voxels'.format(lengths))
+    _log.info('    Species Index: {}'.format(species_index))
+    _log.info('    Observable: {}'.format(index))
+
+    # # Visualization error
+    # if self.spatiocyte_species_id is None:
+    #     raise VisualizerError('Cannot find species_id in any given csv files')
+
+    # if len(self.spatiocyte_index) == 0:
+    #     # raise VisualizerError('Cannot find spatiocyte_index in any given csv files: ' \
+    #     #                 + ', '.join(csv_file_directory))
+    #     raise VisualizerError('Cannot find spatiocyte_index: {}'.format(filename))
+
+    return (interval, species_id, species_index, lengths, voxel_r, copy.copy(index))
 
 def read_spatiocyte_shape(filename):
     cell_shape = numpy.genfromtxt(filename, delimiter=',')

@@ -386,59 +386,59 @@ class EPIFMConfigs():
     #     _log.info('--- Load Cell Shape Data:  {}'.format(filename))
     #     self._set_data('spatiocyte_shape', io.read_spatiocyte_shape(filename))
 
-    def load_input(self, filename, observable=None):
-        _log.info('--- Input Spatiocyte Data: {}'.format(filename))
+    # def load_input(self, filename, observable=None):
+    #     _log.info('--- Input Spatiocyte Data: {}'.format(filename))
 
-        ### header
-        with open(filename, 'r') as f:
-            header = f.readline().rstrip().split(',')
-            header[:5] = [float(_) for _ in header[:5]]
+    #     ### header
+    #     with open(filename, 'r') as f:
+    #         header = f.readline().rstrip().split(',')
+    #         header[:5] = [float(_) for _ in header[:5]]
 
-        interval, lengths, voxel_r, species_info = header[0], (header[3:0:-1]), header[4], header[5:]
+    #     interval, lengths, voxel_r, species_info = header[0], (header[3:0:-1]), header[4], header[5:]
 
-        species_id = range(len(species_info)-2)
-        species_index  = [_.split(':')[1].split(']')[0] for _ in species_info[0:len(species_info)-2]]
-        species_radius = [float(_.split('=')[1]) for _ in species_info[0:len(species_info)-2]]
+    #     species_id = range(len(species_info)-2)
+    #     species_index  = [_.split(':')[1].split(']')[0] for _ in species_info[0:len(species_info)-2]]
+    #     species_radius = [float(_.split('=')[1]) for _ in species_info[0:len(species_info)-2]]
 
-        # get run time
-        # self._set_data('spatiocyte_file_directory', csv_file_directory)
-        self._set_data('spatiocyte_interval', interval)
+    #     # get run time
+    #     # self._set_data('spatiocyte_file_directory', csv_file_directory)
+    #     self._set_data('spatiocyte_interval', interval)
 
-        # get species properties
-        self._set_data('spatiocyte_species_id', species_id)
-        self._set_data('spatiocyte_index',  species_index)
-        #self._set_data('spatiocyte_diffusion', species_diffusion)
-        # self._set_data('spatiocyte_radius', species_radius)
+    #     # get species properties
+    #     self._set_data('spatiocyte_species_id', species_id)
+    #     self._set_data('spatiocyte_index',  species_index)
+    #     #self._set_data('spatiocyte_diffusion', species_diffusion)
+    #     # self._set_data('spatiocyte_radius', species_radius)
 
-        # get lattice properties
-        # self._set_data('spatiocyte_lattice_id', map(lambda x: x[0], lattice))
-        self._set_data('spatiocyte_lengths', lengths)
-        self._set_data('spatiocyte_VoxelRadius', voxel_r)
-        # self._set_data('spatiocyte_theNormalizedVoxelRadius', 0.5)
+    #     # get lattice properties
+    #     # self._set_data('spatiocyte_lattice_id', map(lambda x: x[0], lattice))
+    #     self._set_data('spatiocyte_lengths', lengths)
+    #     self._set_data('spatiocyte_VoxelRadius', voxel_r)
+    #     # self._set_data('spatiocyte_theNormalizedVoxelRadius', 0.5)
 
-        # set observable
-        if observable is None:
-            index = [True for i in range(len(self.spatiocyte_index))]
-        else:
-            index = list(map(lambda x:  True if x.find(observable) > -1 else False, self.spatiocyte_index))
+    #     # set observable
+    #     if observable is None:
+    #         index = [True for i in range(len(self.spatiocyte_index))]
+    #     else:
+    #         index = list(map(lambda x:  True if x.find(observable) > -1 else False, self.spatiocyte_index))
 
-        #index = [False, True]
-        self.spatiocyte_observables = copy.copy(index)
+    #     #index = [False, True]
+    #     self.spatiocyte_observables = copy.copy(index)
 
-        _log.info('    Time Interval = {} sec'.format(self.spatiocyte_interval))
-        _log.info('    Voxel radius  = {} m'.format(self.spatiocyte_VoxelRadius))
-        _log.info('    Compartment lengths: {} voxels'.format(self.spatiocyte_lengths))
-        _log.info('    Species Index: {}'.format(self.spatiocyte_index))
-        _log.info('    Observable: {}'.format(self.spatiocyte_observables))
+    #     _log.info('    Time Interval = {} sec'.format(self.spatiocyte_interval))
+    #     _log.info('    Voxel radius  = {} m'.format(self.spatiocyte_VoxelRadius))
+    #     _log.info('    Compartment lengths: {} voxels'.format(self.spatiocyte_lengths))
+    #     _log.info('    Species Index: {}'.format(self.spatiocyte_index))
+    #     _log.info('    Observable: {}'.format(self.spatiocyte_observables))
 
-        # Visualization error
-        if self.spatiocyte_species_id is None:
-            raise VisualizerError('Cannot find species_id in any given csv files')
+    #     # Visualization error
+    #     if self.spatiocyte_species_id is None:
+    #         raise VisualizerError('Cannot find species_id in any given csv files')
 
-        if len(self.spatiocyte_index) == 0:
-            # raise VisualizerError('Cannot find spatiocyte_index in any given csv files: ' \
-            #                 + ', '.join(csv_file_directory))
-            raise VisualizerError('Cannot find spatiocyte_index: {}'.format(filename))
+    #     if len(self.spatiocyte_index) == 0:
+    #         # raise VisualizerError('Cannot find spatiocyte_index in any given csv files: ' \
+    #         #                 + ', '.join(csv_file_directory))
+    #         raise VisualizerError('Cannot find spatiocyte_index: {}'.format(filename))
 
     def set_output_path(self, image_file_dir = None,
                         image_file_name_format = None,
@@ -815,24 +815,27 @@ class EPIFMVisualizer:
         if not os.path.exists(self.configs.image_file_dir):
             os.makedirs(self.configs.image_file_dir)
 
-    def get_cell_size(self):
+    def get_cell_size(self, voxel_radius, lengths):
         # define observational image plane in nm-scale
-        voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
+        voxel_size = 2 * voxel_radius / 1e-9
+        # voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
 
         ## cell size (nm scale)
-        Nz = int(self.configs.spatiocyte_lengths[2]*voxel_size)
-        Ny = int(self.configs.spatiocyte_lengths[1]*voxel_size)
-        Nx = int(self.configs.spatiocyte_lengths[0]*voxel_size)
+        Nz = int(lengths[2] * voxel_size)
+        Ny = int(lengths[1] * voxel_size)
+        Nx = int(lengths[0] * voxel_size)
+        # Nz = int(self.configs.spatiocyte_lengths[2]*voxel_size)
+        # Ny = int(self.configs.spatiocyte_lengths[1]*voxel_size)
+        # Nx = int(self.configs.spatiocyte_lengths[0]*voxel_size)
 
-        return Nx, Ny, Nz
+        return numpy.array([Nx, Ny, Nz])
 
-    def get_focal_center(self):
+    def get_focal_center(self, voxel_radius, lengths):
         # get cell size
-        Nx, Ny, Nz = self.get_cell_size()
+        cell_size = self.get_cell_size(voxel_radius, lengths)
 
         # focal point
-        f_0 = self.configs.detector_focal_point
-        p_0 = numpy.array([Nx, Ny, Nz])*f_0
+        p_0 = cell_size * self.configs.detector_focal_point
 
         return p_0
 
@@ -916,45 +919,45 @@ class EPIFMVisualizer:
             # set molecule-states
             self.molecule_states[m_id] = int(s_id)
 
-    def set_photobleaching_dataset(self, count, dataset):
-        if (len(dataset) > 0):
-            if self.get_nprocs() != 1:
-                # set arrays for photobleaching-state and photon-budget
-                state_pb = {}
-                budget = {}
+    #XXX: def set_photobleaching_dataset(self, count, dataset, voxel_radius, lengths):
+    #XXX:     if (len(dataset) > 0):
+    #XXX:         if self.get_nprocs() != 1:
+    #XXX:             # set arrays for photobleaching-state and photon-budget
+    #XXX:             state_pb = {}
+    #XXX:             budget = {}
 
-                num_processes = min(multiprocessing.cpu_count(), len(dataset))
-                n, m = divmod(len(dataset), num_processes)
+    #XXX:             num_processes = min(multiprocessing.cpu_count(), len(dataset))
+    #XXX:             n, m = divmod(len(dataset), num_processes)
 
-                chunks = [n + 1 if i < m else n for i in range(num_processes)]
+    #XXX:             chunks = [n + 1 if i < m else n for i in range(num_processes)]
 
-                processes = []
-                start_index = 0
+    #XXX:             processes = []
+    #XXX:             start_index = 0
 
-                for chunk in chunks:
-                    stop_index = start_index + chunk
-                    p, c = multiprocessing.Pipe()
-                    process = multiprocessing.Process(target=self.get_photobleaching_dataset_process,
-                                            args=(count, dataset[start_index:stop_index], c))
-                    processes.append((p, process))
-                    start_index = stop_index
+    #XXX:             for chunk in chunks:
+    #XXX:                 stop_index = start_index + chunk
+    #XXX:                 p, c = multiprocessing.Pipe()
+    #XXX:                 process = multiprocessing.Process(target=self.get_photobleaching_dataset_process,
+    #XXX:                                         args=(count, dataset[start_index:stop_index], voxel_radius, lengths, c))
+    #XXX:                 processes.append((p, process))
+    #XXX:                 start_index = stop_index
 
-                for _, process in processes:
-                    process.start()
+    #XXX:             for _, process in processes:
+    #XXX:                 process.start()
 
-                for pipe, process in processes:
-                    new_state_pb, new_budget = pipe.recv()
-                    state_pb.update(new_state_pb)
-                    budget.update(new_budget)
-                    process.join()
+    #XXX:             for pipe, process in processes:
+    #XXX:                 new_state_pb, new_budget = pipe.recv()
+    #XXX:                 state_pb.update(new_state_pb)
+    #XXX:                 budget.update(new_budget)
+    #XXX:                 process.join()
 
-            else:
-                state_pb, budget = self.get_photobleaching_dataset(count, dataset)
+    #XXX:         else:
+    #XXX:             state_pb, budget = self.get_photobleaching_dataset(count, dataset, voxel_radius, lengths)
 
-            # reset global-arrays for photobleaching-state and photon-budget
-            for key, value in state_pb.items():
-                self.effects.fluorescence_state[key,count] = state_pb[key]
-                self.effects.fluorescence_budget[key] = budget[key]
+    #XXX:         # reset global-arrays for photobleaching-state and photon-budget
+    #XXX:         for key, value in state_pb.items():
+    #XXX:             self.effects.fluorescence_state[key,count] = state_pb[key]
+    #XXX:             self.effects.fluorescence_budget[key] = budget[key]
 
     def get_new_dataset(self, count, N_emit0, dataset):
         state_mo = self.molecule_states
@@ -972,75 +975,75 @@ class EPIFMVisualizer:
 
         return new_dataset
 
-    def get_photobleaching_dataset(self, count, dataset):
-        # get focal point
-        p_0 = self.get_focal_center()
+    #XXX: def get_photobleaching_dataset(self, count, dataset):
+    #XXX:     # get focal point
+    #XXX:     p_0 = self.get_focal_center(voxel_radius, lengths)
 
-        # set arrays for photobleaching-states and photon-budget
-        result_state_pb = {}
-        result_budget = {}
+    #XXX:     # set arrays for photobleaching-states and photon-budget
+    #XXX:     result_state_pb = {}
+    #XXX:     result_budget = {}
 
-        # loop for particles
-        for j, data_j in enumerate(dataset):
+    #XXX:     # loop for particles
+    #XXX:     for j, data_j in enumerate(dataset):
 
-                # set particle position
-            p_i = numpy.array(data_j[1:4]).astype('float')/1e-9
+    #XXX:             # set particle position
+    #XXX:         p_i = numpy.array(data_j[1:4]).astype('float')/1e-9
 
-            # Snell's law
-            amplitude, penet_depth = self.snells_law(p_i, p_0)
+    #XXX:         # Snell's law
+    #XXX:         amplitude, penet_depth = self.snells_law(p_i, p_0)
 
-            # particle coordinate in real(nm) scale
-            p_i, radial, depth = self.get_coordinate(p_i, p_0)
+    #XXX:         # particle coordinate in real(nm) scale
+    #XXX:         p_i, radial, depth = self.get_coordinate(p_i, p_0)
 
-            # Molecule ID and its state
-            m_id, s_id = literal_eval(data_j[5])
-            # Fluorophore ID and compartment ID
-            f_id, l_id = literal_eval(data_j[6])
+    #XXX:         # Molecule ID and its state
+    #XXX:         m_id, s_id = literal_eval(data_j[5])
+    #XXX:         # Fluorophore ID and compartment ID
+    #XXX:         f_id, l_id = literal_eval(data_j[6])
 
-            sid_array = numpy.array(self.configs.spatiocyte_species_id)
-            s_index = (numpy.abs(sid_array - int(s_id))).argmin()
+    #XXX:         sid_array = numpy.array(self.configs.spatiocyte_species_id)
+    #XXX:         s_index = (numpy.abs(sid_array - int(s_id))).argmin()
 
-            if self.configs.spatiocyte_observables[s_index] is True:
-                state_j = 1
-            else:
-                state_j = 0
+    #XXX:         if self.configs.spatiocyte_observables[s_index] is True:
+    #XXX:             state_j = 1
+    #XXX:         else:
+    #XXX:             state_j = 0
 
-            # get exponential amplitude (only for observation at basal surface)
-            #amplitide = amplitude*numpy.exp(-depth/pent_depth)
+    #XXX:         # get exponential amplitude (only for observation at basal surface)
+    #XXX:         #amplitide = amplitude*numpy.exp(-depth/pent_depth)
 
-            # get the number of emitted photons
-            N_emit = self.get_emit_photons(amplitude)
+    #XXX:         # get the number of emitted photons
+    #XXX:         N_emit = self.get_emit_photons(amplitude)
 
-            # get global-arrays for photobleaching-state and photon-budget
-            state_pb = self.effects.fluorescence_state[m_id,count]
-            budget = self.effects.fluorescence_budget[m_id]
+    #XXX:         # get global-arrays for photobleaching-state and photon-budget
+    #XXX:         state_pb = self.effects.fluorescence_state[m_id,count]
+    #XXX:         budget = self.effects.fluorescence_budget[m_id]
 
-            # reset photon-budget
-            photons = budget - N_emit*state_j
+    #XXX:         # reset photon-budget
+    #XXX:         photons = budget - N_emit*state_j
 
-            if (photons > 0):
-                budget = photons
-                state_pb = state_j
-            else:
-                budget = 0
-                state_pb = 0
+    #XXX:         if (photons > 0):
+    #XXX:             budget = photons
+    #XXX:             state_pb = state_j
+    #XXX:         else:
+    #XXX:             budget = 0
+    #XXX:             state_pb = 0
 
-            result_state_pb[m_id] = state_pb
-            result_budget[m_id] = budget
+    #XXX:         result_state_pb[m_id] = state_pb
+    #XXX:         result_budget[m_id] = budget
 
-        return result_state_pb, result_budget
+    #XXX:     return result_state_pb, result_budget
 
-    def get_photobleaching_dataset_process(self, count, dataset, pipe):
-        pipe.send(self.get_photobleaching_dataset(count, dataset))
+    #XXX: def get_photobleaching_dataset_process(self, count, dataset, voxel_radius, lengths, pipe):
+    #XXX:     pipe.send(self.get_photobleaching_dataset(count, dataset, voxel_radius, lengths))
 
-    def get_molecule_plane(self, cell, j, data_j, p_b, p_0, true_data):
+    def get_molecule_plane(self, cell, j, data_j, p_b, p_0, true_data, dataset):
         # particles coordinate, species and lattice-IDs
         c_id, m_id, s_id, l_id, p_state, cyc_id = data_j
 
-        sid_array = numpy.array(self.configs.spatiocyte_species_id)
+        sid_array = numpy.array(dataset.species_id)
         sid_index = (numpy.abs(sid_array - int(s_id))).argmin()
 
-        if self.configs.spatiocyte_observables[sid_index] is True:
+        if dataset.observables[sid_index] is True:
             #if (p_state > 0):
 
             p_i = numpy.array(c_id)/1e-9
@@ -1055,7 +1058,7 @@ class EPIFMVisualizer:
             amplitude = amplitude*numpy.exp(-depth/penet_depth)
 
             # get signal matrix
-            signal = self.get_signal(amplitude, radial, depth, p_state)
+            signal = self.get_signal(amplitude, radial, depth, p_state, dataset.interval, dataset.voxel_radius)
 
             # add signal matrix to image plane
             self.overwrite_signal(cell, signal, p_i)
@@ -1068,7 +1071,7 @@ class EPIFMVisualizer:
             true_data[j,5] = p_i[1] # X-coordinate in the image-plane
             true_data[j,6] = depth  # Depth from focal-plane
 
-    def get_signal(self, amplitude, radial, depth, p_state):
+    def get_signal(self, amplitude, radial, depth, p_state, unit_time, voxel_radius):
         # fluorophore axial position
         fluo_depth = depth if depth < len(self.configs.depth) else -1
 
@@ -1076,16 +1079,16 @@ class EPIFMVisualizer:
         psf_depth = self.fluo_psf[int(fluo_depth)]
 
         # get the number of photons emitted
-        N_emit = self.get_emit_photons(amplitude)
+        N_emit = self.get_emit_photons(amplitude, unit_time, voxel_radius)
 
         # get signal
         signal = p_state*N_emit/(4.0*numpy.pi)*psf_depth
 
         return signal
 
-    def get_emit_photons(self, amplitude):
+    def get_emit_photons(self, amplitude, unit_time, voxel_radius):
         # Spatiocyte time interval [sec]
-        unit_time = self.configs.spatiocyte_interval
+        # unit_time = self.configs.spatiocyte_interval
 
         # Absorption coeff [1/(cm M)]
         abs_coeff = self.effects.abs_coefficient
@@ -1103,7 +1106,7 @@ class EPIFMVisualizer:
         n_abs = amplitude*x_sec*unit_time
 
         # spatiocyte voxel size (~ molecule size)
-        voxel_radius = self.configs.spatiocyte_VoxelRadius
+        # voxel_radius = self.configs.spatiocyte_VoxelRadius
         voxel_volume = (4.0/3.0)*numpy.pi*voxel_radius**3
         voxel_depth  = 2.0*voxel_radius
 
@@ -1426,15 +1429,18 @@ class EPIFMVisualizer:
             # add to cellular plane
             cell[z0_from:z0_to, y0_from:y0_to] += signal[zi_from:zi_to, yi_from:yi_to]
 
-    def output_frames(self, rng, spatiocyte_data, num_timesteps, index0, count_array_size):
+    def output_frames(self, rng, dataset):
+        # spatiocyte_data, num_timesteps, index0, count_array_size = (
+        #     dataset.data, dataset.index_array_size, dataset.index0, dataset.count_array_size)
+
         # set Fluorophores PSF
-        self.set_fluo_psf(spatiocyte_data, count_array_size)
+        self.set_fluo_psf(dataset)
 
         # num_timesteps = self.configs.shutter_index_array_size
         # index0 = self.configs.shutter_index_array_first
 
         if self.get_nprocs() == 1:
-            self.output_frames_each_process(rng, spatiocyte_data, index0, num_timesteps, index0)
+            self.output_frames_each_process(rng, dataset, dataset.index0, dataset.index_array_size)
         else:
             num_processes = multiprocessing.cpu_count()
             n, m = divmod(num_timesteps, num_processes)
@@ -1451,7 +1457,7 @@ class EPIFMVisualizer:
                 #XXX: Initialize rng for each process
                 process = multiprocessing.Process(
                     target=self.output_frames_each_process,
-                    args=(rng, spatiocyte_data, start_index, stop_index, index0))
+                    args=(rng, dataset, start_index, stop_index))
                 process.start()
                 processes.append(process)
                 start_index = stop_index
@@ -1459,15 +1465,17 @@ class EPIFMVisualizer:
             for process in processes:
                 process.join()
 
-    def output_frames_each_process(self, rng, spatiocyte_data, start_index, stop_index, index0):
+    def output_frames_each_process(self, rng, dataset, start_index, stop_index):
         # # set seed for random number
         # rng.seed()
 
+        spatiocyte_data = dataset.data
+
         # cell size (nm scale)
-        Nx, Ny, Nz = self.get_cell_size()
+        Nx, Ny, Nz = self.get_cell_size(dataset.voxel_radius, dataset.lengths)
 
         # focal point
-        p_0 = self.get_focal_center()
+        p_0 = self.get_focal_center(dataset.voxel_radius, dataset.lengths)
 
         # beam position: Assuming beam position = focal point (for temporary)
         p_b = copy.copy(p_0)
@@ -1475,11 +1483,11 @@ class EPIFMVisualizer:
         # exposure time
         exposure_time = self.configs.detector_exposure_time
 
-        # spatiocyte time interval
-        data_interval = self.configs.spatiocyte_interval
+        # # spatiocyte time interval
+        # data_interval = self.configs.spatiocyte_interval
 
         # set delta_count
-        delta_count = int(round(exposure_time / data_interval))
+        delta_count = int(round(exposure_time / dataset.interval))
 
         # index0 = self.configs.shutter_index_array_first  # index_array[0]
 
@@ -1492,8 +1500,8 @@ class EPIFMVisualizer:
             # define cell in nm-scale
             cell = numpy.zeros(shape=(Nz, Ny))
 
-            c0 = (index - index0) * delta_count
-            c1 = (index - index0 + 1) * delta_count
+            c0 = (index - dataset.index0) * delta_count
+            c1 = (index - dataset.index0 + 1) * delta_count
 
             frame_data = spatiocyte_data[c0: c1]
 
@@ -1508,10 +1516,10 @@ class EPIFMVisualizer:
 
                 # loop for particles
                 for j, data_j in enumerate(data):
-                    self.get_molecule_plane(cell, j, data_j, p_b, p_0, true_data)
+                    self.get_molecule_plane(cell, j, data_j, p_b, p_0, true_data, dataset)
 
             # convert image in pixel-scale
-            camera, true_data = self.detector_output(rng, cell, true_data)
+            camera, true_data = self.detector_output(rng, cell, true_data, dataset)
 
             # save image to numpy-binary file
             image_file_name = os.path.join(self.configs.image_file_dir, self.configs.image_file_name_format % (index))
@@ -1602,9 +1610,9 @@ class EPIFMVisualizer:
 
         return prob
 
-    def detector_output(self, rng, cell, true_data):
+    def detector_output(self, rng, cell, true_data, dataset):
         # Detector Output
-        voxel_radius = self.configs.spatiocyte_VoxelRadius
+        voxel_radius = dataset.voxel_radius
         voxel_size = (2.0*voxel_radius)/1e-9
 
         Nw_pixel, Nh_pixel = self.configs.detector_image_size
@@ -1872,20 +1880,22 @@ class EPIFMVisualizer:
     def get_nprocs(self):
         return self.__nprocs
 
-    def set_fluo_psf(self, spatiocyte_data, count_array_size):
+    def set_fluo_psf(self, dataset):
+        spatiocyte_data = dataset.data
+
         depths = set()
 
         # get cell size
-        Nx, Ny, Nz = self.get_cell_size()
+        Nx, Ny, Nz = self.get_cell_size(dataset.voxel_radius, dataset.lengths)
 
         # count_array_size = len(self.configs.shutter_count_array)
 
         exposure_time = self.configs.detector_exposure_time
-        data_interval = self.configs.spatiocyte_interval
+        # data_interval = self.configs.spatiocyte_interval
 
-        delta_count = int(round(exposure_time/data_interval))
+        delta_count = int(round(exposure_time / dataset.interval))
 
-        for count in range(0, count_array_size, delta_count):
+        for count in range(0, dataset.count_array_size, delta_count):
 
             # focal point
             f_0 = self.configs.detector_focal_point
