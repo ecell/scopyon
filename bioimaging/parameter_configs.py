@@ -139,37 +139,37 @@ ADConverter_offset = 2000
 ADConverter_fpn_type = None
 ADConverter_fpn_count = 0.0
 
-#-----------------------------
-# Image
-#-----------------------------
-image_file_dir = "./images"
-#image_file_name_format = 'image_%07d.png'
-image_file_name_format = 'image_%07d.npy'
-true_file_name_format = 'true_%07d.npy'
-image_file_cleanup_dir = False
+# #-----------------------------
+# # Image
+# #-----------------------------
+# image_file_dir = "./images"
+# #image_file_name_format = 'image_%07d.png'
+# image_file_name_format = 'image_%07d.npy'
+# true_file_name_format = 'true_%07d.npy'
+# image_file_cleanup_dir = False
 
-#-----------------------------
-# Spatiocyte
-#-----------------------------
-spatiocyte_file_directry = ''
-spatiocyte_interval = 1e-3
-spatiocyte_data  = []
-spatiocyte_shape = []
-spatiocyte_observable = []
-
-spatiocyte_species_id = []
-spatiocyte_index      = []
-spatiocyte_diffusion  = []
-spatiocyte_radius     = []
-spatiocyte_lattice_id = []
-spatiocyte_lengths    = []
-
-spatiocyte_VoxelRadius = 10e-9
-spatiocyte_theNormalizedVoxelRadius = 0.5
-spatiocyte_theStartCoord = None
-spatiocyte_theRowSize    = None
-spatiocyte_theLayerSize  = None
-spatiocyte_theColSize    = None
+# #-----------------------------
+# # Spatiocyte
+# #-----------------------------
+# spatiocyte_file_directry = ''
+# spatiocyte_interval = 1e-3
+# spatiocyte_data  = []
+# spatiocyte_shape = []
+# spatiocyte_observable = []
+# 
+# spatiocyte_species_id = []
+# spatiocyte_index      = []
+# spatiocyte_diffusion  = []
+# spatiocyte_radius     = []
+# spatiocyte_lattice_id = []
+# spatiocyte_lengths    = []
+# 
+# spatiocyte_VoxelRadius = 10e-9
+# spatiocyte_theNormalizedVoxelRadius = 0.5
+# spatiocyte_theStartCoord = None
+# spatiocyte_theRowSize    = None
+# spatiocyte_theLayerSize  = None
+# spatiocyte_theColSize    = None
 
 #-----------------------------
 # Spatiocyte Boundary condition

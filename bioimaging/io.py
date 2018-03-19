@@ -10,7 +10,7 @@ from logging import getLogger
 _log = getLogger(__name__)
 
 
-def read_spatiocyte(pathto, tstart, tend, interval, exposure_time, observable=None, max_count=None):
+def read_spatiocyte(pathto, tstart, tend, exposure_time, observable=None, max_count=None):
     (interval, species_id, species_index, lengths, voxel_radius, observables) = read_spatiocyte_input(os.path.join(pathto, 'pt-input.csv'), observable)
     (count_array, index_array_size, index0) = spatiocyte_time_arrays(tstart, tend, interval, exposure_time)
     data = read_spatiocyte_data(pathto, count_array, max_count=max_count)

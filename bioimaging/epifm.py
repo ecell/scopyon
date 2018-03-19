@@ -440,16 +440,16 @@ class EPIFMConfigs():
     #         #                 + ', '.join(csv_file_directory))
     #         raise VisualizerError('Cannot find spatiocyte_index: {}'.format(filename))
 
-    def set_output_path(self, image_file_dir = None,
-                        image_file_name_format = None,
-                        image_file_cleanup_dir=False):
-        if image_file_dir is None:
-            image_file_dir = tempfile.mkdtemp(dir=os.getcwd())
-            image_file_cleanup_dir = True
+    # def set_output_path(self, image_file_dir = None,
+    #                     image_file_name_format = None,
+    #                     image_file_cleanup_dir=False):
+    #     if image_file_dir is None:
+    #         image_file_dir = tempfile.mkdtemp(dir=os.getcwd())
+    #         image_file_cleanup_dir = True
 
-        self._set_data('image_file_dir', image_file_dir)
-        self._set_data('image_file_file_name_format', image_file_name_format)
-        self._set_data('image_file_cleanup_dir', image_file_cleanup_dir)
+    #     self._set_data('image_file_dir', image_file_dir)
+    #     self._set_data('image_file_file_name_format', image_file_name_format)
+    #     self._set_data('image_file_cleanup_dir', image_file_cleanup_dir)
 
     def set_efficiency(self, array, index=1):
         array = numpy.array(array, dtype = 'float')
@@ -800,7 +800,7 @@ class EPIFMVisualizer:
     EPIFM Visualization class of e-cell simulator
     '''
 
-    def __init__(self, csv_file_directory, configs=EPIFMConfigs(), effects=PhysicalEffects(), nprocs=1):
+    def __init__(self, configs=EPIFMConfigs(), effects=PhysicalEffects(), nprocs=1):
         assert isinstance(configs, EPIFMConfigs)
         self.configs = configs
 
@@ -808,12 +808,6 @@ class EPIFMVisualizer:
         self.effects = effects
 
         self.__nprocs = nprocs
-
-        """
-        Check and create the folders for image and output files.
-        """
-        if not os.path.exists(self.configs.image_file_dir):
-            os.makedirs(self.configs.image_file_dir)
 
     def get_cell_size(self, voxel_radius, lengths):
         # define observational image plane in nm-scale
@@ -1429,7 +1423,11 @@ class EPIFMVisualizer:
             # add to cellular plane
             cell[z0_from:z0_to, y0_from:y0_to] += signal[zi_from:zi_to, yi_from:yi_to]
 
-    def output_frames(self, rng, dataset):
+    def output_frames(self, rng, dataset, pathto='./images', image_fmt='image_%07d.npy', true_fmt='true_%07d.npy', clean=False):
+        # Check and create the folders for image and output files.
+        if not os.path.exists(pathto):
+            os.makedirs(pathto)
+
         # spatiocyte_data, num_timesteps, index0, count_array_size = (
         #     dataset.data, dataset.index_array_size, dataset.index0, dataset.count_array_size)
 
@@ -1440,7 +1438,7 @@ class EPIFMVisualizer:
         # index0 = self.configs.shutter_index_array_first
 
         if self.get_nprocs() == 1:
-            self.output_frames_each_process(rng, dataset, dataset.index0, dataset.index_array_size)
+            self.output_frames_each_process(rng, dataset, pathto, image_fmt, true_fmt, dataset.index0, dataset.index_array_size)
         else:
             num_processes = multiprocessing.cpu_count()
             n, m = divmod(num_timesteps, num_processes)
@@ -1457,7 +1455,7 @@ class EPIFMVisualizer:
                 #XXX: Initialize rng for each process
                 process = multiprocessing.Process(
                     target=self.output_frames_each_process,
-                    args=(rng, dataset, start_index, stop_index))
+                    args=(rng, dataset, pathto, image_fmt, true_fmt, start_index, stop_index))
                 process.start()
                 processes.append(process)
                 start_index = stop_index
@@ -1465,7 +1463,7 @@ class EPIFMVisualizer:
             for process in processes:
                 process.join()
 
-    def output_frames_each_process(self, rng, dataset, start_index, stop_index):
+    def output_frames_each_process(self, rng, dataset, pathto, image_fmt, true_fmt, start_index, stop_index):
         # # set seed for random number
         # rng.seed()
 
@@ -1522,11 +1520,11 @@ class EPIFMVisualizer:
             camera, true_data = self.detector_output(rng, cell, true_data, dataset)
 
             # save image to numpy-binary file
-            image_file_name = os.path.join(self.configs.image_file_dir, self.configs.image_file_name_format % (index))
+            image_file_name = os.path.join(pathto, image_fmt % (index))
             numpy.save(image_file_name, camera)
 
             # save true-dataset to numpy-binary file
-            true_file_name = os.path.join(self.configs.image_file_dir, self.configs.true_file_name_format % (index))
+            true_file_name = os.path.join(pathto, true_fmt % (index))
             numpy.save(true_file_name, true_data)
 
     def overwrite_smeared(self, cell_pixel, photon_dist, i, j):
