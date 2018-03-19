@@ -504,119 +504,119 @@ class EPIFMConfigs():
         self._set_data('shutter_index_array_size', len(index_array))
         self._set_data('shutter_index_array_first', index_array[0])
 
-    def set_Illumination_path(self):
-        # get cell-shape data
-        cell_shape = self.spatiocyte_shape.copy()
-
-        # define observational image plane in nm-scale
-        voxel_size = 2.0 * self.spatiocyte_VoxelRadius
-
-        # cell size (nm scale)
-        Nz = self.spatiocyte_lengths[2] * voxel_size
-        Ny = self.spatiocyte_lengths[1] * voxel_size
-        Nx = self.spatiocyte_lengths[0] * voxel_size
-
-        # beam center
-        # b_0 = self.source_center
-        b_0 = self.detector_focal_point
-        x_0, y_0, z_0 = numpy.array([Nx, Ny, Nz]) * b_0
-
-        # Incident beam: 1st beam angle to basal region of the cell
-        theta_in = (self.source_angle / 180.0) * numpy.pi
-        sin_th1 = numpy.sin(theta_in)
-        sin2 = sin_th1 * sin_th1
-
-        # Index of refraction
-        n_1 = 1.460 # fused silica
-        n_2 = 1.384 # cell
-        n_3 = 1.337 # culture medium
-
-        r  = n_2 / n_1
-        r2 = r * r
-
-        if (sin2 / r2 < 1):
-            raise RuntimeError('Not supported.')
-
-            # # find cross point of beam center and cell surface
-            # # rho = numpy.sqrt(Nx * Nx + Ny * Ny)
-            # rho = Nx
-
-            # while (rho > 0):
-            #     # set beam position
-            #     #x_b, y_b, z_b = rho*cos_th2, rho*sin_th2 + y_0, z_0
-            #     x_b, y_b, z_b = rho, y_0, z_0
-            #     r_b = numpy.array([x_b, y_b, z_b])
-
-            #     # evaluate for intersection of beam-line to cell-surface
-            #     diff  = numpy.sqrt(numpy.sum((cell_shape - r_b) ** 2, axis=1))
-            #     index = numpy.nonzero(diff < voxel_size)[0]
-
-            #     if (len(index) > 0):
-
-            #         p_0 = cell_shape[index[0]]
-            #         x_b, y_b, z_b = p_0
-
-            #         f0 = (x_b / Nx, y_b / Ny, z_b / Nz)
-
-            #         # evaluate for normal vector of cell-surface
-            #         diff = numpy.sqrt(numpy.sum((cell_shape - p_0) ** 2, axis=1))
-            #         k0 = numpy.nonzero(diff < 1.5 * voxel_size)[0]
-            #         k1 = numpy.nonzero(k0 != diff.argmin())[0]
-
-            #         r_n = cell_shape[k0[k1]]
-
-            #         # Optimization is definitely required!!
-            #         f0_norm = numpy.array([0, 0, 0])
-            #         count = 0
-            #         for kk in range(len(r_n)):
-            #             for ii in range(len(r_n)):
-            #                 for jj in range(len(r_n)):
-            #                     if (kk!=ii and kk!=jj and ii!=jj):
-            #                         t = r_n[ii] - r_n[kk]
-            #                         s = r_n[jj] - r_n[kk]
-
-            #                         vec = numpy.cross(s, t)
-            #                         if (vec[0] < 0): vec = numpy.cross(t, s)
-            #                         len_vec = numpy.sqrt(numpy.sum(vec**2))
-            #                         if (len_vec > 0):
-            #                             f0_norm = f0_norm + vec/len_vec
-            #                             count += 1
-
-            #         f0_norm = f0_norm / count
-            #         break
-
-            #     rho -= voxel_size / 2
-        else:
-            f0 = b_0
-            f0_norm = numpy.array([1, 0, 0])
-
-        # set focal position
-        self.detector_focal_point = f0
-        self.detector_focal_norm  = f0_norm
-
+    def set_illumination_path(self, detector_focal_point, detector_focal_norm):
+        self.detector_focal_point = detector_focal_point
+        self.detector_focal_norm = detector_focal_norm
         _log.info('Focal Center: {}'.format(self.detector_focal_point))
         _log.info('Normal Vector: {}'.format(self.detector_focal_norm))
 
-    def set_Detection_path(self):
-        wave_length = self.psf_wavelength*1e-9
+    # def set_Illumination_path(self):
+    #     # define observational image plane in nm-scale
+    #     voxel_size = 2.0 * self.spatiocyte_VoxelRadius
 
-        # Magnification
-        Mag = self.image_magnification
+    #     # cell size (nm scale)
+    #     Nz = self.spatiocyte_lengths[2] * voxel_size
+    #     Ny = self.spatiocyte_lengths[1] * voxel_size
+    #     Nx = self.spatiocyte_lengths[0] * voxel_size
 
-        # set image scaling factor
-        voxel_radius = self.spatiocyte_VoxelRadius
+    #     # beam center
+    #     # b_0 = self.source_center
+    #     b_0 = self.detector_focal_point
+    #     x_0, y_0, z_0 = numpy.array([Nx, Ny, Nz]) * b_0
 
-        # set camera's pixel length
-        pixel_length = self.detector_pixel_length/Mag
+    #     # Incident beam: 1st beam angle to basal region of the cell
+    #     theta_in = (self.source_angle / 180.0) * numpy.pi
+    #     sin_th1 = numpy.sin(theta_in)
+    #     sin2 = sin_th1 * sin_th1
 
-        self.image_resolution = pixel_length
-        self.image_scaling = pixel_length/(2.0*voxel_radius)
+    #     # Index of refraction
+    #     n_1 = 1.460 # fused silica
+    #     n_2 = 1.384 # cell
+    #     n_3 = 1.337 # culture medium
 
-        _log.info('Resolution: {} m'.format(self.image_resolution))
-        _log.info('Scaling: {}'.format(self.image_scaling))
+    #     r  = n_2 / n_1
+    #     r2 = r * r
 
-        # Detector PSF
-        self.set_PSF_detector()
+    #     if (sin2 / r2 < 1):
+    #         raise RuntimeError('Not supported.')
+
+    #         # get cell-shape data
+    #         # cell_shape = self.spatiocyte_shape.copy()
+
+    #         # # find cross point of beam center and cell surface
+    #         # # rho = numpy.sqrt(Nx * Nx + Ny * Ny)
+    #         # rho = Nx
+
+    #         # while (rho > 0):
+    #         #     # set beam position
+    #         #     #x_b, y_b, z_b = rho*cos_th2, rho*sin_th2 + y_0, z_0
+    #         #     x_b, y_b, z_b = rho, y_0, z_0
+    #         #     r_b = numpy.array([x_b, y_b, z_b])
+
+    #         #     # evaluate for intersection of beam-line to cell-surface
+    #         #     diff  = numpy.sqrt(numpy.sum((cell_shape - r_b) ** 2, axis=1))
+    #         #     index = numpy.nonzero(diff < voxel_size)[0]
+
+    #         #     if (len(index) > 0):
+
+    #         #         p_0 = cell_shape[index[0]]
+    #         #         x_b, y_b, z_b = p_0
+
+    #         #         f0 = (x_b / Nx, y_b / Ny, z_b / Nz)
+
+    #         #         # evaluate for normal vector of cell-surface
+    #         #         diff = numpy.sqrt(numpy.sum((cell_shape - p_0) ** 2, axis=1))
+    #         #         k0 = numpy.nonzero(diff < 1.5 * voxel_size)[0]
+    #         #         k1 = numpy.nonzero(k0 != diff.argmin())[0]
+
+    #         #         r_n = cell_shape[k0[k1]]
+
+    #         #         # Optimization is definitely required!!
+    #         #         f0_norm = numpy.array([0, 0, 0])
+    #         #         count = 0
+    #         #         for kk in range(len(r_n)):
+    #         #             for ii in range(len(r_n)):
+    #         #                 for jj in range(len(r_n)):
+    #         #                     if (kk!=ii and kk!=jj and ii!=jj):
+    #         #                         t = r_n[ii] - r_n[kk]
+    #         #                         s = r_n[jj] - r_n[kk]
+
+    #         #                         vec = numpy.cross(s, t)
+    #         #                         if (vec[0] < 0): vec = numpy.cross(t, s)
+    #         #                         len_vec = numpy.sqrt(numpy.sum(vec**2))
+    #         #                         if (len_vec > 0):
+    #         #                             f0_norm = f0_norm + vec/len_vec
+    #         #                             count += 1
+
+    #         #         f0_norm = f0_norm / count
+    #         #         break
+
+    #         #     rho -= voxel_size / 2
+    #     else:
+    #         f0 = b_0
+    #         f0_norm = numpy.array([1, 0, 0])
+
+    #     # set focal position
+    #     self.detector_focal_point = f0
+    #     self.detector_focal_norm  = f0_norm
+
+    #     _log.info('Focal Center: {}'.format(self.detector_focal_point))
+    #     _log.info('Normal Vector: {}'.format(self.detector_focal_norm))
+
+    # def set_Detection_path(self):
+    #     # # set image scaling factor
+    #     # voxel_radius = self.spatiocyte_VoxelRadius
+
+    #     # # set camera's pixel length
+    #     # pixel_length = self.detector_pixel_length / self.image_magnification
+    #     # # self.image_resolution = pixel_length
+    #     # self.image_scaling = pixel_length / (2.0 * voxel_radius)
+
+    #     # # _log.info('Resolution: {} m'.format(self.image_resolution))
+    #     # _log.info('Scaling: {}'.format(self.image_scaling))
+
+    #     # Detector PSF
+    #     self.set_PSF_detector()
 
     def set_PSF_detector(self):
         r = self.radial
@@ -1608,7 +1608,10 @@ class EPIFMVisualizer:
 
         Nw_pixel, Nh_pixel = self.configs.detector_image_size
 
-        Np = self.configs.image_scaling*voxel_size
+        pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification
+        image_scaling = pixel_length / (2.0 * voxel_radius)
+        Np = image_scaling * voxel_size
+        # Np = self.configs.image_scaling*voxel_size
 
         # cell in nm-scale
         Nw_cell = len(cell)
@@ -1967,4 +1970,3 @@ class EPIFMVisualizer:
         return (self.get_nprocs() != 1)
         # envname = 'ECELL_MICROSCOPE_SINGLE_PROCESS'
         # return not (envname in os.environ and os.environ[envname])
-
