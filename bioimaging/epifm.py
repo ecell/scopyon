@@ -387,75 +387,6 @@ class EPIFMConfigs():
         self.ADConverter_offset = offset.reshape([Nw_pixel, Nh_pixel])
         self.ADConverter_gain = gain.reshape([Nw_pixel, Nh_pixel])
 
-    # def load_shape(self, filename):
-    #     _log.info('--- Load Cell Shape Data:  {}'.format(filename))
-    #     self._set_data('spatiocyte_shape', io.read_spatiocyte_shape(filename))
-
-    # def load_input(self, filename, observable=None):
-    #     _log.info('--- Input Spatiocyte Data: {}'.format(filename))
-
-    #     ### header
-    #     with open(filename, 'r') as f:
-    #         header = f.readline().rstrip().split(',')
-    #         header[:5] = [float(_) for _ in header[:5]]
-
-    #     interval, lengths, voxel_r, species_info = header[0], (header[3:0:-1]), header[4], header[5:]
-
-    #     species_id = range(len(species_info)-2)
-    #     species_index  = [_.split(':')[1].split(']')[0] for _ in species_info[0:len(species_info)-2]]
-    #     species_radius = [float(_.split('=')[1]) for _ in species_info[0:len(species_info)-2]]
-
-    #     # get run time
-    #     # self._set_data('spatiocyte_file_directory', csv_file_directory)
-    #     self._set_data('spatiocyte_interval', interval)
-
-    #     # get species properties
-    #     self._set_data('spatiocyte_species_id', species_id)
-    #     self._set_data('spatiocyte_index',  species_index)
-    #     #self._set_data('spatiocyte_diffusion', species_diffusion)
-    #     # self._set_data('spatiocyte_radius', species_radius)
-
-    #     # get lattice properties
-    #     # self._set_data('spatiocyte_lattice_id', map(lambda x: x[0], lattice))
-    #     self._set_data('spatiocyte_lengths', lengths)
-    #     self._set_data('spatiocyte_VoxelRadius', voxel_r)
-    #     # self._set_data('spatiocyte_theNormalizedVoxelRadius', 0.5)
-
-    #     # set observable
-    #     if observable is None:
-    #         index = [True for i in range(len(self.spatiocyte_index))]
-    #     else:
-    #         index = list(map(lambda x:  True if x.find(observable) > -1 else False, self.spatiocyte_index))
-
-    #     #index = [False, True]
-    #     self.spatiocyte_observables = copy.copy(index)
-
-    #     _log.info('    Time Interval = {} sec'.format(self.spatiocyte_interval))
-    #     _log.info('    Voxel radius  = {} m'.format(self.spatiocyte_VoxelRadius))
-    #     _log.info('    Compartment lengths: {} voxels'.format(self.spatiocyte_lengths))
-    #     _log.info('    Species Index: {}'.format(self.spatiocyte_index))
-    #     _log.info('    Observable: {}'.format(self.spatiocyte_observables))
-
-    #     # Visualization error
-    #     if self.spatiocyte_species_id is None:
-    #         raise VisualizerError('Cannot find species_id in any given csv files')
-
-    #     if len(self.spatiocyte_index) == 0:
-    #         # raise VisualizerError('Cannot find spatiocyte_index in any given csv files: ' \
-    #         #                 + ', '.join(csv_file_directory))
-    #         raise VisualizerError('Cannot find spatiocyte_index: {}'.format(filename))
-
-    # def set_output_path(self, image_file_dir = None,
-    #                     image_file_name_format = None,
-    #                     image_file_cleanup_dir=False):
-    #     if image_file_dir is None:
-    #         image_file_dir = tempfile.mkdtemp(dir=os.getcwd())
-    #         image_file_cleanup_dir = True
-
-    #     self._set_data('image_file_dir', image_file_dir)
-    #     self._set_data('image_file_file_name_format', image_file_name_format)
-    #     self._set_data('image_file_cleanup_dir', image_file_cleanup_dir)
-
     def set_efficiency(self, array, index=1):
         array = numpy.array(array, dtype = 'float')
         array = array[array[:, 0] % 1 == 0,:]
@@ -845,11 +776,6 @@ class EPIFMVisualizer:
         # beam position: Assuming beam position = focal point (for temporary)
         p_b = copy.copy(p_0)
 
-        # set time, delta and count arrays
-        time_array  = numpy.array(dataset.time_array)
-        delta_array = numpy.array(dataset.delta_array)
-        count_array = numpy.array(dataset.count_array)
-
         # Snell's law
         amplitude0, penet_depth = self.snells_law(p_0, p_0)
 
@@ -867,10 +793,12 @@ class EPIFMVisualizer:
         molecule_states = numpy.zeros(shape=(N_particles))
 
         # set fluorescence
+        time_array  = numpy.array(dataset.time_array)
+        delta_array = numpy.array(dataset.delta_array)
         fluorescence_state, fluorescence_budget = self.effects.get_photophysics_for_epifm(time_array, delta_array, N_emit0, N_particles)
 
         new_data = []
-        for k in range(len(count_array)):
+        for k in range(len(dataset.data)):
             # read input file
             # csv_file_path = self.configs.spatiocyte_file_directory + '/pt-%09d.0.csv' % (count_array[k])
             # csv_list = list(csv.reader(open(csv_file_path, 'r')))
@@ -902,68 +830,6 @@ class EPIFMVisualizer:
             #     writer.writerows(new_dataset)
 
         return new_data
-
-    # def rewrite_InputFile(self, output_file_dir=None):
-    #     if not os.path.exists(output_file_dir):
-    #         os.makedirs(output_file_dir)
-
-    #     # get focal point
-    #     p_0 = self.get_focal_center()
-
-    #     # beam position: Assuming beam position = focal point (for temporary)
-    #     p_b = copy.copy(p_0)
-
-    #     # set time, delta and count arrays
-    #     time_array  = numpy.array(self.configs.shutter_time_array)
-    #     delta_array = numpy.array(self.configs.shutter_delta_array)
-    #     count_array = numpy.array(self.configs.shutter_count_array)
-
-    #     # Snell's law
-    #     amplitude0, penet_depth = self.snells_law(p_0, p_0)
-
-    #     # get the number of emitted photons
-    #     N_emit0 = self.get_emit_photons(amplitude0)
-
-    #     # copy input-file
-    #     csv_input = self.configs.spatiocyte_file_directory + '/pt-input.csv'
-    #     shutil.copyfile(csv_input, output_file_dir + '/pt-input.csv')
-
-    #     # copy shape-file
-    #     csv_shape = self.configs.spatiocyte_file_directory + '/pt-shape.csv'
-    #     shutil.copyfile(csv_shape, output_file_dir + '/pt-shape.csv')
-
-    #     # get the total number of particles
-    #     N_particles = 4117#len(csv_list)
-
-    #     # set molecule-states
-    #     self.molecule_states = numpy.zeros(shape=(N_particles))
-
-    #     # set fluorescence
-    #     self.effects.set_photophysics_4epifm(time_array, delta_array, N_emit0, N_particles)
-
-    #     for k in range(len(count_array)):
-
-    #         # read input file
-    #         csv_file_path = self.configs.spatiocyte_file_directory + '/pt-%09d.0.csv' % (count_array[k])
-
-    #         csv_list = list(csv.reader(open(csv_file_path, 'r')))
-    #         dataset = numpy.array(csv_list)
-
-    #         # set molecular-states (unbound-bound)
-    #         self.set_molecular_states(k, dataset)
-
-    #         # set photobleaching-dataset arrays
-    #         self.set_photobleaching_dataset(k, dataset)
-
-    #         # get new-dataset
-    #         new_dataset = self.get_new_dataset(k, N_emit0, dataset)
-
-    #         # write output file
-    #         output_file = output_file_dir + '/pt-%09d.0.csv' % (count_array[k])
-
-    #         with open(output_file, 'w') as f:
-    #             writer = csv.writer(f)
-    #             writer.writerows(new_dataset)
 
     def initialize_molecular_states(self, states, count, data):
         # reset molecule-states

@@ -11,13 +11,13 @@ _log = getLogger(__name__)
 
 
 def read_spatiocyte(pathto, tstart, tend, exposure_time, observable=None, max_count=None):
-    (interval, species_id, species_index, lengths, voxel_radius, observables) = read_spatiocyte_input(os.path.join(pathto, 'pt-input.csv'), observable)
+    (interval, species_id, lengths, voxel_radius, observables) = read_spatiocyte_input(os.path.join(pathto, 'pt-input.csv'), observable)
     (count_array, index_array_size, index0, time_array, delta_array, count_array) = spatiocyte_time_arrays(tstart, tend, interval, exposure_time)
     data = read_spatiocyte_data(pathto, count_array, species_id=species_id, observables=observables, max_count=max_count)
     assert len(count_array) == len(data)
 
-    SpatiocyteDataSet = namedtuple('SpatiocyteDataSet', ('data', 'index_array_size', 'index0', 'interval', 'species_index', 'lengths', 'voxel_radius', 'time_array', 'delta_array', 'count_array'))
-    return SpatiocyteDataSet(data, index_array_size=index_array_size, index0=index0, interval=interval, species_index=species_index, lengths=lengths, voxel_radius=voxel_radius, time_array=time_array, delta_array=delta_array, count_array=count_array)
+    SpatiocyteDataSet = namedtuple('SpatiocyteDataSet', ('data', 'index_array_size', 'index0', 'interval', 'lengths', 'voxel_radius', 'time_array', 'delta_array'))
+    return SpatiocyteDataSet(data, index_array_size=index_array_size, index0=index0, interval=interval, lengths=lengths, voxel_radius=voxel_radius, time_array=time_array, delta_array=delta_array)
 
 def spatiocyte_time_arrays(start_time, end_time, interval, exposure_time):
     # set count arrays by spatiocyte interval
@@ -59,7 +59,7 @@ def read_spatiocyte_input(filename, observable=None):
     _log.info('    Species Index: {}'.format(species_index))
     _log.info('    Observable: {}'.format(index))
 
-    return (interval, species_id, species_index, lengths, voxel_r, copy.copy(index))
+    return (interval, species_id, lengths, voxel_r, copy.copy(index))
 
 def read_spatiocyte_shape(filename):
     cell_shape = numpy.genfromtxt(filename, delimiter=',')
