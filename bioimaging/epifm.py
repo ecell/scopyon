@@ -769,7 +769,7 @@ class EPIFMVisualizer:
 
         return p_0
 
-    def rewrite_input_data(self, dataset, N_particles=4117):
+    def rewrite_input_data(self, dataset, N_particles=4117, rng=None):
         # get focal point
         p_0 = self.get_focal_center(dataset.voxel_radius, dataset.lengths)
 
@@ -793,9 +793,8 @@ class EPIFMVisualizer:
         molecule_states = numpy.zeros(shape=(N_particles))
 
         # set fluorescence
-        time_array  = numpy.array(dataset.time_array)
-        delta_array = numpy.array(dataset.delta_array)
-        fluorescence_state, fluorescence_budget = self.effects.get_photophysics_for_epifm(time_array, delta_array, N_emit0, N_particles)
+        delta_array = numpy.full(shape=(dataset.N_count), fill_value=dataset.interval)
+        fluorescence_state, fluorescence_budget = self.effects.get_photophysics_for_epifm(delta_array, N_emit0, N_particles, rng)
 
         new_data = []
         for k in range(len(dataset.data)):

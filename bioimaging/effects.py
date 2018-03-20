@@ -56,20 +56,20 @@ class PhysicalEffects:
                     copy_val = val
                 setattr(self, key, copy_val)
 
-    def _set_data(self, key, val) :
+    def _set_data(self, key, val):
         if val != None:
             setattr(self, key, val)
 
-    def set_background(self, mean=None) :
-        _log.info('--- Background :')
+    def set_background(self, mean=None):
+        _log.info('--- Background: ')
 
         self._set_data('background_switch', True)
         self._set_data('background_mean', mean)
 
         _log.info('    Mean = {} photons'.format(self.background_mean))
 
-    def set_crosstalk(self, width=None) :
-        _log.info('--- Photoelectron Crosstalk :')
+    def set_crosstalk(self, width=None):
+        _log.info('--- Photoelectron Crosstalk: ')
 
         self._set_data('crosstalk_switch', True)
         self._set_data('crosstalk_width', width)
@@ -77,8 +77,8 @@ class PhysicalEffects:
         _log.info('    Width = {} pixels'.format(self.crosstalk_width))
 
     def set_fluorescence(self, quantum_yield=None,
-                                abs_coefficient=None) :
-        _log.info('--- Fluorescence :')
+                                abs_coefficient=None):
+        _log.info('--- Fluorescence: ')
 
         self._set_data('quantum_yield', quantum_yield)
         self._set_data('abs_coefficient', abs_coefficient)
@@ -88,8 +88,8 @@ class PhysicalEffects:
         _log.info('    Abs. Cross-section =  {} cm^2'.format((numpy.log(10)*self.abs_coefficient*0.1/6.022e+23)*1e+4))
 
     def set_photobleaching(self, tau0=None,
-                                alpha=None) :
-        _log.info('--- Photobleaching :')
+                                alpha=None):
+        _log.info('--- Photobleaching: ')
 
         self._set_data('photobleaching_switch', True)
         self._set_data('photobleaching_tau0', tau0)
@@ -100,8 +100,8 @@ class PhysicalEffects:
 
     def set_photoactivation(self, turn_on_ratio=None,
                                 activation_yield=None,
-                                frac_preactivation=None) :
-        _log.info('--- Photoactivation :')
+                                frac_preactivation=None):
+        _log.info('--- Photoactivation: ')
 
         self._set_data('photoactivation_switch', True)
         self._set_data('photoactivation_turn_on_ratio', turn_on_ratio)
@@ -114,8 +114,8 @@ class PhysicalEffects:
         _log.info('    Fraction of Preactivation =  {}'.format(self.photoactivation_frac_preactivation))
 
     def set_photoblinking(self, t0_on=None, a_on=None,
-                                t0_off=None, a_off=None) :
-        _log.info('--- Photo-blinking : ')
+                                t0_off=None, a_off=None):
+        _log.info('--- Photo-blinking: ')
 
         self._set_data('photoblinking_switch', True)
         self._set_data('photoblinking_t0_on', t0_on)
@@ -128,12 +128,12 @@ class PhysicalEffects:
         _log.info('    (OFF) t0 =  {} sec'.format(self.photoblinking_t0_off))
         _log.info('    (OFF) a  =  {}'.format(self.photoblinking_a_off))
 
-    def prob_levy(self, t, t0, a) :
+    def prob_levy(self, t, t0, a):
         prob = (a/t0)*(t0/t)**(1+a)
         #prob = (t0/t)**(1+a)
         return prob
 
-    def get_prob_bleach(self, tau, dt) :
+    def get_prob_bleach(self, tau, dt):
         # set the photobleaching-time
         tau0  = self.photobleaching_tau0
         alpha = self.photobleaching_alpha
@@ -145,7 +145,7 @@ class PhysicalEffects:
 
         return p_bleach
 
-    def get_prob_blink(self, tau_on, tau_off, dt) :
+    def get_prob_blink(self, tau_on, tau_off, dt):
         # time scale
         t0_on  = self.photoblinking_t0_on
         a_on   = self.photoblinking_a_on
@@ -164,7 +164,7 @@ class PhysicalEffects:
 
         return p_blink_on, p_blink_off
 
-    def get_photobleaching_property(self, dt, n_emit0) :
+    def get_photobleaching_property(self, dt, n_emit0):
         # set the photobleaching-time
         tau0  = self.photobleaching_tau0
         alpha = self.photobleaching_alpha
@@ -181,44 +181,45 @@ class PhysicalEffects:
 
         return tau, budget
 
-    def get_photophysics_for_epifm(self, time, delta, n_emit0, N_part) :
+    def get_photophysics_for_epifm(self, delta, n_emit0, N_part, rng=None):
         state = numpy.zeros(shape=(len(delta)))
         dt = delta[0]
 
-        if (self.photobleaching_switch == True) :
+        if (self.photobleaching_switch == True):
             # set the photobleaching-time
             tau0  = self.photobleaching_tau0
             alpha = self.photobleaching_alpha
 
             # set photon budget
-            photon0 = (tau0/dt)*n_emit0
+            photon0 = (tau0 / dt) * n_emit0
 
-            tau_bleach = numpy.array([j*dt+tau0 for j in range(int(1e+7))])
+            tau_bleach = numpy.array([j * dt + tau0 for j in range(int(1e+7))])
             prob = self.prob_levy(tau_bleach, tau0, alpha)
             norm = prob.sum()
-            p_bleach = prob/norm
-
-            # get random number
-            numpy.random.seed()
+            p_bleach = prob / norm
 
             # get photon budget and photobleaching-time
-            tau = numpy.random.choice(tau_bleach, N_part, p=p_bleach)
+            if rng is None:
+                raise RuntimeError('A random number generator is required.')
+            tau = rng.choice(tau_bleach, N_part, p=p_bleach)
+        else:
+            raise RuntimeError('Not supported')
 
         # sequences
         budget = []
         state  = []
 
-        for i in range(N_part) :
+        for i in range(N_part):
 
             # get photon budget and photobleaching-time
-            photons = (tau[i]/tau0)*photon0
+            photons = (tau[i] / tau0) * photon0
 
             # bleaching time
-            state_bleach = numpy.zeros(shape=(len(time)))
+            state_bleach = numpy.zeros(shape=(len(delta)))
 
             Ni = (numpy.abs(numpy.cumsum(delta) - tau[i])).argmin()
 
-            state_bleach[0:Ni] = numpy.ones(shape=(Ni))
+            state_bleach[0: Ni] = numpy.ones(shape=(Ni))
 
             # set photon budget and fluorescence state
             budget.append(photons)
@@ -227,10 +228,10 @@ class PhysicalEffects:
         #####
         return numpy.array(state), numpy.array(budget)
 
-    def set_photophysics_4epifm(self, time, delta, n_emit0, N_part) :
-        self.fluorescence_state, self.fluorescence_budget = self.get_photophysics_for_epifm(time, delta, n_emit0, N_part)
+    def set_photophysics_4epifm(self, delta, n_emit0, N_part):
+        self.fluorescence_state, self.fluorescence_budget = self.get_photophysics_for_epifm(delta, n_emit0, N_part, numpy.random)
 
-    def set_photophysics_4palm(self, start, end, dt, f, F, N_part) :
+    def set_photophysics_4palm(self, start, end, dt, f, F, N_part):
         ##### PALM Configuration
         NNN = int(1e+7)
 
@@ -248,7 +249,7 @@ class PhysicalEffects:
         p_bleach = prob/norm
 
         # set photoblinking (ON/OFF) probability density function (PDF)
-        if (self.photoblinking_switch == True) :
+        if (self.photoblinking_switch == True):
 
             # time scale
             t0_on  = self.photoblinking_t0_on
@@ -279,7 +280,7 @@ class PhysicalEffects:
         # get photon budget and photobleaching-time
         tau = numpy.random.choice(tau_bleach, N_part, p=p_bleach)
 
-        for i in range(N_part) :
+        for i in range(N_part):
 
             # get photon budget and photobleaching-time
             photons = (tau[i]/tau0)*photon0
@@ -289,7 +290,7 @@ class PhysicalEffects:
             time  = numpy.array([j*dt + start for j in range(N)])
             state = numpy.zeros(shape=(N))
 
-            #### Photoactivation : overall activation yeild
+            #### Photoactivation: overall activation yeild
             p = self.photoactivation_activation_yield
             q = self.photoactivation_frac_preactivation
 
@@ -305,7 +306,7 @@ class PhysicalEffects:
             N1 = (numpy.abs(time - t1)).argmin()
             state[N0:N1] = numpy.ones(shape=(N1-N0))
 
-            if (self.photoblinking_switch == True) :
+            if (self.photoblinking_switch == True):
 
                 # ON-state
                 t_on  = numpy.random.choice(tau_on,  100, p=p_on)
@@ -320,7 +321,7 @@ class PhysicalEffects:
 
                 i_on  = N0
 
-                for j in range(k) :
+                for j in range(k):
 
                     f_on  = i_on  + int(t[j]/dt)
                     i_off = f_on
@@ -339,7 +340,7 @@ class PhysicalEffects:
         self.fluorescence_budget = numpy.array(budget)
         self.fluorescence_state  = numpy.array(state_act)
 
-    def set_photophysics_4lscm(self, start, end, dt, N_part) :
+    def set_photophysics_4lscm(self, start, end, dt, N_part):
         ##### LSCM Configuration
 
         NNN = int(1e+7)
@@ -357,7 +358,7 @@ class PhysicalEffects:
         p_bleach = prob/norm
 
         # set photoblinking (ON/OFF) probability density function (PDF)
-        if (self.photoblinking_switch == True) :
+        if (self.photoblinking_switch == True):
 
             # time scale
             t0_on  = self.photoblinking_t0_on
@@ -388,7 +389,7 @@ class PhysicalEffects:
         # get photon budget and photobleaching-time
         tau = numpy.random.choice(tau_bleach, N_part, p=p_bleach)
 
-        for i in range(N_part) :
+        for i in range(N_part):
 
             # get photon budget and photobleaching-time
             photons = (tau[i]/tau0)*photon0
@@ -405,7 +406,7 @@ class PhysicalEffects:
             N1 = (numpy.abs(time - t1)).argmin()
             state[N0:N1] = numpy.ones(shape=(N1-N0))
 
-            if (self.photoblinking_switch == True) :
+            if (self.photoblinking_switch == True):
 
                 # ON-state
                 t_on  = numpy.random.choice(tau_on,  100, p=p_on)
@@ -420,7 +421,7 @@ class PhysicalEffects:
 
                 i_on  = N0
 
-                for j in range(k) :
+                for j in range(k):
 
                     f_on  = i_on  + int(t[j]/dt)
                     i_off = f_on

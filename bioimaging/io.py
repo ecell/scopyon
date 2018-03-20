@@ -12,21 +12,22 @@ _log = getLogger(__name__)
 
 def read_spatiocyte(pathto, tstart, tend, exposure_time, observable=None, max_count=None):
     (interval, species_id, lengths, voxel_radius, observables) = read_spatiocyte_input(os.path.join(pathto, 'pt-input.csv'), observable)
-    (count_array, index_array_size, index0, time_array, delta_array, count_array) = spatiocyte_time_arrays(tstart, tend, interval, exposure_time)
+    (count_array, index_array_size, index0, count_array, N_count) = spatiocyte_time_arrays(tstart, tend, interval, exposure_time)
     data = read_spatiocyte_data(pathto, count_array, species_id=species_id, observables=observables, max_count=max_count)
     assert len(count_array) == len(data)
 
-    SpatiocyteDataSet = namedtuple('SpatiocyteDataSet', ('data', 'index_array_size', 'index0', 'interval', 'lengths', 'voxel_radius', 'time_array', 'delta_array'))
-    return SpatiocyteDataSet(data, index_array_size=index_array_size, index0=index0, interval=interval, lengths=lengths, voxel_radius=voxel_radius, time_array=time_array, delta_array=delta_array)
+    SpatiocyteDataSet = namedtuple('SpatiocyteDataSet', ('data', 'index_array_size', 'index0', 'interval', 'lengths', 'voxel_radius', 'N_count'))
+    return SpatiocyteDataSet(data, index_array_size=index_array_size, index0=index0, interval=interval, lengths=lengths, voxel_radius=voxel_radius, N_count=N_count)
 
 def spatiocyte_time_arrays(start_time, end_time, interval, exposure_time):
     # set count arrays by spatiocyte interval
     N_count = int(round((end_time - start_time) / interval))
     c0 = int(round(start_time / interval))
 
-    delta_array = numpy.zeros(shape=(N_count))
-    delta_array.fill(interval)
-    time_array  = numpy.cumsum(delta_array) + start_time
+    # delta_array = numpy.zeros(shape=(N_count))
+    # delta_array.fill(interval)
+    # time_array  = numpy.cumsum(delta_array) + start_time
+    # assert len(time_array) == len(delta_array)
     count_array = numpy.array([c + c0 for c in range(N_count)])
 
     # set index arrays by exposure time
@@ -34,7 +35,7 @@ def spatiocyte_time_arrays(start_time, end_time, interval, exposure_time):
     i0 = int(round(start_time / exposure_time))
     index_array = numpy.array([i + i0 for i in range(N_index)])
 
-    return (count_array, len(index_array), index_array[0], time_array, delta_array, count_array)
+    return (count_array, len(index_array), index_array[0], count_array, N_count)
 
 def read_spatiocyte_input(filename, observable=None):
     with open(filename, 'r') as f:
