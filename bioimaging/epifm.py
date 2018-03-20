@@ -882,7 +882,7 @@ class EPIFMVisualizer:
             self.initialize_molecular_states(molecule_states, k, particles)
 
             # set photobleaching-dataset arrays
-            self.update_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, k, particles, dataset.voxel_radius, dataset.lengths, dataset.interval, dataset.species_id, dataset.observables)
+            self.update_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, k, particles, dataset.voxel_radius, dataset.lengths, dataset.interval)
 
             # get new-dataset
             new_state = self.get_new_state(molecule_states, fluorescence_state, fluorescence_budget, k, N_emit0)
@@ -997,7 +997,7 @@ class EPIFMVisualizer:
     #         # set molecule-states
     #         self.molecule_states[m_id] = int(s_id)
 
-    def update_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, voxel_radius, lengths, interval, species_id, observables):
+    def update_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, voxel_radius, lengths, interval):
         if len(data) == 0:
             return
 
@@ -1033,7 +1033,7 @@ class EPIFMVisualizer:
             #XXX:     process.join()
 
         else:
-            state_pb, budget = self.get_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, count, data, voxel_radius, lengths, interval, species_id, observables)
+            state_pb, budget = self.get_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, count, data, voxel_radius, lengths, interval)
 
         # reset global-arrays for photobleaching-state and photon-budget
         for key, value in state_pb.items():
@@ -1042,7 +1042,7 @@ class EPIFMVisualizer:
             # self.effects.fluorescence_state[key,count] = state_pb[key]
             # self.effects.fluorescence_budget[key] = budget[key]
 
-    def get_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, voxel_radius, lengths, interval, species_id, observables):
+    def get_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, voxel_radius, lengths, interval):
         # get focal point
         p_0 = self.get_focal_center(voxel_radius, lengths)
 
@@ -1063,13 +1063,7 @@ class EPIFMVisualizer:
             # particle coordinate in real(nm) scale
             p_i, radial, depth = self.get_coordinate(p_i, p_0)
 
-            sid_array = numpy.array(species_id)
-            s_index = (numpy.abs(sid_array - int(s_id))).argmin()
-
-            if observables[s_index] is True:
-                state_j = 1
-            else:
-                state_j = 0
+            state_j = 1  # particles given is always observable. already filtered when read
 
             # get exponential amplitude (only for observation at basal surface)
             # amplitide = amplitude * numpy.exp(-depth / pent_depth)
@@ -1112,40 +1106,42 @@ class EPIFMVisualizer:
         state_stack = numpy.column_stack((new_state_pb, (new_budget / N_emit0).astype('int')))
         return state_stack
 
-    def get_molecule_plane(self, cell, j, data_j, p_b, p_0, true_data, dataset):
+    def get_molecule_plane(self, cell, j, particle_j, p_b, p_0, true_data, dataset):
         # particles coordinate, species and lattice-IDs
-        c_id, m_id, s_id, l_id, p_state, cyc_id = data_j
+        c_id, m_id, s_id, l_id, p_state, cyc_id = particle_j
 
-        sid_array = numpy.array(dataset.species_id)
-        sid_index = (numpy.abs(sid_array - int(s_id))).argmin()
+        # # check if the particle (species) is observable or not
+        # sid_array = numpy.array(dataset.species_id)
+        # sid_index = (numpy.abs(sid_array - int(s_id))).argmin()
+        # if dataset.observables[sid_index] is not True:
+        #     return
 
-        if dataset.observables[sid_index] is True:
-            #if (p_state > 0):
+        #if (p_state > 0):
 
-            p_i = numpy.array(c_id)/1e-9
+        p_i = numpy.array(c_id)/1e-9
 
-            # Snell's law
-            amplitude, penet_depth = self.snells_law(p_i, p_0)
+        # Snell's law
+        amplitude, penet_depth = self.snells_law(p_i, p_0)
 
-            # particles coordinate in real(nm) scale
-            p_i, radial, depth = self.get_coordinate(p_i, p_0)
+        # particles coordinate in real(nm) scale
+        p_i, radial, depth = self.get_coordinate(p_i, p_0)
 
-            # get exponential amplitude (only for TIRFM-configuration)
-            amplitude = amplitude*numpy.exp(-depth/penet_depth)
+        # get exponential amplitude (only for TIRFM-configuration)
+        amplitude = amplitude*numpy.exp(-depth/penet_depth)
 
-            # get signal matrix
-            signal = self.get_signal(amplitude, radial, depth, p_state, dataset.interval, dataset.voxel_radius)
+        # get signal matrix
+        signal = self.get_signal(amplitude, radial, depth, p_state, dataset.interval, dataset.voxel_radius)
 
-            # add signal matrix to image plane
-            self.overwrite_signal(cell, signal, p_i)
+        # add signal matrix to image plane
+        self.overwrite_signal(cell, signal, p_i)
 
-            # set true-dataset
-            true_data[j,1] = m_id # molecule-ID
-            true_data[j,2] = sid_index # molecular-state
-            true_data[j,3] = p_state # photon-state
-            true_data[j,4] = p_i[2] # Y-coordinate in the image-plane
-            true_data[j,5] = p_i[1] # X-coordinate in the image-plane
-            true_data[j,6] = depth  # Depth from focal-plane
+        # set true-dataset
+        true_data[j,1] = m_id # molecule-ID
+        true_data[j,2] = int(s_id) # sid_index # molecular-state
+        true_data[j,3] = p_state # photon-state
+        true_data[j,4] = p_i[2] # Y-coordinate in the image-plane
+        true_data[j,5] = p_i[1] # X-coordinate in the image-plane
+        true_data[j,6] = depth  # Depth from focal-plane
 
     def get_signal(self, amplitude, radial, depth, p_state, unit_time, voxel_radius):
         # fluorophore axial position
@@ -1546,60 +1542,21 @@ class EPIFMVisualizer:
                 process.join()
 
     def output_frames_each_process(self, rng, dataset, pathto, image_fmt, true_fmt, start_index, stop_index):
-        # # set seed for random number
-        # rng.seed()
-
-        spatiocyte_data = dataset.data
-
-        # cell size (nm scale)
-        Nx, Ny, Nz = self.get_cell_size(dataset.voxel_radius, dataset.lengths)
-
-        # focal point
-        p_0 = self.get_focal_center(dataset.voxel_radius, dataset.lengths)
-
-        # beam position: Assuming beam position = focal point (for temporary)
-        p_b = copy.copy(p_0)
-
         # exposure time
         exposure_time = self.configs.detector_exposure_time
-
-        # # spatiocyte time interval
-        # data_interval = self.configs.spatiocyte_interval
 
         # set delta_count
         delta_count = int(round(exposure_time / dataset.interval))
 
-        # index0 = self.configs.shutter_index_array_first  # index_array[0]
-
         for index in range(start_index, stop_index, 1):
             # frame-time in sec
             time = exposure_time * index
-
             _log.info('time: {} sec ({})'.format(time, index))
-
-            # define cell in nm-scale
-            cell = numpy.zeros(shape=(Nz, Ny))
 
             c0 = (index - dataset.index0) * delta_count
             c1 = (index - dataset.index0 + 1) * delta_count
 
-            frame_data = spatiocyte_data[c0: c1]
-
-            # loop for frame data
-            for i, (i_time, data) in enumerate(frame_data):
-                _log.info('     {:02d}-th frame: {} sec'.format(i, i_time))
-
-                # define true-dataset in last-frame
-                # [frame-time, m-ID, m-state, p-state, (depth,y0,z0), sqrt(<dr2>)]
-                true_data = numpy.zeros(shape=(len(data), 7))
-                true_data[:, 0] = time
-
-                # loop for particles
-                for j, data_j in enumerate(data):
-                    self.get_molecule_plane(cell, j, data_j, p_b, p_0, true_data, dataset)
-
-            # convert image in pixel-scale
-            camera, true_data = self.detector_output(rng, cell, true_data, dataset)
+            camera, true_data = self.output_frame(rng, dataset, c0, c1, time)
 
             # save image to numpy-binary file
             image_file_name = os.path.join(pathto, image_fmt % (index))
@@ -1608,6 +1565,45 @@ class EPIFMVisualizer:
             # save true-dataset to numpy-binary file
             true_file_name = os.path.join(pathto, true_fmt % (index))
             numpy.save(true_file_name, true_data)
+
+    def output_frame(self, rng, dataset, c0, c1, time):
+        spatiocyte_data = dataset.data
+
+        # focal point
+        p_0 = self.get_focal_center(dataset.voxel_radius, dataset.lengths)
+
+        # beam position: Assuming beam position = focal point (for temporary)
+        p_b = copy.copy(p_0)
+
+        # cell size (nm scale)
+        _, Ny, Nz = self.get_cell_size(dataset.voxel_radius, dataset.lengths)
+
+        # define cell in nm-scale
+        cell = numpy.zeros(shape=(Nz, Ny))
+
+        # # set delta_count
+        # exposure_time = self.configs.detector_exposure_time
+        # delta_count = int(round(exposure_time / dataset.interval))
+        # c0 = (index - dataset.index0) * delta_count
+        # c1 = (index - dataset.index0 + 1) * delta_count
+        frame_data = spatiocyte_data[c0: c1]
+
+        # loop for frame data
+        for i, (i_time, particles) in enumerate(frame_data):
+            _log.info('     {:02d}-th frame: {} sec'.format(i, i_time))
+
+            # define true-dataset in last-frame
+            # [frame-time, m-ID, m-state, p-state, (depth,y0,z0), sqrt(<dr2>)]
+            true_data = numpy.zeros(shape=(len(particles), 7))
+            true_data[:, 0] = time
+
+            # loop for particles
+            for j, particle_j in enumerate(particles):
+                self.get_molecule_plane(cell, j, particle_j, p_b, p_0, true_data, dataset)
+
+        # convert image in pixel-scale
+        camera, true_data = self.detector_output(rng, cell, true_data, dataset)
+        return (camera, true_data)
 
     def overwrite_smeared(self, cell_pixel, photon_dist, i, j):
         # i-th pixel
@@ -1975,14 +1971,14 @@ class EPIFMVisualizer:
 
         delta_count = int(round(exposure_time / dataset.interval))
 
-        for count in range(0, dataset.count_array_size, delta_count):
+        for count in range(0, len(spatiocyte_data), delta_count):
 
             # focal point
             f_0 = self.configs.detector_focal_point
             p_0 = numpy.array([Nx, Ny, Nz])*f_0
             x_0, y_0, z_0 = p_0
 
-            frame_data = spatiocyte_data[count:count+delta_count]
+            frame_data = spatiocyte_data[count: count + delta_count]
 
             for _, data in frame_data:
                 for data_j in data:
