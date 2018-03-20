@@ -333,7 +333,8 @@ class EPIFMConfigs():
                         offset = None,
                         fullwell = None,
                         fpn_type = None,
-                        fpn_count = None):
+                        fpn_count = None,
+                        rng = None):
         self._set_data('ADConverter_bit', bit)
         self._set_data('ADConverter_gain', (fullwell - 0.0)/(pow(2.0, bit) - offset))
         self._set_data('ADConverter_offset', offset)
@@ -347,7 +348,7 @@ class EPIFMConfigs():
         _log.info('    Fullwell =  {} electron'.format(self.ADConverter_fullwell))
         _log.info('    {}-Fixed Pattern Noise: {} count'.format(self.ADConverter_fpn_type, self.ADConverter_fpn_count))
 
-        # self.set_analog_to_digital_converter_gain(rng)
+        self.set_analog_to_digital_converter_gain(rng)
 
     def set_analog_to_digital_converter_gain(self, rng):
         # image pixel-size
@@ -369,6 +370,8 @@ class EPIFMConfigs():
             offset = numpy.array([ADC0 for i in range(Nw_pixel * Nh_pixel)])
 
         elif (FPN_type == 'pixel'):
+            if rng is None:
+                raise RuntimeError('A random number generator is required.')
             offset = numpy.rint(rng.normal(ADC0, FPN_count, Nw_pixel * Nh_pixel))
 
         elif (FPN_type == 'column'):
@@ -835,6 +838,71 @@ class EPIFMVisualizer:
 
         return p_0
 
+    def rewrite_input_data(self, dataset, N_particles=4117):
+        # get focal point
+        p_0 = self.get_focal_center(dataset.voxel_radius, dataset.lengths)
+
+        # beam position: Assuming beam position = focal point (for temporary)
+        p_b = copy.copy(p_0)
+
+        # set time, delta and count arrays
+        time_array  = numpy.array(dataset.time_array)
+        delta_array = numpy.array(dataset.delta_array)
+        count_array = numpy.array(dataset.count_array)
+
+        # Snell's law
+        amplitude0, penet_depth = self.snells_law(p_0, p_0)
+
+        # get the number of emitted photons
+        N_emit0 = self.get_emit_photons(amplitude0, dataset.interval, dataset.voxel_radius)
+
+        # # copy shape-file
+        # csv_shape = self.configs.spatiocyte_file_directory + '/pt-shape.csv'
+        # shutil.copyfile(csv_shape, output_file_dir + '/pt-shape.csv')
+
+        # # get the total number of particles
+        # N_particles = 4117 #len(csv_list)  #XXX: Oops!!! Hard-coded here!!!
+
+        # set molecule-states
+        molecule_states = numpy.zeros(shape=(N_particles))
+
+        # set fluorescence
+        fluorescence_state, fluorescence_budget = self.effects.get_photophysics_for_epifm(time_array, delta_array, N_emit0, N_particles)
+
+        new_data = []
+        for k in range(len(count_array)):
+            # read input file
+            # csv_file_path = self.configs.spatiocyte_file_directory + '/pt-%09d.0.csv' % (count_array[k])
+            # csv_list = list(csv.reader(open(csv_file_path, 'r')))
+            # dataset = numpy.array(csv_list)
+            t, particles = dataset.data[k]
+
+            # set molecular-states (unbound-bound)
+            # self.set_molecular_states(k, dataset)
+            self.initialize_molecular_states(molecule_states, k, particles)
+
+            # set photobleaching-dataset arrays
+            self.update_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, k, particles, dataset.voxel_radius, dataset.lengths, dataset.interval, dataset.species_id, dataset.observables)
+
+            # get new-dataset
+            new_state = self.get_new_state(molecule_states, fluorescence_state, fluorescence_budget, k, N_emit0)
+            # new_dataset = numpy.column_stack((particles, state_stack))
+
+            new_particles = []
+            for particle_j, (new_p_state, new_cyc_id) in zip(particles, new_state):
+                (coordinate, m_id, s_id, l_id, p_state, cyc_id) = particle_j
+                new_particles.append((coordinate, m_id, s_id, l_id, new_p_state, new_cyc_id))
+            new_data.append((t, new_particles))
+
+            # # write output file
+            # output_file = output_file_dir + '/pt-%09d.0.csv' % (count_array[k])
+
+            # with open(output_file, 'w') as f:
+            #     writer = csv.writer(f)
+            #     writer.writerows(new_dataset)
+
+        return new_data
+
     # def rewrite_InputFile(self, output_file_dir=None):
     #     if not os.path.exists(output_file_dir):
     #         os.makedirs(output_file_dir)
@@ -897,140 +965,152 @@ class EPIFMVisualizer:
     #             writer = csv.writer(f)
     #             writer.writerows(new_dataset)
 
-    def set_molecular_states(self, count, dataset):
+    def initialize_molecular_states(self, states, count, data):
         # reset molecule-states
-        self.molecule_states.fill(0)
+        states.fill(0.0)
 
         # loop for particles
-        for j, data_j in enumerate(dataset):
+        for j, particle_j in enumerate(data):
+            (coordinate, m_id, s_id, l_id, p_state, cyc_id) = particle_j
 
             # set particle position
-            p_i = numpy.array(data_j[1:4]).astype('float')/1e-9
-
-            # Molecule ID and its state
-            m_id, s_id = literal_eval(data_j[5])
-            # Fluorophore ID and compartment ID
-            f_id, l_id = literal_eval(data_j[6])
+            p_i = numpy.array(coordinate) / 1e-9
 
             # set molecule-states
-            self.molecule_states[m_id] = int(s_id)
+            states[m_id] = int(s_id)
 
-    #XXX: def set_photobleaching_dataset(self, count, dataset, voxel_radius, lengths):
-    #XXX:     if (len(dataset) > 0):
-    #XXX:         if self.get_nprocs() != 1:
-    #XXX:             # set arrays for photobleaching-state and photon-budget
-    #XXX:             state_pb = {}
-    #XXX:             budget = {}
+    # def set_molecular_states(self, count, dataset):
+    #     # reset molecule-states
+    #     self.molecule_states.fill(0)
 
-    #XXX:             num_processes = min(multiprocessing.cpu_count(), len(dataset))
-    #XXX:             n, m = divmod(len(dataset), num_processes)
+    #     # loop for particles
+    #     for j, data_j in enumerate(dataset):
 
-    #XXX:             chunks = [n + 1 if i < m else n for i in range(num_processes)]
+    #         # set particle position
+    #         p_i = numpy.array(data_j[1:4]).astype('float')/1e-9
 
-    #XXX:             processes = []
-    #XXX:             start_index = 0
+    #         # Molecule ID and its state
+    #         m_id, s_id = literal_eval(data_j[5])
+    #         # Fluorophore ID and compartment ID
+    #         f_id, l_id = literal_eval(data_j[6])
 
-    #XXX:             for chunk in chunks:
-    #XXX:                 stop_index = start_index + chunk
-    #XXX:                 p, c = multiprocessing.Pipe()
-    #XXX:                 process = multiprocessing.Process(target=self.get_photobleaching_dataset_process,
-    #XXX:                                         args=(count, dataset[start_index:stop_index], voxel_radius, lengths, c))
-    #XXX:                 processes.append((p, process))
-    #XXX:                 start_index = stop_index
+    #         # set molecule-states
+    #         self.molecule_states[m_id] = int(s_id)
 
-    #XXX:             for _, process in processes:
-    #XXX:                 process.start()
+    def update_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, voxel_radius, lengths, interval, species_id, observables):
+        if len(data) == 0:
+            return
 
-    #XXX:             for pipe, process in processes:
-    #XXX:                 new_state_pb, new_budget = pipe.recv()
-    #XXX:                 state_pb.update(new_state_pb)
-    #XXX:                 budget.update(new_budget)
-    #XXX:                 process.join()
+        if self.get_nprocs() != 1:
+            raise RuntimeError('Not supported.')
+            #XXX: # set arrays for photobleaching-state and photon-budget
+            #XXX: state_pb = {}
+            #XXX: budget = {}
 
-    #XXX:         else:
-    #XXX:             state_pb, budget = self.get_photobleaching_dataset(count, dataset, voxel_radius, lengths)
+            #XXX: num_processes = min(multiprocessing.cpu_count(), len(data))
+            #XXX: n, m = divmod(len(data), num_processes)
 
-    #XXX:         # reset global-arrays for photobleaching-state and photon-budget
-    #XXX:         for key, value in state_pb.items():
-    #XXX:             self.effects.fluorescence_state[key,count] = state_pb[key]
-    #XXX:             self.effects.fluorescence_budget[key] = budget[key]
+            #XXX: chunks = [n + 1 if i < m else n for i in range(num_processes)]
 
-    def get_new_dataset(self, count, N_emit0, dataset):
-        state_mo = self.molecule_states
+            #XXX: processes = []
+            #XXX: start_index = 0
 
-        state_pb = self.effects.fluorescence_state[:,count]
-        budget = self.effects.fluorescence_budget
+            #XXX: for chunk in chunks:
+            #XXX:     stop_index = start_index + chunk
+            #XXX:     p, c = multiprocessing.Pipe()
+            #XXX:     process = multiprocessing.Process(target=self.get_photobleaching_dataset_process,
+            #XXX:                             args=(count, data[start_index:stop_index], voxel_radius, lengths, c))
+            #XXX:     processes.append((p, process))
+            #XXX:     start_index = stop_index
+
+            #XXX: for _, process in processes:
+            #XXX:     process.start()
+
+            #XXX: for pipe, process in processes:
+            #XXX:     new_state_pb, new_budget = pipe.recv()
+            #XXX:     state_pb.update(new_state_pb)
+            #XXX:     budget.update(new_budget)
+            #XXX:     process.join()
+
+        else:
+            state_pb, budget = self.get_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, count, data, voxel_radius, lengths, interval, species_id, observables)
+
+        # reset global-arrays for photobleaching-state and photon-budget
+        for key, value in state_pb.items():
+            fluorescence_state[key, count] = state_pb[key]
+            fluorescence_budget[key] = budget[key]
+            # self.effects.fluorescence_state[key,count] = state_pb[key]
+            # self.effects.fluorescence_budget[key] = budget[key]
+
+    def get_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, voxel_radius, lengths, interval, species_id, observables):
+        # get focal point
+        p_0 = self.get_focal_center(voxel_radius, lengths)
+
+        # set arrays for photobleaching-states and photon-budget
+        result_state_pb = {}
+        result_budget = {}
+
+        # loop for particles
+        for j, particle_j in enumerate(data):
+            (coordinate, m_id, s_id, l_id, p_state, cyc_id) = particle_j
+
+            # set particle position
+            p_i = numpy.array(coordinate) / 1e-9
+
+            # Snell's law
+            amplitude, penet_depth = self.snells_law(p_i, p_0)
+
+            # particle coordinate in real(nm) scale
+            p_i, radial, depth = self.get_coordinate(p_i, p_0)
+
+            sid_array = numpy.array(species_id)
+            s_index = (numpy.abs(sid_array - int(s_id))).argmin()
+
+            if observables[s_index] is True:
+                state_j = 1
+            else:
+                state_j = 0
+
+            # get exponential amplitude (only for observation at basal surface)
+            # amplitide = amplitude * numpy.exp(-depth / pent_depth)
+
+            # get the number of emitted photons
+            N_emit = self.get_emit_photons(amplitude, interval, voxel_radius)
+
+            # get global-arrays for photobleaching-state and photon-budget
+            state_pb = fluorescence_state[m_id, count]
+            budget = fluorescence_budget[m_id]
+
+            # reset photon-budget
+            photons = budget - N_emit * state_j
+
+            if (photons > 0):
+                budget = photons
+                state_pb = state_j
+            else:
+                budget = 0
+                state_pb = 0
+
+            result_state_pb[m_id] = state_pb
+            result_budget[m_id] = budget
+
+        return result_state_pb, result_budget
+
+    #XXX: def get_photobleaching_dataset_process(self, count, dataset, voxel_radius, lengths, pipe):
+    #XXX:     pipe.send(self.get_photobleaching_dataset(count, dataset, voxel_radius, lengths))
+
+    def get_new_state(self, molecule_states, fluorescence_state, fluorescence_budget, count, N_emit0):
+        state_mo = molecule_states
+        state_pb = fluorescence_state[: , count]
+        budget = fluorescence_budget
 
         # set additional arrays for new-dataset
         new_state_pb = state_pb[state_mo > 0]
         new_budget = budget[state_mo > 0]
 
         # set new-dataset
-        state_stack = numpy.column_stack((new_state_pb, (new_budget/N_emit0).astype('int')))
-        new_dataset = numpy.column_stack((dataset, state_stack))
-
-        return new_dataset
-
-    #XXX: def get_photobleaching_dataset(self, count, dataset):
-    #XXX:     # get focal point
-    #XXX:     p_0 = self.get_focal_center(voxel_radius, lengths)
-
-    #XXX:     # set arrays for photobleaching-states and photon-budget
-    #XXX:     result_state_pb = {}
-    #XXX:     result_budget = {}
-
-    #XXX:     # loop for particles
-    #XXX:     for j, data_j in enumerate(dataset):
-
-    #XXX:             # set particle position
-    #XXX:         p_i = numpy.array(data_j[1:4]).astype('float')/1e-9
-
-    #XXX:         # Snell's law
-    #XXX:         amplitude, penet_depth = self.snells_law(p_i, p_0)
-
-    #XXX:         # particle coordinate in real(nm) scale
-    #XXX:         p_i, radial, depth = self.get_coordinate(p_i, p_0)
-
-    #XXX:         # Molecule ID and its state
-    #XXX:         m_id, s_id = literal_eval(data_j[5])
-    #XXX:         # Fluorophore ID and compartment ID
-    #XXX:         f_id, l_id = literal_eval(data_j[6])
-
-    #XXX:         sid_array = numpy.array(self.configs.spatiocyte_species_id)
-    #XXX:         s_index = (numpy.abs(sid_array - int(s_id))).argmin()
-
-    #XXX:         if self.configs.spatiocyte_observables[s_index] is True:
-    #XXX:             state_j = 1
-    #XXX:         else:
-    #XXX:             state_j = 0
-
-    #XXX:         # get exponential amplitude (only for observation at basal surface)
-    #XXX:         #amplitide = amplitude*numpy.exp(-depth/pent_depth)
-
-    #XXX:         # get the number of emitted photons
-    #XXX:         N_emit = self.get_emit_photons(amplitude)
-
-    #XXX:         # get global-arrays for photobleaching-state and photon-budget
-    #XXX:         state_pb = self.effects.fluorescence_state[m_id,count]
-    #XXX:         budget = self.effects.fluorescence_budget[m_id]
-
-    #XXX:         # reset photon-budget
-    #XXX:         photons = budget - N_emit*state_j
-
-    #XXX:         if (photons > 0):
-    #XXX:             budget = photons
-    #XXX:             state_pb = state_j
-    #XXX:         else:
-    #XXX:             budget = 0
-    #XXX:             state_pb = 0
-
-    #XXX:         result_state_pb[m_id] = state_pb
-    #XXX:         result_budget[m_id] = budget
-
-    #XXX:     return result_state_pb, result_budget
-
-    #XXX: def get_photobleaching_dataset_process(self, count, dataset, voxel_radius, lengths, pipe):
-    #XXX:     pipe.send(self.get_photobleaching_dataset(count, dataset, voxel_radius, lengths))
+        state_stack = numpy.column_stack((new_state_pb, (new_budget / N_emit0).astype('int')))
+        return state_stack
 
     def get_molecule_plane(self, cell, j, data_j, p_b, p_0, true_data, dataset):
         # particles coordinate, species and lattice-IDs

@@ -181,7 +181,7 @@ class PhysicalEffects:
 
         return tau, budget
 
-    def set_photophysics_4epifm(self, time, delta, n_emit0, N_part) :
+    def get_photophysics_for_epifm(self, time, delta, n_emit0, N_part) :
         state = numpy.zeros(shape=(len(delta)))
         dt = delta[0]
 
@@ -225,8 +225,10 @@ class PhysicalEffects:
             state.append(state_bleach)
 
         #####
-        self.fluorescence_budget = numpy.array(budget)
-        self.fluorescence_state  = numpy.array(state)
+        return numpy.array(state), numpy.array(budget)
+
+    def set_photophysics_4epifm(self, time, delta, n_emit0, N_part) :
+        self.fluorescence_state, self.fluorescence_budget = self.get_photophysics_for_epifm(time, delta, n_emit0, N_part)
 
     def set_photophysics_4palm(self, start, end, dt, f, F, N_part) :
         ##### PALM Configuration

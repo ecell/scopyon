@@ -12,11 +12,11 @@ _log = getLogger(__name__)
 
 def read_spatiocyte(pathto, tstart, tend, exposure_time, observable=None, max_count=None):
     (interval, species_id, species_index, lengths, voxel_radius, observables) = read_spatiocyte_input(os.path.join(pathto, 'pt-input.csv'), observable)
-    (count_array, index_array_size, index0) = spatiocyte_time_arrays(tstart, tend, interval, exposure_time)
+    (count_array, index_array_size, index0, time_array, delta_array, count_array) = spatiocyte_time_arrays(tstart, tend, interval, exposure_time)
     data = read_spatiocyte_data(pathto, count_array, max_count=max_count)
 
-    SpatiocyteDataSet = namedtuple('SpatiocyteDataSet', ('data', 'index_array_size', 'index0', 'count_array_size', 'interval', 'species_id', 'species_index', 'lengths', 'voxel_radius', 'observables'))
-    return SpatiocyteDataSet(data, index_array_size=index_array_size, index0=index0, count_array_size=len(count_array), interval=interval, species_id=species_id, species_index=species_index, lengths=lengths, voxel_radius=voxel_radius, observables=observables)
+    SpatiocyteDataSet = namedtuple('SpatiocyteDataSet', ('data', 'index_array_size', 'index0', 'count_array_size', 'interval', 'species_id', 'species_index', 'lengths', 'voxel_radius', 'observables', 'time_array', 'delta_array', 'count_array'))
+    return SpatiocyteDataSet(data, index_array_size=index_array_size, index0=index0, count_array_size=len(count_array), interval=interval, species_id=species_id, species_index=species_index, lengths=lengths, voxel_radius=voxel_radius, observables=observables, time_array=time_array, delta_array=delta_array, count_array=count_array)
 
 def spatiocyte_time_arrays(start_time, end_time, interval, exposure_time):
     # set count arrays by spatiocyte interval
@@ -33,7 +33,7 @@ def spatiocyte_time_arrays(start_time, end_time, interval, exposure_time):
     i0 = int(round(start_time / exposure_time))
     index_array = numpy.array([i + i0 for i in range(N_index)])
 
-    return (count_array, len(index_array), index_array[0])
+    return (count_array, len(index_array), index_array[0], time_array, delta_array, count_array)
 
 def read_spatiocyte_input(filename, observable=None):
     with open(filename, 'r') as f:
@@ -111,8 +111,10 @@ def read_spatiocyte_data(pathto, shutter_count_array=None, max_count=None):
                 t_ = float(row[0])
                 coordinate = (float(row[1]), float(row[2]), float(row[3]))
                 # radius = float(row[4])
+                # Molecule ID and its state
                 id1 = literal_eval(row[5])
                 assert isinstance(id1, tuple) and len(id1) == 2
+                # Fluorophore ID and compartment ID
                 id2 = literal_eval(row[6])
                 assert isinstance(id2, tuple) and len(id2) == 2
 
@@ -134,5 +136,5 @@ def read_spatiocyte_data(pathto, shutter_count_array=None, max_count=None):
             _log.debug('File [{}] was loaded. [t={}, #particles={}]'.format(csv_file_path, t, len(particles)))
             data.append([t, particles])
 
-    data.sort(key=lambda x: x[0])
+    # data.sort(key=lambda x: x[0])
     return data
