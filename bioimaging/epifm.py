@@ -1371,65 +1371,87 @@ class EPIFMVisualizer:
         if not os.path.exists(pathto):
             os.makedirs(pathto)
 
-        # spatiocyte_data, num_timesteps, index0, count_array_size = (
-        #     dataset.data, dataset.index_array_size, dataset.index0, dataset.count_array_size)
+        start_time, end_time, exposure_time = (
+            self.configs.shutter_start_time, self.configs.shutter_end_time, self.configs.detector_exposure_time)
+
+        times = numpy.array([t for t, _ in dataset.data])
+        frames = []
+        t = start_time
+        while t + exposure_time <= end_time:
+            start_idx = numpy.searchsorted(times, t, side='left')
+            end_idx = numpy.searchsorted(times, t + exposure_time, side='left')
+            frames.append((len(frames), t, start_idx, end_idx))
+            t += exposure_time
+
+        _log.debug('frames = {}'.format(str(frames)))
 
         # set Fluorophores PSF
         self.set_fluo_psf(dataset)
 
-        # num_timesteps = self.configs.shutter_index_array_size
-        # index0 = self.configs.shutter_index_array_first
-
         if self.get_nprocs() == 1:
-            self.output_frames_each_process(rng, dataset, pathto, image_fmt, true_fmt, dataset.index0, dataset.index_array_size)
+            self.output_frames_each_process(rng, dataset, pathto, image_fmt, true_fmt, frames)
         else:
-            num_processes = multiprocessing.cpu_count()
-            n, m = divmod(num_timesteps, num_processes)
-            # when 10 tasks is distributed to 4 processes,
-            # number of tasks of each process must be [3, 3, 2, 2]
-            chunks = [n + 1 if i < m else n for i in range(num_processes)]
+            raise RuntimeError('Not supported')
+            # num_processes = multiprocessing.cpu_count()
+            # n, m = divmod(dataset.index_array_size, num_processes)
+            # # when 10 tasks is distributed to 4 processes,
+            # # number of tasks of each process must be [3, 3, 2, 2]
+            # chunks = [n + 1 if i < m else n for i in range(num_processes)]
 
-            processes = []
-            start_index = index0
+            # processes = []
+            # start_index = index0
 
-            for chunk in chunks:
-                stop_index = start_index + chunk
+            # for chunk in chunks:
+            #     stop_index = start_index + chunk
 
-                #XXX: Initialize rng for each process
-                process = multiprocessing.Process(
-                    target=self.output_frames_each_process,
-                    args=(rng, dataset, pathto, image_fmt, true_fmt, start_index, stop_index))
-                process.start()
-                processes.append(process)
-                start_index = stop_index
+            #     #XXX: Initialize rng for each process
+            #     process = multiprocessing.Process(
+            #         target=self.output_frames_each_process,
+            #         args=(rng, dataset, pathto, image_fmt, true_fmt, start_index, stop_index))
+            #     process.start()
+            #     processes.append(process)
+            #     start_index = stop_index
 
-            for process in processes:
-                process.join()
+            # for process in processes:
+            #     process.join()
 
-    def output_frames_each_process(self, rng, dataset, pathto, image_fmt, true_fmt, start_index, stop_index):
-        # exposure time
-        exposure_time = self.configs.detector_exposure_time
+    def output_frames_each_process(self, rng, dataset, pathto, image_fmt, true_fmt, frames):
+        for frame_index, t, start_index, stop_index in frames:
+            _log.info('time: {} sec ({})'.format(t, frame_index))
 
-        # set delta_count
-        delta_count = int(round(exposure_time / dataset.interval))
-
-        for index in range(start_index, stop_index, 1):
-            # frame-time in sec
-            time = exposure_time * index
-            _log.info('time: {} sec ({})'.format(time, index))
-
-            c0 = (index - dataset.index0) * delta_count
-            c1 = (index - dataset.index0 + 1) * delta_count
-
-            camera, true_data = self.output_frame(rng, dataset, c0, c1, time)
+            camera, true_data = self.output_frame(rng, dataset, start_index, stop_index, t)
 
             # save image to numpy-binary file
-            image_file_name = os.path.join(pathto, image_fmt % (index))
+            image_file_name = os.path.join(pathto, image_fmt % (frame_index))
             numpy.save(image_file_name, camera)
 
             # save true-dataset to numpy-binary file
-            true_file_name = os.path.join(pathto, true_fmt % (index))
+            true_file_name = os.path.join(pathto, true_fmt % (frame_index))
             numpy.save(true_file_name, true_data)
+
+        # # exposure time
+        # exposure_time = self.configs.detector_exposure_time
+
+        # # set delta_count
+        # delta_count = int(round(exposure_time / dataset.interval))
+
+        # for index in range(start_index, stop_index, 1):
+        #     # frame-time in sec
+        #     time = exposure_time * index
+        #     _log.info('time: {} sec ({})'.format(time, index))
+
+        #     c0 = (index - dataset.index0) * delta_count
+        #     c1 = (index - dataset.index0 + 1) * delta_count
+
+        #     camera, true_data = self.output_frame(rng, dataset, c0, c1, time)
+
+        #     # save image to numpy-binary file
+        #     image_file_name = os.path.join(pathto, image_fmt % (index))
+        #     numpy.save(image_file_name, camera)
+
+        #     # save true-dataset to numpy-binary file
+        #     true_file_name = os.path.join(pathto, true_fmt % (index))
+        #     numpy.save(true_file_name, true_data)
 
     def output_frame(self, rng, dataset, c0, c1, time):
         spatiocyte_data = dataset.data
