@@ -748,11 +748,9 @@ def rotate_coordinate(p_i, p_0):
     len_vec = numpy.sqrt(numpy.sum(vec * vec))
 
     # Rotated particle position
-    # ravel breaks v_rot.
-    # Donot overwrite p_i
     v_rot = Rot * vec.reshape((3, 1))
     # p_i = numpy.array(v_rot).ravel() + p_0
-    newp_i = numpy.array(v_rot).flatten() + p_0
+    newp_i = numpy.array(v_rot).ravel() + p_0
 
     # Normal vector of the focal plane
     q_0 = numpy.array([0.0, y_0, 0.0])
@@ -782,12 +780,9 @@ def polar2cartesian_coordinates(r, t, x, y):
     ir = interp1d(r, numpy.arange(len(r)), bounds_error=False)
     it = interp1d(t, numpy.arange(len(t)))
 
-    #XXX: ravel breaks new_r. This might be a bug.
-
     new_ir = ir(new_r.ravel())
     new_it = it(new_t.ravel())
-
-    new_ir[new_r.ravel() > r.max()] = len(r)-1
+    new_ir[new_r.ravel() > r.max()] = len(r) - 1
     new_ir[new_r.ravel() < r.min()] = 0
 
     return numpy.array([new_ir, new_it])

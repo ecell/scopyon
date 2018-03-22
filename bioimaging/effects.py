@@ -8,6 +8,7 @@ import random
 #import h5py
 import ctypes
 import multiprocessing
+import functools
 
 #import pylab
 import scipy
