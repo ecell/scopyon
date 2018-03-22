@@ -133,10 +133,6 @@ class PhysicalEffects:
         _log.info('    (OFF) t0 =  {} sec'.format(self.photoblinking_t0_off))
         _log.info('    (OFF) a  =  {}'.format(self.photoblinking_a_off))
 
-    def prob_levy(self, t, t0, a):
-        """Deprecated"""
-        return levy_probability_function(t, t0, a)
-
     def get_prob_bleach(self, tau, dt):
         # set the photobleaching-time
         tau0  = self.photobleaching_tau0
@@ -229,9 +225,6 @@ class PhysicalEffects:
             state.append(state_bleach)
 
         return numpy.array(state), numpy.array(budget)
-
-    def set_photophysics_4epifm(self, delta, n_emit0, N_part):
-        self.fluorescence_state, self.fluorescence_budget = self.get_photophysics_for_epifm(delta, n_emit0, N_part, delta[0], numpy.random)
 
     def set_photophysics_4palm(self, start, end, dt, f, F, N_part):
         ##### PALM Configuration

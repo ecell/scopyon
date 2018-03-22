@@ -11,6 +11,7 @@ import string
 import ctypes
 import multiprocessing
 import warnings
+import configparser
 
 from ast import literal_eval
 
@@ -33,6 +34,72 @@ from . import io
 from logging import getLogger
 _log = getLogger(__name__)
 
+
+class Config:
+
+    def __init__(self, filename=None, config=None):
+        if filename is not None:
+            self.read(filename)
+        elif config is not None:
+            if isinstance(config, str):
+                self.read_string(config)
+            elif isinstance(config, dict):
+                # for key, val in config.items():
+                #     self.update(key, val)
+
+                for key, val in config.items():
+                    if key.startswith('_'):
+                        continue  #XXX: For compatibility
+                    elif isinstance(val, (dict, list)):
+                        self.__update(key, copy.deepcopy(val))
+                    else:
+                        self.__update(key, val)
+            else:
+                raise ValueError("Argument [conf] must be either 'str' or 'dict'.")
+        else:
+            filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'default_parameters.ini')
+            self.read(filename)
+
+    def read_string(self, config):
+        parser = configparser.SafeConfigParser()
+        parser.read_string(config)
+        for sec in parser.sections():
+            for opt, val in parser[sec].items():
+                self.__update(opt, literal_eval(val))  #XXX: None is accepted here for compatibility
+
+    def read(self, filename):
+        parser = configparser.SafeConfigParser()
+        parser.read(filename)
+        for sec in parser.sections():
+            for opt, val in parser[sec].items():
+                self.__update(opt, literal_eval(val))  #XXX: None is accepted here for compatibility
+
+    def __update(self, key, val):
+        _log.debug('EPIFMConfig.__update: {} = {}'.format(key, val))
+        setattr(self, key, val)
+
+    def update(self, key, val):
+        if val is not None:
+            self.__update(key, val)
+        else:
+            _log.debug('EPIFMConfig.update: None was given for [{}]. Ignored'.format(key))
+
+class EPIFMConfig(Config):
+
+    def __init__(self, filename=None, config=None):
+        Config.__init__(self, filename, config)
+
+        self.radial = numpy.array([1.0*i for i in range(1000)])
+        self.depth  = numpy.array([1.0*i for i in range(1000)])
+        self.wave_length = numpy.array([i for i in range(300, 1000)])
+        self.wave_number = numpy.array([2 * numpy.pi / self.wave_length[i] for i in range(len(self.wave_length))])
+
+        self.fluoex_eff  = [0.0 for i in range(len(self.wave_length))]
+        self.fluoem_eff  = [0.0 for i in range(len(self.wave_length))]
+
+        self.excitation_eff = numpy.array([0.0 for i in range(len(self.wave_length))])
+        self.dichroic_eff = numpy.array([0.0 for i in range(len(self.wave_length))])
+        self.emission_eff = numpy.array([0.0 for i in range(len(self.wave_length))])
 
 class VisualizerError(Exception):
     "Exception class for visualizer"
@@ -399,48 +466,6 @@ class EPIFMConfigs():
 
         return efficiency.tolist()
 
-    # def set_optical_path(self):
-    #     # (0) Data: Cell Model Sample
-    #     self.set_Time_arrays()
-    #     # self.set_Spatiocyte_data_arrays(csv_file_directory, max_count)
-
-    #     # (1) Illumination path: Light source --> Cell Model Sample
-    #     # self.set_Illumination_path()
-    #     # exit()
-
-    #     # (2) Detection path: Cell Model Sample --> Detector
-    #     self.set_Detection_path()
-
-    # def set_Time_arrays(self):
-    #     # set time-arrays
-    #     start = self.shutter_start_time
-    #     end = self.shutter_end_time
-
-    #     # set count arrays by spatiocyte interval
-    #     interval = self.spatiocyte_interval
-    #     N_count = int(round((end - start)/interval))
-    #     c0 = int(round(start/interval))
-
-    #     delta_array = numpy.zeros(shape=(N_count))
-    #     delta_array.fill(interval)
-    #     time_array  = numpy.cumsum(delta_array) + start
-    #     count_array = numpy.array([c + c0 for c in range(N_count)])
-
-    #     # set index arrays by exposure time
-    #     exposure = self.detector_exposure_time
-    #     N_index = int(round((end - start)/exposure))
-    #     i0 = int(round(start/exposure))
-    #     index_array = numpy.array([i + i0 for i in range(N_index)])
-
-    #     # set time, count and delta arrays
-    #     # self._set_data('shutter_time_array', time_array.tolist())
-    #     # self._set_data('shutter_delta_array', delta_array.tolist())
-    #     # self._set_data('shutter_count_array', count_array)
-    #     # self._set_data('shutter_index_array', index_array)
-    #     # self._set_data('shutter_index_array_size', len(index_array))
-    #     # self._set_data('shutter_index_array_first', index_array[0])
-    #     return (count_array, len(index_array), index_array[0])
-
     def set_illumination_path(self, detector_focal_point, detector_focal_norm):
         self.detector_focal_point = detector_focal_point
         self.detector_focal_norm = detector_focal_norm
@@ -618,119 +643,6 @@ class EPIFMConfigs():
         psf = Norm*numpy.array(list(map(lambda x: abs(x)**2, I_sum)))
         return psf
 
-    def set_Shutter(self, start_time = None,
-                        end_time   = None,
-                        time_open  = None,
-                        time_lapse = None):
-        """Deprecated"""
-        warnings.warn('This is no longer supported.')
-        self.set_shutter(start_time, end_time, time_open, time_lapse)
-
-    def set_LightSource(self, source_type = None,
-                              wave_length = None,
-                              flux_density = None,
-                              center = None,
-                              radius = None,
-                              angle  = None):
-        """Deprecated"""
-        warnings.warn('This is no longer supported.')
-        self.set_light_source(source_type,
-                             wave_length,
-                             flux_density,
-                             center,
-                             radius,
-                             angle)
-
-    def set_Fluorophore(self, fluorophore_type = None,
-                              wave_length = None,
-                              normalization = None,
-                              width = None,
-                              cutoff = None,
-                              file_name_format = None ):
-        """Deprecated"""
-        warnings.warn('This is no longer supported.')
-        self.set_fluorophore(fluorophore_type,
-                              wave_length,
-                              normalization,
-                              width,
-                              cutoff,
-                              file_name_format)
-
-    def set_DichroicMirror(self, dm = None):
-        """Deprecated"""
-        warnings.warn('This is no longer supported.')
-        self.set_dichroic_mirror(dm)
-
-    def set_Magnification(self, Mag = None):
-        """Deprecated"""
-        warnings.warn('This is no longer supported.')
-        self.set_magnification(Mag)
-
-    def set_Detector(self, detector = None,
-                   image_size = None,
-                   pixel_length = None,
-                   exposure_time = None,
-                   focal_point = None,
-                   QE = None,
-                   readout_noise = None,
-                   dark_count = None,
-                   emgain = None
-                   ):
-        """Deprecated"""
-        warnings.warn('This is no longer supported.')
-        self.set_detector(detector,
-                       image_size,
-                       pixel_length,
-                       exposure_time,
-                       focal_point,
-                       QE,
-                       readout_noise,
-                       dark_count,
-                       emgain)
-
-    def set_ADConverter(self, bit = None,
-                        gain = None,
-                        offset = None,
-                        fullwell = None,
-                        fpn_type = None,
-                        fpn_count = None):
-        """Deprecated"""
-        warnings.warn('This is no longer supported.')
-        import numpy.random
-        rng = numpy.random
-        self.set_analog_to_digital_converter(
-                        rng,
-                        bit,
-                        gain,
-                        offset,
-                        fullwell,
-                        fpn_type,
-                        fpn_count)
-
-    def set_OutputData(self, image_file_dir = None,
-                        image_file_name_format = None,
-                        image_file_cleanup_dir=False):
-        """Deprecated"""
-        warnings.warn('This is no longer supported.')
-        self.set_output_path(image_file_dir,
-                        image_file_name_format,
-                        image_file_cleanup_dir)
-
-    def set_ShapeFile(self, csv_file_directory):
-        """Deprecated. Use load_shape instead."""
-        warnings.warn('This is no longer supported.')
-        self.load_shape(os.path.join(csv_file_directory, 'pt-shape.csv'))
-
-    def set_InputFile(self, csv_file_directory, observable=None):
-        """Deprecated. Use load_shape instead."""
-        warnings.warn('This is no longer supported.')
-        self.load_input(os.path.join(csv_file_directory, 'pt-input.csv'), observable)
-
-    # def set_Optical_path(self, csv_file_directory):
-    #     """Deprecated. Use load_shape instead."""
-    #     warnings.warn('This is no longer supported.')
-    #     self.set_optical_path(csv_file_directory)
-
 def rotate_coordinate(p_i, p_0):
     x_0, y_0, z_0 = p_0
     x_i, y_i, z_i = p_i
@@ -903,24 +815,6 @@ class EPIFMVisualizer:
 
             # set molecule-states
             states[m_id] = int(s_id)
-
-    # def set_molecular_states(self, count, dataset):
-    #     # reset molecule-states
-    #     self.molecule_states.fill(0)
-
-    #     # loop for particles
-    #     for j, data_j in enumerate(dataset):
-
-    #         # set particle position
-    #         p_i = numpy.array(data_j[1:4]).astype('float')/1e-9
-
-    #         # Molecule ID and its state
-    #         m_id, s_id = literal_eval(data_j[5])
-    #         # Fluorophore ID and compartment ID
-    #         f_id, l_id = literal_eval(data_j[6])
-
-    #         # set molecule-states
-    #         self.molecule_states[m_id] = int(s_id)
 
     def update_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, voxel_radius, focal_center, interval):
         if len(data) == 0:
@@ -1933,14 +1827,14 @@ class EPIFMVisualizer:
         z = numpy.linspace(0, +r[-1], len(r))
         y = numpy.linspace(0, +r[-1], len(r))
 
-        coordinates = self.polar2cartesian_coordinates(r, theta, z, y)
+        coordinates = polar2cartesian_coordinates(r, theta, z, y)
         psf_t = numpy.ones_like(theta)
         result = {}
 
         for depth in depths:
             psf_r = self.configs.fluorophore_psf[depth]
             psf_polar = numpy.array(list(map(lambda x: psf_t * x, psf_r)))
-            result[depth] = self.polar2cartesian(psf_polar, coordinates, (len(r), len(r)))
+            result[depth] = polar2cartesian(psf_polar, coordinates, (len(r), len(r)))
 
         return result
 
