@@ -731,6 +731,75 @@ class EPIFMConfigs():
     #     warnings.warn('This is no longer supported.')
     #     self.set_optical_path(csv_file_directory)
 
+def rotate_coordinate(p_i, p_0):
+    x_0, y_0, z_0 = p_0
+    x_i, y_i, z_i = p_i
+
+    # Rotation of focal plane
+    cos_th0 = 1
+    sin_th0 = numpy.sqrt(1 - cos_th0 * cos_th0)
+
+    # Rotational matrix along z-axis
+    #Rot = numpy.matrix([[cos_th, -sin_th, 0], [sin_th, cos_th, 0], [0, 0, 1]])
+    Rot = numpy.matrix([[cos_th0, -sin_th0, 0], [sin_th0, cos_th0, 0], [0, 0, 1]])
+
+    # Vector of focal point to particle position
+    vec = p_i - p_0
+    len_vec = numpy.sqrt(numpy.sum(vec * vec))
+
+    # Rotated particle position
+    # ravel breaks v_rot.
+    # Donot overwrite p_i
+    v_rot = Rot * vec.reshape((3, 1))
+    # p_i = numpy.array(v_rot).ravel() + p_0
+    newp_i = numpy.array(v_rot).flatten() + p_0
+
+    # Normal vector of the focal plane
+    q_0 = numpy.array([0.0, y_0, 0.0])
+    q_1 = numpy.array([0.0, 0.0, z_0])
+    R_q0 = numpy.sqrt(numpy.sum(q_0 * q_0))
+    R_q1 = numpy.sqrt(numpy.sum(q_1 * q_1))
+
+    q0_rot = Rot * q_0.reshape((3, 1))
+    q1_rot = Rot * q_1.reshape((3, 1))
+
+    norm_v = numpy.cross(q0_rot.ravel(), q1_rot.ravel()) / (R_q0 * R_q1)
+
+    # Radial distance and depth to focal plane
+    cos_0i = numpy.sum(norm_v * vec) / (1.0 * len_vec)
+    sin_0i = numpy.sqrt(1 - cos_0i * cos_0i)
+
+    focal_depth  = abs(len_vec * cos_0i)
+    focal_radial = abs(len_vec * sin_0i)
+
+    return newp_i, focal_radial, focal_depth
+
+def polar2cartesian_coordinates(r, t, x, y):
+    X, Y = numpy.meshgrid(x, y)
+    new_r = numpy.sqrt(X * X + Y * Y)
+    new_t = numpy.arctan2(X, Y)
+
+    ir = interp1d(r, numpy.arange(len(r)), bounds_error=False)
+    it = interp1d(t, numpy.arange(len(t)))
+
+    #XXX: ravel breaks new_r. This might be a bug.
+
+    new_ir = ir(new_r.ravel())
+    new_it = it(new_t.ravel())
+
+    new_ir[new_r.ravel() > r.max()] = len(r)-1
+    new_ir[new_r.ravel() < r.min()] = 0
+
+    return numpy.array([new_ir, new_it])
+
+def polar2cartesian(grid, coordinates, shape):
+    r = shape[0] - 1
+    psf_cart = numpy.empty([2 * r + 1, 2 * r + 1])
+    psf_cart[r: , r: ] = map_coordinates(grid, coordinates, order=0).reshape(shape)
+    psf_cart[r: , : r] = psf_cart[r: , : r: -1]
+    psf_cart[: r, : ] = psf_cart[: r: -1, : ]
+    return psf_cart
+
 class EPIFMVisualizer:
     '''
     EPIFM Visualization class of e-cell simulator
@@ -760,18 +829,14 @@ class EPIFMVisualizer:
 
         return numpy.array([Nx, Ny, Nz])
 
-    def get_focal_center(self, voxel_radius, lengths):
-        # get cell size
-        cell_size = self.get_cell_size(voxel_radius, lengths)
-
+    def get_focal_center(self, cell_size):
         # focal point
-        p_0 = cell_size * self.configs.detector_focal_point
-
-        return p_0
+        return cell_size * self.configs.detector_focal_point
 
     def rewrite_input_data(self, dataset, N_particles=4117, rng=None):
         # get focal point
-        p_0 = self.get_focal_center(dataset.voxel_radius, dataset.lengths)
+        cell_size = self.get_cell_size(dataset.voxel_radius, dataset.lengths)
+        p_0 = self.get_focal_center(cell_size)
 
         # beam position: Assuming beam position = focal point (for temporary)
         p_b = copy.copy(p_0)
@@ -794,7 +859,7 @@ class EPIFMVisualizer:
 
         # set fluorescence
         delta_array = numpy.full(shape=(dataset.N_count), fill_value=dataset.interval)
-        fluorescence_state, fluorescence_budget = self.effects.get_photophysics_for_epifm(delta_array, N_emit0, N_particles, rng)
+        fluorescence_state, fluorescence_budget = self.effects.get_photophysics_for_epifm(delta_array, N_emit0, N_particles, dataset.interval, rng)
 
         new_data = []
         for k in range(len(dataset.data)):
@@ -809,7 +874,7 @@ class EPIFMVisualizer:
             self.initialize_molecular_states(molecule_states, k, particles)
 
             # set photobleaching-dataset arrays
-            self.update_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, k, particles, dataset.voxel_radius, dataset.lengths, dataset.interval)
+            self.update_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, k, particles, dataset.voxel_radius, p_0, dataset.interval)
 
             # get new-dataset
             new_state = self.get_new_state(molecule_states, fluorescence_state, fluorescence_budget, k, N_emit0)
@@ -862,7 +927,7 @@ class EPIFMVisualizer:
     #         # set molecule-states
     #         self.molecule_states[m_id] = int(s_id)
 
-    def update_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, voxel_radius, lengths, interval):
+    def update_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, voxel_radius, focal_center, interval):
         if len(data) == 0:
             return
 
@@ -884,7 +949,7 @@ class EPIFMVisualizer:
             #XXX:     stop_index = start_index + chunk
             #XXX:     p, c = multiprocessing.Pipe()
             #XXX:     process = multiprocessing.Process(target=self.get_photobleaching_dataset_process,
-            #XXX:                             args=(count, data[start_index:stop_index], voxel_radius, lengths, c))
+            #XXX:                             args=(count, data[start_index:stop_index], voxel_radius, focal_center, c))
             #XXX:     processes.append((p, process))
             #XXX:     start_index = stop_index
 
@@ -898,7 +963,7 @@ class EPIFMVisualizer:
             #XXX:     process.join()
 
         else:
-            state_pb, budget = self.get_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, count, data, voxel_radius, lengths, interval)
+            state_pb, budget = self.get_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, count, data, voxel_radius, focal_center, interval)
 
         # reset global-arrays for photobleaching-state and photon-budget
         for key, value in state_pb.items():
@@ -907,9 +972,9 @@ class EPIFMVisualizer:
             # self.effects.fluorescence_state[key,count] = state_pb[key]
             # self.effects.fluorescence_budget[key] = budget[key]
 
-    def get_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, voxel_radius, lengths, interval):
+    def get_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, voxel_radius, focal_center, interval):
         # get focal point
-        p_0 = self.get_focal_center(voxel_radius, lengths)
+        p_0 = focal_center
 
         # set arrays for photobleaching-states and photon-budget
         result_state_pb = {}
@@ -926,7 +991,7 @@ class EPIFMVisualizer:
             amplitude, penet_depth = self.snells_law(p_i, p_0)
 
             # particle coordinate in real(nm) scale
-            p_i, radial, depth = self.get_coordinate(p_i, p_0)
+            p_i, radial, depth = rotate_coordinate(p_i, p_0)
 
             state_j = 1  # particles given is always observable. already filtered when read
 
@@ -973,7 +1038,7 @@ class EPIFMVisualizer:
 
     def get_molecule_plane(self, cell, j, particle_j, p_b, p_0, true_data, dataset):
         # particles coordinate, species and lattice-IDs
-        c_id, m_id, s_id, l_id, p_state, cyc_id = particle_j
+        coordinate, m_id, s_id, _, p_state, _ = particle_j
 
         # # check if the particle (species) is observable or not
         # sid_array = numpy.array(dataset.species_id)
@@ -983,16 +1048,16 @@ class EPIFMVisualizer:
 
         #if (p_state > 0):
 
-        p_i = numpy.array(c_id)/1e-9
+        p_i = numpy.array(coordinate) / 1e-9
 
         # Snell's law
         amplitude, penet_depth = self.snells_law(p_i, p_0)
 
         # particles coordinate in real(nm) scale
-        p_i, radial, depth = self.get_coordinate(p_i, p_0)
+        p_i, radial, depth = rotate_coordinate(p_i, p_0)
 
         # get exponential amplitude (only for TIRFM-configuration)
-        amplitude = amplitude*numpy.exp(-depth/penet_depth)
+        amplitude = amplitude * numpy.exp(-depth / penet_depth)
 
         # get signal matrix
         signal = self.get_signal(amplitude, radial, depth, p_state, dataset.interval, dataset.voxel_radius)
@@ -1225,68 +1290,16 @@ class EPIFMVisualizer:
         return amplitude, penetration_depth
 
     def get_coordinate(self, p_i, p_0):
-        x_0, y_0, z_0 = p_0
-        x_i, y_i, z_i = p_i
-
-        # Rotation of focal plane
-        cos_th0 = 1
-        sin_th0 = numpy.sqrt(1 - cos_th0**2)
-
-        # Rotational matrix along z-axis
-        #Rot = numpy.matrix([[cos_th, -sin_th, 0], [sin_th, cos_th, 0], [0, 0, 1]])
-        Rot = numpy.matrix([[cos_th0, -sin_th0, 0], [sin_th0, cos_th0, 0], [0, 0, 1]])
-
-        # Vector of focal point to particle position
-        vec = p_i - p_0
-        len_vec = numpy.sqrt(numpy.sum(vec**2))
-
-        # Rotated particle position
-        v_rot = Rot*vec.reshape((3,1))
-        p_i = numpy.array(v_rot).ravel() + p_0
-
-        # Normal vector of the focal plane
-        q_0 = numpy.array([0.0, y_0, 0.0])
-        q_1 = numpy.array([0.0, 0.0, z_0])
-        R_q0 = numpy.sqrt(numpy.sum(q_0**2))
-        R_q1 = numpy.sqrt(numpy.sum(q_1**2))
-
-        q0_rot = Rot*q_0.reshape((3,1))
-        q1_rot = Rot*q_1.reshape((3,1))
-
-        norm_v = numpy.cross(q0_rot.ravel(), q1_rot.ravel())/(R_q0*R_q1)
-
-        # Radial distance and depth to focal plane
-        cos_0i = numpy.sum(norm_v*vec)/(1.0*len_vec)
-        sin_0i = numpy.sqrt(1 - cos_0i**2)
-
-        focal_depth  = abs(len_vec*cos_0i)
-        focal_radial = abs(len_vec*sin_0i)
-
-        return p_i, focal_radial, focal_depth
+        """Deprecated."""
+        return rotate_coordinate(p_i, p_0)
 
     def polar2cartesian_coordinates(self, r, t, x, y):
-        X, Y = numpy.meshgrid(x, y)
-        new_r = numpy.sqrt(X*X + Y*Y)
-        new_t = numpy.arctan2(X, Y)
-
-        ir = interp1d(r, numpy.arange(len(r)), bounds_error=False)
-        it = interp1d(t, numpy.arange(len(t)))
-
-        new_ir = ir(new_r.ravel())
-        new_it = it(new_t.ravel())
-
-        new_ir[new_r.ravel() > r.max()] = len(r)-1
-        new_ir[new_r.ravel() < r.min()] = 0
-
-        return numpy.array([new_ir, new_it])
+        """Deprecated."""
+        return polar2cartesian_coordinates(r, t, x, y)
 
     def polar2cartesian(self, grid, coordinates, shape):
-        r = shape[0] - 1
-        psf_cart = numpy.empty([2*r + 1, 2*r + 1])
-        psf_cart[r:, r:] = map_coordinates(grid, coordinates, order=0).reshape(shape)
-        psf_cart[r:,:r] = psf_cart[r:,:r:-1]
-        psf_cart[:r,:] = psf_cart[:r:-1,:]
-        return psf_cart
+        """Deprecated."""
+        return polar2cartesian(grid, coordinates, shape)
 
     def overwrite_signal(self, cell, signal, p_i):
         # particle position
@@ -1456,14 +1469,15 @@ class EPIFMVisualizer:
     def output_frame(self, rng, dataset, c0, c1, time):
         spatiocyte_data = dataset.data
 
+        # cell size (nm scale)
+        cell_size = self.get_cell_size(dataset.voxel_radius, dataset.lengths)
+        _, Ny, Nz = cell_size
+
         # focal point
-        p_0 = self.get_focal_center(dataset.voxel_radius, dataset.lengths)
+        p_0 = self.get_focal_center(cell_size)
 
         # beam position: Assuming beam position = focal point (for temporary)
         p_b = copy.copy(p_0)
-
-        # cell size (nm scale)
-        _, Ny, Nz = self.get_cell_size(dataset.voxel_radius, dataset.lengths)
 
         # define cell in nm-scale
         cell = numpy.zeros(shape=(Nz, Ny))
@@ -1876,7 +1890,7 @@ class EPIFMVisualizer:
                     #amplitude, penet_depth = self.snells_law(p_i, p_0)
 
                     # Particle coordinte in real(nm) scale
-                    p_i, radial, depth = self.get_coordinate(p_i, p_0)
+                    p_i, radial, depth = rotate_coordinate(p_i, p_0)
 
                     # fluorophore axial position
                     fluo_depth = depth if depth < len(self.configs.depth) else -1

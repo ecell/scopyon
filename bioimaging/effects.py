@@ -28,6 +28,10 @@ _log = getLogger(__name__)
 IMAGE_SIZE_LIMIT=3000
 
 
+def levy_probability_function(t, t0, a):
+    return (a / t0) * numpy.power(t0 / t, 1 + a)
+    # return numpy.powre(t0 / t, 1 + a)
+
 class PhysicalEffects:
     '''
     Physical effects setting class
@@ -129,9 +133,8 @@ class PhysicalEffects:
         _log.info('    (OFF) a  =  {}'.format(self.photoblinking_a_off))
 
     def prob_levy(self, t, t0, a):
-        prob = (a/t0)*(t0/t)**(1+a)
-        #prob = (t0/t)**(1+a)
-        return prob
+        """Deprecated"""
+        return levy_probability_function(t, t0, a)
 
     def get_prob_bleach(self, tau, dt):
         # set the photobleaching-time
@@ -181,7 +184,7 @@ class PhysicalEffects:
 
         return tau, budget
 
-    def get_photophysics_for_epifm(self, delta, n_emit0, N_part, rng=None):
+    def get_photophysics_for_epifm(self, delta, n_emit0, N_part, interval, rng=None):
         state = numpy.zeros(shape=(len(delta)))
         dt = delta[0]
 
@@ -189,12 +192,13 @@ class PhysicalEffects:
             # set the photobleaching-time
             tau0  = self.photobleaching_tau0
             alpha = self.photobleaching_alpha
+            prob_func = functools.partial(levy_probability_function, t0=tau0, a=alpha)
 
             # set photon budget
-            photon0 = (tau0 / dt) * n_emit0
+            photon0 = (tau0 / interval) * n_emit0
 
-            tau_bleach = numpy.array([j * dt + tau0 for j in range(int(1e+7))])
-            prob = self.prob_levy(tau_bleach, tau0, alpha)
+            tau_bleach = numpy.array([j * interval + tau0 for j in range(int(1e+7))])
+            prob = prob_func(tau_bleach)
             norm = prob.sum()
             p_bleach = prob / norm
 
@@ -210,26 +214,23 @@ class PhysicalEffects:
         state  = []
 
         for i in range(N_part):
-
             # get photon budget and photobleaching-time
             photons = (tau[i] / tau0) * photon0
 
             # bleaching time
-            state_bleach = numpy.zeros(shape=(len(delta)))
-
             Ni = (numpy.abs(numpy.cumsum(delta) - tau[i])).argmin()
 
+            state_bleach = numpy.zeros(shape=(len(delta)))
             state_bleach[0: Ni] = numpy.ones(shape=(Ni))
 
             # set photon budget and fluorescence state
             budget.append(photons)
             state.append(state_bleach)
 
-        #####
         return numpy.array(state), numpy.array(budget)
 
     def set_photophysics_4epifm(self, delta, n_emit0, N_part):
-        self.fluorescence_state, self.fluorescence_budget = self.get_photophysics_for_epifm(delta, n_emit0, N_part, numpy.random)
+        self.fluorescence_state, self.fluorescence_budget = self.get_photophysics_for_epifm(delta, n_emit0, N_part, delta[0], numpy.random)
 
     def set_photophysics_4palm(self, start, end, dt, f, F, N_part):
         ##### PALM Configuration
