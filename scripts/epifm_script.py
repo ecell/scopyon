@@ -24,9 +24,10 @@ def test_epifm() :
     config.set_fluorophore(fluorophore_type='Tetramethylrhodamine(TRITC)', normalization=1.0)
     config.set_dichroic_mirror('FF562-Di03-25x36')
     config.set_magnification(magnification=364)
-    config.set_detector(detector='EMCCD', image_size=(512,512), pixel_length=16e-6, exposure_time=exposure_time,
-                       focal_point=(0.0,0.5,0.5), QE=0.92, readout_noise=100, emgain=300)
+    config.set_detector(detector='EMCCD', image_size=(512,512), pixel_length=16e-6, exposure_time=exposure_time, focal_point=(0.0,0.5,0.5), QE=0.92, readout_noise=100, emgain=300)
     config.set_analog_to_digital_converter(bit=16, offset=2000, fullwell=800000)
+
+    print('==============================')
 
     epifm = EPIFMConfigs()
     epifm.initialize(config, rng)

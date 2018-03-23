@@ -74,6 +74,7 @@ class Config:
 
     def read_string(self, config):
         parser = configparser.SafeConfigParser()
+        parser.optionxform = str  # Preserving case
         parser.read_string(config)
         for sec in parser.sections():
             for opt, val in parser[sec].items():
@@ -81,6 +82,7 @@ class Config:
 
     def read(self, filename):
         parser = configparser.SafeConfigParser()
+        parser.optionxform = str  # Preserving case
         parser.read(filename)
         for sec in parser.sections():
             for opt, val in parser[sec].items():
@@ -93,6 +95,8 @@ class Config:
     def update(self, key, val):
         if val is not None:
             self.__update(key, val)
+        elif hasattr(self, key):
+            _log.debug('EPIFMConfig.update: None was given for [{}]. The value was not changed [{}]'.format(key, getattr(self, key)))
         else:
             _log.debug('EPIFMConfig.update: None was given for [{}]. Ignored'.format(key))
 
@@ -186,6 +190,10 @@ class EPIFMConfigs:
         pass
 
     def initialize(self, config, rng=None):
+        self.ADConverter_fpn_type = None
+        self.emission_switch = False
+        self.hc_const = 2.00e-25
+
         self.radial = numpy.array([1.0*i for i in range(1000)])
         self.depth  = numpy.array([1.0*i for i in range(1000)])
         self.wave_length = numpy.array([i for i in range(300, 1000)])
@@ -273,6 +281,9 @@ class EPIFMConfigs:
 
     def set_excitation_filter(self, excitation=None):
         _log.info('--- Excitation Filter:')
+        if excitation is None:
+            return
+
         filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/excitation/') + excitation + '.csv'
 
         try:
@@ -382,6 +393,9 @@ class EPIFMConfigs:
 
     def set_dichroic_mirror(self, dm = None):
         _log.info('--- Dichroic Mirror:')
+        if dm is None:
+            return
+
         filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/dichroic/') + dm + '.csv'
 
         try:
@@ -414,6 +428,9 @@ class EPIFMConfigs:
 
     def set_emission_filter(self, emission = None):
         _log.info('--- Emission Filter:')
+        if emission is None:
+            return
+
         filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/emission/') + emission + '.csv'
 
         try:
@@ -487,7 +504,6 @@ class EPIFMConfigs:
                         fpn_type = None,
                         fpn_count = None,
                         rng = None):
-        print(bit, offset, fullwell, fpn_type, fpn_count, rng)
         self._set_data('ADConverter_bit', bit)
         self._set_data('ADConverter_gain', (fullwell - 0.0)/(pow(2.0, bit) - offset))
         self._set_data('ADConverter_offset', offset)
