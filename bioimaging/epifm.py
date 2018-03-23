@@ -35,6 +35,18 @@ from logging import getLogger
 _log = getLogger(__name__)
 
 
+class VisualizerError(Exception):
+    "Exception class for visualizer"
+
+    def __init__(self, info):
+        self.__info = info
+
+    def __repr__(self):
+        return self.__info
+
+    def __str__(self):
+        return self.__info
+
 class Config:
 
     def __init__(self, filename=None, config=None):
@@ -84,11 +96,96 @@ class Config:
         else:
             _log.debug('EPIFMConfig.update: None was given for [{}]. Ignored'.format(key))
 
+    def __getattr__(self, name):
+        return None
+
 class EPIFMConfig(Config):
 
     def __init__(self, filename=None, config=None):
         Config.__init__(self, filename, config)
 
+    def set_shutter(self, start_time=None, end_time=None, time_open=None, time_lapse=None):
+        self.update('shutter_switch', True)
+        self.update('shutter_start_time', start_time)
+        self.update('shutter_end_time', end_time)
+
+        self.update('shutter_time_open', time_open or end_time - start_time)
+        self.update('shutter_time_lapse', time_lapse or end_time - start_time)
+
+    def set_light_source(self, source_type=None, wave_length=None, flux_density=None, radius=None, angle=None):
+        self.update('source_switch', True)
+        self.update('source_type', source_type)
+        self.update('source_wavelength', wave_length)
+        self.update('source_flux_density', flux_density)
+        self.update('source_radius', radius)
+        self.update('source_angle', angle)
+
+    def set_fluorophore(self, fluorophore_type=None, wave_length=None, normalization=None, width=None, cutoff=None, file_name_format=None):
+
+        if fluorophore_type == 'Gaussian':
+            self.update('fluorophore_type', fluorophore_type)
+            self.update('psf_wavelength', wave_length)
+            self.update('psf_normalization', normalization)
+            self.update('psf_width', width)
+            self.update('psf_cutoff', cutoff)
+            self.update('psf_file_name_format', file_name_format)
+
+        else:
+            self.update('fluorophore_type', fluorophore_type)
+            self.update('psf_normalization', normalization)
+            self.update('psf_file_name_format', file_name_format)
+
+    def set_dichroic_mirror(self, dm=None):
+        self.update('dichroic_switch', True)
+        self.update('dichroic_mirror', dm)
+
+    def set_magnification(self, magnification=None):
+        self.update('image_magnification', magnification)
+
+    def set_detector(self, detector=None, image_size=None, pixel_length=None, exposure_time=None, focal_point=None, QE=None, readout_noise=None, dark_count=None, emgain=None):
+        self.update('detector_switch', True)
+        self.update('detector_type', detector)
+        self.update('detector_image_size', image_size)
+        self.update('detector_pixel_length', pixel_length)
+        self.update('detector_exposure_time', exposure_time)
+        self.update('detector_focal_point', focal_point)
+        self.update('detector_qeff', QE)
+        self.update('detector_readout_noise', readout_noise)
+        self.update('detector_dark_count', dark_count)
+        self.update('detector_emgain', emgain)
+
+    def set_analog_to_digital_converter(self, bit=None, offset=None, fullwell=None, fpn_type=None, fpn_count=None):
+        self.update('ADConverter_bit', bit)
+        self.update('ADConverter_offset', offset)
+        self.update('ADConverter_fullwell', fullwell)
+        self.update('ADConverter_fpn_type', fpn_type)
+        self.update('ADConverter_fpn_count', fpn_count)
+
+    def set_illumination_path(self, detector_focal_point, detector_focal_norm):
+        self.update('detector_focal_point', detector_focal_point)
+        self.update('detector_focal_norm', detector_focal_norm)
+
+    def set_excitation_filter(self, excitation=None):
+        self.update('excitation_switch', True)
+        self.update('excitation_filter', excitation)
+
+    def set_emission_filter(self, emission=None):
+        self.update('emission_switch', True)
+        self.update('emission_filter', emission)
+
+class EPIFMConfigs:
+    '''
+    EPIFM Configuration
+
+        Wide-field Gaussian Profile
+            +
+        Detector: EMCCD/CMOS
+    '''
+
+    def __init__(self):
+        pass
+
+    def initialize(self, config, rng=None):
         self.radial = numpy.array([1.0*i for i in range(1000)])
         self.depth  = numpy.array([1.0*i for i in range(1000)])
         self.wave_length = numpy.array([i for i in range(300, 1000)])
@@ -101,45 +198,35 @@ class EPIFMConfig(Config):
         self.dichroic_eff = numpy.array([0.0 for i in range(len(self.wave_length))])
         self.emission_eff = numpy.array([0.0 for i in range(len(self.wave_length))])
 
-class VisualizerError(Exception):
-    "Exception class for visualizer"
+        self.set_shutter(config.shutter_start_time, config.shutter_end_time, config.shutter_time_open, config.shutter_time_lapse)
+        self.set_light_source(config.source_type, config.source_wavelength, config.source_flux_density, config.source_radius, config.source_angle)
+        self.set_fluorophore(config.fluorophore_type, config.psf_wavelength, config.psf_normalization, config.psf_width, config.psf_cutoff, config.psf_file_name_format)
+        self.set_dichroic_mirror(config.dichroic_mirror)
+        self.set_magnification(config.image_magnification)
+        self.set_detector(config.detector_type, config.detector_image_size, config.detector_pixel_length, config.detector_exposure_time, config.detector_focal_point, config.detector_qeff, config.detector_readout_noise, config.detector_dark_count, config.detector_emgain)
+        self.set_analog_to_digital_converter(config.ADConverter_bit, config.ADConverter_offset, config.ADConverter_fullwell, config.ADConverter_fpn_type, config.ADConverter_fpn_count, rng=rng)
+        self.set_illumination_path(config.detector_focal_point, config.detector_focal_norm)
+        self.set_excitation_filter(config.excitation_filter)
+        self.set_emission_filter(config.emission_filter)
 
-    def __init__(self, info):
-        self.__info = info
+    # def __init__(self, user_configs_dict = None):
+    #     # default setting
+    #     configs_dict = parameter_configs.__dict__.copy()
 
-    def __repr__(self):
-        return self.__info
+    #     # user setting
+    #     if user_configs_dict is not None:
+    #         if type(user_configs_dict) != type({}):
+    #             _log.info('Illegal argument type for constructor of Configs class')
+    #             sys.exit()
+    #         configs_dict.update(user_configs_dict)
 
-    def __str__(self):
-        return self.__info
-
-class EPIFMConfigs():
-    '''
-    EPIFM Configuration
-
-        Wide-field Gaussian Profile
-            +
-        Detector: EMCCD/CMOS
-    '''
-
-    def __init__(self, user_configs_dict = None):
-        # default setting
-        configs_dict = parameter_configs.__dict__.copy()
-
-        # user setting
-        if user_configs_dict is not None:
-            if type(user_configs_dict) != type({}):
-                _log.info('Illegal argument type for constructor of Configs class')
-                sys.exit()
-            configs_dict.update(user_configs_dict)
-
-        for key, val in configs_dict.items():
-            if key[0] != '_': # Data skip for private variables in setting_dict.
-                if type(val) == type({}) or type(val) == type([]):
-                    copy_val = copy.deepcopy(val)
-                else:
-                    copy_val = val
-                setattr(self, key, copy_val)
+    #     for key, val in configs_dict.items():
+    #         if key[0] != '_': # Data skip for private variables in setting_dict.
+    #             if type(val) == type({}) or type(val) == type([]):
+    #                 copy_val = copy.deepcopy(val)
+    #             else:
+    #                 copy_val = val
+    #             setattr(self, key, copy_val)
 
     def _set_data(self, key, val):
         if val is not None:
@@ -169,7 +256,6 @@ class EPIFMConfigs():
     def set_light_source(self, source_type = None,
                                wave_length = None,
                                flux_density = None,
-                               center = None,
                                radius = None,
                                angle  = None):
         self._set_data('source_switch', True)
@@ -185,7 +271,7 @@ class EPIFMConfigs():
         _log.info('    1/e2 Radius = {} m'.format(self.source_radius))
         _log.info('    Angle = {} degree'.format(self.source_angle))
 
-    def set_ExcitationFilter(self, excitation = None):
+    def set_excitation_filter(self, excitation=None):
         _log.info('--- Excitation Filter:')
         filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/excitation/') + excitation + '.csv'
 
@@ -227,12 +313,12 @@ class EPIFMConfigs():
         if (fluorophore_type == 'Gaussian'):
             _log.info('--- Fluorophore: %s PSF' % (fluorophore_type))
 
-            self._set_data('fluorophore_type {}'.format(fluorophore_type))
-            self._set_data('psf_wavelength {}'.format(wave_length))
-            self._set_data('psf_normalization {}'.format(normalization))
-            self._set_data('psf_width {}'.format(width))
-            self._set_data('psf_cutoff {}'.format(cutoff))
-            self._set_data('psf_file_name_format {}'.format(file_name_format))
+            self._set_data('fluorophore_type', fluorophore_type)
+            self._set_data('psf_wavelength', wave_length)
+            self._set_data('psf_normalization', normalization)
+            self._set_data('psf_width', width)
+            self._set_data('psf_cutoff', cutoff)
+            self._set_data('psf_file_name_format', file_name_format)
 
             index = (numpy.abs(self.wave_length - self.psf_wavelength)).argmin()
 
@@ -326,7 +412,7 @@ class EPIFMConfigs():
         self.dichroic_eff = self.set_efficiency(dichroic_mirror)
         self._set_data('dichroic_switch', True)
 
-    def set_EmissionFilter(self, emission = None):
+    def set_emission_filter(self, emission = None):
         _log.info('--- Emission Filter:')
         filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/emission/') + emission + '.csv'
 
@@ -396,12 +482,12 @@ class EPIFMConfigs():
         _log.info('    EM gain = x {}'.format(self.detector_emgain))
 
     def set_analog_to_digital_converter(self, bit = None,
-                        gain = None,
                         offset = None,
                         fullwell = None,
                         fpn_type = None,
                         fpn_count = None,
                         rng = None):
+        print(bit, offset, fullwell, fpn_type, fpn_count, rng)
         self._set_data('ADConverter_bit', bit)
         self._set_data('ADConverter_gain', (fullwell - 0.0)/(pow(2.0, bit) - offset))
         self._set_data('ADConverter_offset', offset)
