@@ -1,4 +1,5 @@
 import sys
+import collections
 import os
 import shutil
 import copy
@@ -50,6 +51,8 @@ class VisualizerError(Exception):
 class Config:
 
     def __init__(self, filename=None, config=None):
+        self.__data = collections.defaultdict(lambda: None)
+
         if filename is not None:
             self.read(filename)
         elif config is not None:
@@ -90,7 +93,8 @@ class Config:
 
     def __update(self, key, val):
         _log.debug('EPIFMConfig.__update: {} = {}'.format(key, val))
-        setattr(self, key, val)
+        # setattr(self, key, val)
+        self.__data[key] = val
 
     def update(self, key, val):
         if val is not None:
@@ -101,7 +105,10 @@ class Config:
             _log.debug('EPIFMConfig.update: None was given for [{}]. Ignored'.format(key))
 
     def __getattr__(self, name):
-        return None
+        return self.__data[name]
+
+    def keys(self):
+        return self.__data.keys()
 
 class EPIFMConfig(Config):
 
