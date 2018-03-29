@@ -295,7 +295,7 @@ class EPIFMConfigs:
 
     def initialize(self, config, rng=None):
         self.ADConverter_fpn_type = None
-        self.emission_switch = False
+        # self.emission_switch = False
         self.hc_const = 2.00e-25
 
         self.radial = numpy.arange(1000, dtype=float)
@@ -383,6 +383,10 @@ class EPIFMConfigs:
 
         self.set_emission_filter(config.emission_filter, config.emission_switch)
         _log.info('--- Emission Filter:')
+
+        # self.set_illumination_path(focal_point=config.detector_focal_point, focal_norm=config.detector_focal_norm)
+
+        self._set_data('fluorophore_psf', self.get_PSF_detector())
 
     def _set_data(self, key, val):
         if val is not None:
@@ -555,9 +559,9 @@ class EPIFMConfigs:
             emission_filter = read_emission_catalog(emission)
             self._set_data('emission_eff', self.set_efficiency(emission_filter))
 
-    def set_illumination_path(self, detector_focal_point, detector_focal_norm):
-        self.detector_focal_point = detector_focal_point
-        self.detector_focal_norm = detector_focal_norm
+    def set_illumination_path(self, focal_point, focal_norm):
+        self._set_data('detector_focal_point', focal_point)
+        self._set_data('detector_focal_norm', focal_norm)
 
     # def set_Illumination_path(self):
     #     # define observational image plane in nm-scale
@@ -667,7 +671,7 @@ class EPIFMConfigs:
     #     # Detector PSF
     #     self.set_PSF_detector()
 
-    def set_PSF_detector(self):
+    def get_PSF_detector(self):
         r = self.radial
         z = self.depth
 
@@ -677,57 +681,63 @@ class EPIFMConfigs:
         I = self.fluoem_norm
 
         # Photon Transmission Efficiency
-        if (self.dichroic_switch == True):
-            I = I*0.01*self.dichroic_eff
+        if self.dichroic_switch:
+            I = I * 0.01 * self.dichroic_eff
 
-        if (self.emission_switch == True):
-            I = I*0.01*self.emission_eff
+        if self.emission_switch:
+            I = I * 0.01 * self.emission_eff
 
         # For normalization
-        norm = list(map(lambda x: True if x > 1e-4 else False, I))
+        # norm = list(map(lambda x: True if x > 1e-4 else False, I))
+        norm = (I > 1e-4)
 
         # PSF: Fluorophore
-        psf_fl = None
 
-        if (self.fluorophore_type == 'Gaussian'):
+        if self.fluorophore_type == 'Gaussian':
             N0 = self.psf_normalization
-            Ir = sum(list(map(lambda x: x*numpy.exp(-0.5*(r/self.psf_width[0])**2), norm)))
-            Iz = sum(list(map(lambda x: x*numpy.exp(-0.5*(z/self.psf_width[1])**2), norm)))
+            # Ir = sum(list(map(lambda x: x * numpy.exp(-0.5 * (r / self.psf_width[0]) ** 2), norm)))
+            # Iz = sum(list(map(lambda x: x * numpy.exp(-0.5 * (z / self.psf_width[1]) ** 2), norm)))
+            Ir = norm * numpy.exp(-0.5 * numpy.power(r / self.psf_width[0], 2))
+            Iz = norm * numpy.exp(-0.5 * numpy.power(r / self.psf_width[1], 2))
 
-            psf_fl = numpy.sum(I)*N0*numpy.array(list(map(lambda x: Ir*x, Iz)))
+            psf_fl = numpy.sum(I) * N0 * numpy.array(list(map(lambda x: Ir * x, Iz)))
+
         else:
             # make the norm and wave_length array shorter
-            psf_fl = numpy.sum(I)*self.get_PSF_fluorophore(r, z, wave_length)
+            psf_fl = numpy.sum(I) * self.get_PSF_fluorophore(r, z, wave_length)
 
-        self.fluorophore_psf = psf_fl
+        # self.fluorophore_psf = psf_fl
+        # self._set_data('fluorophore_psf', psf_fl)
+        return psf_fl
 
     def get_PSF_fluorophore(self, r, z, wave_length):
         # set Magnification of optical system
         M = self.image_magnification
 
         # set Numerical Appature
-        NA = 1.4#self.objective_NA
+        NA = 1.4  # self.objective_NA
 
         # set alpha and gamma consts
-        k = 2.0*numpy.pi/wave_length
-        alpha = k*NA
-        gamma = k*(NA/2)**2
+        k = 2.0 * numpy.pi / wave_length
+        alpha = k * NA
+        gamma = k * numpy.power(NA / 2, 2)
 
         # set rho parameters
         N = 100
-        drho = 1.0/N
-        rho = numpy.array([(i+1)*drho for i in range(N)])
+        drho = 1.0 / N
+        # rho = numpy.array([(i + 1) * drho for i in range(N)])
+        rho = numpy.arange(1, N + 1) * drho
 
-        J0 = numpy.array(list(map(lambda x: j0(x*alpha*rho), r)))
-        Y  = numpy.array(list(map(lambda x: numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z)))
-        I  = numpy.array(list(map(lambda x: x*J0, Y)))
+        J0 = numpy.array(list(map(lambda x: j0(x * alpha * rho), r)))
+        Y  = numpy.array(list(map(lambda x: numpy.exp(-2 * 1.j * x * gamma * rho * rho) * rho * drho, z)))
+        I  = numpy.array(list(map(lambda x: x * J0, Y)))
         I_sum = I.sum(axis=2)
 
         # set normalization factor
         Norm = self.psf_normalization
 
         # set PSF
-        psf = Norm*numpy.array(list(map(lambda x: abs(x)**2, I_sum)))
+        psf = Norm * numpy.array(list(map(lambda x: abs(x) ** 2, I_sum)))
         return psf
 
 def rotate_coordinate(p_i, p_0):

@@ -30,9 +30,6 @@ def test_epifm() :
     epifm = EPIFMConfigs()
     epifm.initialize(config, rng)
 
-    # epifm.set_illumination_path(detector_focal_point=epifm.detector_focal_point, detector_focal_norm=(1.0, 0.0, 0.0))
-    epifm.set_PSF_detector() # EPIFMVisualizer.__init__ -> epifm.set_optical_path() -> epifm.set_Detection_path()
-
     # create physical effects
     physics = PhysicalEffects()
     physics.set_background(mean=0.01)
