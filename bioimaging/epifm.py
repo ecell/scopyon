@@ -110,51 +110,148 @@ class Config:
     def keys(self):
         return self.__data.keys()
 
+def read_fluorophore_catalog(fluorophore_type):
+    filename = os.path.join(
+        os.path.abspath(os.path.dirname(__file__)), 'catalog/fluorophore/', fluorophore_type + '.csv')
+
+    if not os.path.exists(filename):
+        raise IOError('Catalog file [{}] was not found'.format(filename))
+
+    with open(filename, 'r') as fin:
+        lines = [_.rstrip() for _ in fin.readlines()]
+        header = lines[0: 5]
+        data = lines[5: ]
+
+        fluorophore_header = [_.split(',') for _ in header]
+        for _ in fluorophore_header:
+            _log.debug("     {}".format(_))
+
+        em_idx = data.index('Emission')
+        fluorophore_excitation = [_.split(',') for _ in data[1: em_idx]]
+        fluorophore_emission   = [_.split(',') for _ in data[(em_idx + 1): ]]
+
+    return (fluorophore_excitation, fluorophore_emission)
+
+def read_dichroic_catalog(dm):
+    filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/dichroic/', dm + '.csv')
+    if not os.path.exists(filename):
+        raise IOError('Catalog file [{}] was not found'.format(filename))
+
+    with open(filename, 'r') as fin:
+        lines = fin.readlines()
+        header = lines[0: 5]
+        data = lines[6:]
+
+        dichroic_header = []
+        dichroic_mirror = []
+
+        for i in range(len(header)):
+            dummy  = header[i].split('\r\n')
+            a_data = dummy[0].split(',')
+            dichroic_header.append(a_data)
+            _log.debug('     {}'.format(a_data))
+
+        for i in range(len(data)):
+            dummy0 = data[i].split('\r\n')
+            a_data = dummy0[0].split(',')
+            dichroic_mirror.append(a_data)
+
+    return dichroic_mirror
+
+def read_excitation_catalog(excitation):
+    filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/excitation/', excitation + '.csv')
+    if not os.path.exists(filename):
+        raise IOError('Catalog file [{}] was not found'.format(filename))
+
+    with open(filename, 'r') as fin:
+        lines = fin.readlines()
+
+        header = lines[0: 5]
+        data   = lines[6: ]
+
+        excitation_header = []
+        excitation_filter = []
+
+        for i in range(len(header)):
+            dummy  = header[i].split('\r\n')
+            a_data = dummy[0].split(',')
+            excitation_header.append(a_data)
+            _log.debug('    {}'.format(a_data))
+
+        for i in range(len(data)):
+            dummy0 = data[i].split('\r\n')
+            a_data = dummy0[0].split(',')
+            excitation_filter.append(a_data)
+
+    return excitation_filter
+
+def read_emission_catalog(emission):
+    filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/emission/', emission + '.csv')
+    if not os.path.exists(filename):
+        raise IOError('Catalog file [{}] was not found'.format(filename))
+
+    with open(filename, 'r') as fin:
+        lines = fin.readlines()
+
+        header = lines[0: 5]
+        data   = lines[6: ]
+
+        emission_header = []
+        emission_filter = []
+
+        for i in range(len(header)):
+            dummy  = header[i].split('\r\n')
+            a_data = dummy[0].split(',')
+            emission_header.append(a_data)
+            _log.info('    {}'.format(a_data))
+
+        for i in range(len(data)):
+            dummy0 = data[i].split('\r\n')
+            a_data = dummy0[0].split(',')
+            emission_filter.append(a_data)
+
+    return emission_filter
+
 class EPIFMConfig(Config):
 
     def __init__(self, filename=None, config=None):
         Config.__init__(self, filename, config)
 
-    def set_shutter(self, start_time=None, end_time=None, time_open=None, time_lapse=None):
-        self.update('shutter_switch', True)
+    def set_shutter(self, start_time=None, end_time=None, time_open=None, time_lapse=None, switch=True):
+        self.update('shutter_switch', switch)
         self.update('shutter_start_time', start_time)
         self.update('shutter_end_time', end_time)
+        self.update('shutter_time_open', time_open)
+        self.update('shutter_time_lapse', time_lapse)
 
-        self.update('shutter_time_open', time_open or end_time - start_time)
-        self.update('shutter_time_lapse', time_lapse or end_time - start_time)
-
-    def set_light_source(self, source_type=None, wave_length=None, flux_density=None, radius=None, angle=None):
-        self.update('source_switch', True)
+    def set_light_source(self, source_type=None, wave_length=None, flux_density=None, radius=None, angle=None, switch=True):
+        self.update('source_switch', switch)
         self.update('source_type', source_type)
         self.update('source_wavelength', wave_length)
         self.update('source_flux_density', flux_density)
         self.update('source_radius', radius)
         self.update('source_angle', angle)
 
-    def set_fluorophore(self, fluorophore_type=None, wave_length=None, normalization=None, width=None, cutoff=None, file_name_format=None):
+    def set_fluorophore(
+            self, fluorophore_type=None, wave_length=None, normalization=None, width=None, cutoff=None, file_name_format=None):
+        self.update('fluorophore_type', fluorophore_type)
+        self.update('psf_wavelength', wave_length)
+        self.update('psf_normalization', normalization)
+        self.update('psf_width', width)
+        self.update('psf_cutoff', cutoff)
+        self.update('psf_file_name_format', file_name_format)
 
-        if fluorophore_type == 'Gaussian':
-            self.update('fluorophore_type', fluorophore_type)
-            self.update('psf_wavelength', wave_length)
-            self.update('psf_normalization', normalization)
-            self.update('psf_width', width)
-            self.update('psf_cutoff', cutoff)
-            self.update('psf_file_name_format', file_name_format)
-
-        else:
-            self.update('fluorophore_type', fluorophore_type)
-            self.update('psf_normalization', normalization)
-            self.update('psf_file_name_format', file_name_format)
-
-    def set_dichroic_mirror(self, dm=None):
-        self.update('dichroic_switch', True)
+    def set_dichroic_mirror(self, dm=None, switch=True):
+        self.update('dichroic_switch', switch)
         self.update('dichroic_mirror', dm)
 
     def set_magnification(self, magnification=None):
         self.update('image_magnification', magnification)
 
-    def set_detector(self, detector=None, image_size=None, pixel_length=None, exposure_time=None, focal_point=None, QE=None, readout_noise=None, dark_count=None, emgain=None):
-        self.update('detector_switch', True)
+    def set_detector(
+            self, detector=None, image_size=None, pixel_length=None, exposure_time=None, focal_point=None,
+            QE=None, readout_noise=None, dark_count=None, emgain=None, switch=True):
+        self.update('detector_switch', switch)
         self.update('detector_type', detector)
         self.update('detector_image_size', image_size)
         self.update('detector_pixel_length', pixel_length)
@@ -172,16 +269,16 @@ class EPIFMConfig(Config):
         self.update('ADConverter_fpn_type', fpn_type)
         self.update('ADConverter_fpn_count', fpn_count)
 
-    def set_illumination_path(self, detector_focal_point, detector_focal_norm):
-        self.update('detector_focal_point', detector_focal_point)
-        self.update('detector_focal_norm', detector_focal_norm)
+    def set_illumination_path(self, focal_point, focal_norm):
+        self.update('detector_focal_point', focal_point)
+        self.update('detector_focal_norm', focal_norm)
 
-    def set_excitation_filter(self, excitation=None):
-        self.update('excitation_switch', True)
+    def set_excitation_filter(self, excitation=None, switch=True):
+        self.update('excitation_switch', switch)
         self.update('excitation_filter', excitation)
 
-    def set_emission_filter(self, emission=None):
-        self.update('emission_switch', True)
+    def set_emission_filter(self, emission=None, switch=True):
+        self.update('emission_switch', switch)
         self.update('emission_filter', emission)
 
 class EPIFMConfigs:
@@ -201,66 +298,18 @@ class EPIFMConfigs:
         self.emission_switch = False
         self.hc_const = 2.00e-25
 
-        self.radial = numpy.array([1.0*i for i in range(1000)])
-        self.depth  = numpy.array([1.0*i for i in range(1000)])
-        self.wave_length = numpy.array([i for i in range(300, 1000)])
-        self.wave_number = numpy.array([2 * numpy.pi / self.wave_length[i] for i in range(len(self.wave_length))])
+        self.radial = numpy.arange(1000, dtype=float)
+        self.depth = numpy.arange(1000, dtype=float)
+        self.wave_length = numpy.arange(300, 1000, dtype=int)
+        N = len(self.wave_length)
+        self.wave_number = 2 * numpy.pi / numpy.arange(N, dtype=float)
+        self.excitation_eff = numpy.zeros(N, dtype=float)
+        self.dichroic_eff = numpy.zeros(N, dtype=float)
+        self.emission_eff = numpy.zeros(N, dtype=float)
 
-        self.fluoex_eff  = [0.0 for i in range(len(self.wave_length))]
-        self.fluoem_eff  = [0.0 for i in range(len(self.wave_length))]
-
-        self.excitation_eff = numpy.array([0.0 for i in range(len(self.wave_length))])
-        self.dichroic_eff = numpy.array([0.0 for i in range(len(self.wave_length))])
-        self.emission_eff = numpy.array([0.0 for i in range(len(self.wave_length))])
-
-        self.set_shutter(config.shutter_start_time, config.shutter_end_time, config.shutter_time_open, config.shutter_time_lapse)
-        self.set_light_source(config.source_type, config.source_wavelength, config.source_flux_density, config.source_radius, config.source_angle)
-        self.set_fluorophore(config.fluorophore_type, config.psf_wavelength, config.psf_normalization, config.psf_width, config.psf_cutoff, config.psf_file_name_format)
-        self.set_dichroic_mirror(config.dichroic_mirror)
-        self.set_magnification(config.image_magnification)
-        self.set_detector(config.detector_type, config.detector_image_size, config.detector_pixel_length, config.detector_exposure_time, config.detector_focal_point, config.detector_qeff, config.detector_readout_noise, config.detector_dark_count, config.detector_emgain)
-        self.set_analog_to_digital_converter(config.ADConverter_bit, config.ADConverter_offset, config.ADConverter_fullwell, config.ADConverter_fpn_type, config.ADConverter_fpn_count, rng=rng)
-        self.set_illumination_path(config.detector_focal_point, config.detector_focal_norm)
-        self.set_excitation_filter(config.excitation_filter)
-        self.set_emission_filter(config.emission_filter)
-
-    # def __init__(self, user_configs_dict = None):
-    #     # default setting
-    #     configs_dict = parameter_configs.__dict__.copy()
-
-    #     # user setting
-    #     if user_configs_dict is not None:
-    #         if type(user_configs_dict) != type({}):
-    #             _log.info('Illegal argument type for constructor of Configs class')
-    #             sys.exit()
-    #         configs_dict.update(user_configs_dict)
-
-    #     for key, val in configs_dict.items():
-    #         if key[0] != '_': # Data skip for private variables in setting_dict.
-    #             if type(val) == type({}) or type(val) == type([]):
-    #                 copy_val = copy.deepcopy(val)
-    #             else:
-    #                 copy_val = val
-    #             setattr(self, key, copy_val)
-
-    def _set_data(self, key, val):
-        if val is not None:
-            setattr(self, key, val)
-
-    def set_shutter(self, start_time = None,
-                          end_time   = None,
-                          time_open  = None,
-                          time_lapse = None):
-        self._set_data('shutter_switch', True)
-        self._set_data('shutter_start_time', start_time)
-        self._set_data('shutter_end_time', end_time)
-
-        if (time_open is None or time_lapse is None):
-            time_open  = end_time - start_time
-            time_lapse = end_time - start_time
-
-        self._set_data('shutter_time_open', time_open)
-        self._set_data('shutter_time_lapse', time_lapse)
+        self.set_shutter(
+            config.shutter_start_time, config.shutter_end_time, config.shutter_time_open,
+            config.shutter_time_lapse, config.shutter_switch)
 
         _log.info('--- Shutter:')
         _log.info('    Start-Time = {} sec'.format(self.shutter_start_time))
@@ -268,17 +317,9 @@ class EPIFMConfigs:
         _log.info('    Time-open  = {} sec'.format(self.shutter_time_open))
         _log.info('    Time-lapse = {} sec'.format(self.shutter_time_lapse))
 
-    def set_light_source(self, source_type = None,
-                               wave_length = None,
-                               flux_density = None,
-                               radius = None,
-                               angle  = None):
-        self._set_data('source_switch', True)
-        self._set_data('source_type', source_type)
-        self._set_data('source_wavelength', wave_length)
-        self._set_data('source_flux_density', flux_density)
-        self._set_data('source_radius', radius)
-        self._set_data('source_angle', angle)
+        self.set_light_source(
+            config.source_type, config.source_wavelength, config.source_flux_density,
+            config.source_radius, config.source_angle, config.source_switch)
 
         _log.info('--- Light Source:{}'.format(self.source_type))
         _log.info('    Wave Length = {} nm'.format(self.source_wavelength))
@@ -286,247 +327,181 @@ class EPIFMConfigs:
         _log.info('    1/e2 Radius = {} m'.format(self.source_radius))
         _log.info('    Angle = {} degree'.format(self.source_angle))
 
-    def set_excitation_filter(self, excitation=None):
-        _log.info('--- Excitation Filter:')
-        if excitation is None:
-            return
+        self.set_fluorophore(
+            config.fluorophore_type, config.psf_wavelength, config.psf_normalization,
+            config.psf_width, config.psf_cutoff, config.psf_file_name_format)
 
-        filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/excitation/') + excitation + '.csv'
-
-        try:
-            csvfile = open(filename)
-            lines = csvfile.readlines()
-
-            header = lines[0:5]
-            data   = lines[6:]
-
-            excitation_header = []
-            excitation_filter = []
-
-            for i in range(len(header)):
-                dummy  = header[i].split('\r\n')
-                a_data = dummy[0].split(',')
-                excitation_header.append(a_data)
-                _log.info('    {}'.format(a_data))
-
-            for i in range(len(data)):
-                dummy0 = data[i].split('\r\n')
-                a_data = dummy0[0].split(',')
-                excitation_filter.append(a_data)
-
-        except Exception:
-            _log.error('Error: {} is NOT found'.format(filename))
-            exit()
-
-        ####
-        self.excitation_eff = self.set_efficiency(excitation_filter)
-        self._set_data('excitation_switch', True)
-
-    def set_fluorophore(self, fluorophore_type = None,
-                              wave_length = None,
-                              normalization = None,
-                              width = None,
-                              cutoff = None,
-                              file_name_format = None ):
-        if (fluorophore_type == 'Gaussian'):
-            _log.info('--- Fluorophore: %s PSF' % (fluorophore_type))
-
-            self._set_data('fluorophore_type', fluorophore_type)
-            self._set_data('psf_wavelength', wave_length)
-            self._set_data('psf_normalization', normalization)
-            self._set_data('psf_width', width)
-            self._set_data('psf_cutoff', cutoff)
-            self._set_data('psf_file_name_format', file_name_format)
-
-            index = (numpy.abs(self.wave_length - self.psf_wavelength)).argmin()
-
-            self.fluoex_eff[index] = 100
-            self.fluoem_eff[index] = 100
-
-            _log.info('    Wave Length   =  {} nm'.format(self.psf_wavelength))
-            _log.info('    Normalization =  {}'.format(self.psf_normalization))
+        _log.info('--- Fluorophore: {} PSF'.format(self.fluorophore_type))
+        _log.info('    Wave Length   =  {} nm'.format(self.psf_wavelength))
+        _log.info('    Normalization =  {}'.format(self.psf_normalization))
+        if hasattr(self, 'psf_width'):
             _log.info('    Lateral Width =  {} nm'.format(self.psf_width[0]))
             _log.info('    Axial Width =  {} nm'.format(self.psf_width[1]))
-            #print '    Lateral Cutoff = ', self.psf_cutoff[0], 'nm'
-            #print '    Axial Cutoff = ', self.psf_cutoff[1], 'nm'
+        _log.info('    PSF Normalization Factor =  {}'.format(self.psf_normalization))
+        _log.info('    Emission  : Wave Length =  {} nm'.format(self.psf_wavelength))
 
-        else:
-            _log.info('--- Fluorophore:')
-            filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/fluorophore/', fluorophore_type + '.csv')
-
-            if not os.path.exists(filename):
-                _log.info('Error: ', filename, ' is NOT found')
-                exit()
-
-            with open(filename) as csvfile:
-                lines = [_.rstrip() for _ in csvfile.readlines()]
-
-                header = lines[0:5]
-                data   = lines[5:]
-
-                fluorophore_header     = [_.split(',') for _ in header]
-                for _ in fluorophore_header: _log.info("     {}".format(_))
-
-                em_idx = data.index('Emission')
-                fluorophore_excitation = [_.split(',') for _ in data[1:em_idx]]
-                fluorophore_emission   = [_.split(',') for _ in data[(em_idx + 1):]]
-
-            ####
-            self.fluoex_eff = self.set_efficiency(fluorophore_excitation)
-            self.fluoem_eff = self.set_efficiency(fluorophore_emission)
-
-            index_ex = self.fluoex_eff.index(max(self.fluoex_eff))
-            index_em = self.fluoem_eff.index(max(self.fluoem_eff))
-
-            #### for temporary
-            self._set_data('fluorophore_type', fluorophore_type)
-            self._set_data('psf_wavelength', self.wave_length[index_em])
-            self._set_data('psf_normalization', normalization)
-            self._set_data('psf_file_name_format', file_name_format)
-
-            self.fluoex_eff[index_ex] = 100
-            self.fluoem_eff[index_em] = 100
-
-            _log.info('    PSF Normalization Factor =  {}'.format(self.psf_normalization))
-            _log.info('    Excitation: Wave Length =  {} nm'.format(self.wave_length[index_ex]))
-            _log.info('    Emission  : Wave Length =  {} nm'.format(self.psf_wavelength))
-
-        # Normalization
-        norm = sum(self.fluoex_eff)
-        self.fluoex_norm = numpy.array(self.fluoex_eff)/norm
-
-        norm = sum(self.fluoem_eff)
-        self.fluoem_norm = numpy.array(self.fluoem_eff)/norm
-
-    def set_dichroic_mirror(self, dm = None):
+        self.set_dichroic_mirror(config.dichroic_mirror, config.dichroic_switch)
         _log.info('--- Dichroic Mirror:')
-        if dm is None:
-            return
 
-        filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/dichroic/') + dm + '.csv'
-
-        try:
-            csvfile = open(filename)
-            lines = csvfile.readlines()
-
-            header = lines[0:5]
-            data   = lines[6:]
-
-            dichroic_header = []
-            dichroic_mirror = []
-
-            for i in range(len(header)):
-                dummy  = header[i].split('\r\n')
-                a_data = dummy[0].split(',')
-                dichroic_header.append(a_data)
-                _log.info('     {}'.format(a_data))
-
-            for i in range(len(data)):
-                dummy0 = data[i].split('\r\n')
-                a_data = dummy0[0].split(',')
-                dichroic_mirror.append(a_data)
-
-        except Exception:
-            _log.error('Error: {} is NOT found'.format(filename))
-            exit()
-
-        self.dichroic_eff = self.set_efficiency(dichroic_mirror)
-        self._set_data('dichroic_switch', True)
-
-    def set_emission_filter(self, emission = None):
-        _log.info('--- Emission Filter:')
-        if emission is None:
-            return
-
-        filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/emission/') + emission + '.csv'
-
-        try:
-            csvfile = open(filename)
-            lines = csvfile.readlines()
-
-            header = lines[0:5]
-            data   = lines[6:]
-
-            emission_header = []
-            emission_filter = []
-
-            for i in range(len(header)):
-                dummy  = header[i].split('\r\n')
-                a_data = dummy[0].split(',')
-                emission_header.append(a_data)
-                _log.info('    {}'.format(a_data))
-
-            for i in range(len(data)):
-                dummy0 = data[i].split('\r\n')
-                a_data = dummy0[0].split(',')
-                emission_filter.append(a_data)
-
-        except Exception:
-            _log.info('Error: ', filename, ' is NOT found')
-            exit()
-
-        self.emission_eff = self.set_efficiency(emission_filter)
-        self._set_data('emission_switch', True)
-
-    def set_magnification(self, magnification = None):
-        self._set_data('image_magnification', magnification)
+        self.set_magnification(config.image_magnification)
         _log.info('--- Magnification: x {}'.format(self.image_magnification))
 
-    def set_detector(self, detector = None,
-                   image_size = None,
-                   pixel_length = None,
-                   exposure_time = None,
-                   focal_point = None,
-                   QE = None,
-                   readout_noise = None,
-                   dark_count = None,
-                   emgain = None
-                   ):
-        self._set_data('detector_switch', True)
+        self.set_detector(
+            config.detector_type, config.detector_image_size, config.detector_pixel_length,
+            config.detector_exposure_time, config.detector_focal_point, config.detector_qeff,
+            config.detector_readout_noise, config.detector_dark_count, config.detector_emgain)
+
+        _log.info('--- Detector:  {}'.format(self.detector_type))
+        if hasattr(self, 'detector_image_size'):
+            _log.info('    Image Size  =  {} x {}'.format(self.detector_image_size[0], self.detector_image_size[1]))
+        _log.info('    Pixel Size  =  {} m/pixel'.format(self.detector_pixel_length))
+        _log.info('    Focal Point =  {}'.format(self.detector_focal_point))
+        _log.info('    Exposure Time =  {} sec'.format(self.detector_exposure_time))
+        if hasattr(self, 'detector_qeff'):
+            _log.info('    Quantum Efficiency =  {} %'.format(100 * self.detector_qeff))
+        _log.info('    Readout Noise =  {} electron'.format(self.detector_readout_noise))
+        _log.info('    Dark Count =  {} electron/sec'.format(self.detector_dark_count))
+        _log.info('    EM gain = x {}'.format(self.detector_emgain))
+        # _log.info('    Position    =  {}'.format(self.detector_base_position))
+
+        self.set_analog_to_digital_converter(
+            config.ADConverter_bit, config.ADConverter_offset, config.ADConverter_fullwell,
+            config.ADConverter_fpn_type, config.ADConverter_fpn_count, rng=rng)
+
+        _log.info('--- A/D Converter: %d-bit' % (self.ADConverter_bit))
+        # _log.info('    Gain = %.3f electron/count' % (self.ADConverter_gain))
+        # _log.info('    Offset =  {} count'.format(self.ADConverter_offset))
+        _log.info('    Fullwell =  {} electron'.format(self.ADConverter_fullwell))
+        _log.info('    {}-Fixed Pattern Noise: {} count'.format(self.ADConverter_fpn_type, self.ADConverter_fpn_count))
+
+        self.set_illumination_path(config.detector_focal_point, config.detector_focal_norm)
+        _log.info('Focal Center: {}'.format(self.detector_focal_point))
+        _log.info('Normal Vector: {}'.format(self.detector_focal_norm))
+
+        self.set_excitation_filter(config.excitation_filter, config.excitation_switch)
+        _log.info('--- Excitation Filter:')
+
+        self.set_emission_filter(config.emission_filter, config.emission_switch)
+        _log.info('--- Emission Filter:')
+
+    def _set_data(self, key, val):
+        if val is not None:
+            setattr(self, key, val)
+
+    def set_efficiency(self, data):
+        data = numpy.array(data, dtype = 'float')
+        data = data[data[: , 0] % 1 == 0, :]
+
+        efficiency = numpy.zeros(len(self.wave_length))
+        idx1 = numpy.in1d(numpy.array(self.wave_length), data[:, 0])
+        idx2 = numpy.in1d(numpy.array(data[:, 0]), self.wave_length)
+
+        efficiency[idx1] = data[idx2, 1]
+
+        return efficiency.tolist()
+
+    def set_shutter(self, start_time=None, end_time=None, time_open=None, time_lapse=None, switch=True):
+        self._set_data('shutter_switch', switch)
+        self._set_data('shutter_start_time', start_time)
+        self._set_data('shutter_end_time', end_time)
+
+        self._set_data('shutter_time_open', time_open or end_time - start_time)
+        self._set_data('shutter_time_lapse', time_lapse or end_time - start_time)
+
+    def set_light_source(self, source_type=None, wave_length=None, flux_density=None, radius=None, angle=None, switch=True):
+        self._set_data('source_switch', switch)
+        self._set_data('source_type', source_type)
+        self._set_data('source_wavelength', wave_length)
+        self._set_data('source_flux_density', flux_density)
+        self._set_data('source_radius', radius)
+        self._set_data('source_angle', angle)
+
+    def set_fluorophore(
+            self, fluorophore_type=None, wave_length=None, normalization=None, width=None, cutoff=None, file_name_format=None):
+        self._set_data('fluorophore_type', fluorophore_type)
+        self._set_data('psf_normalization', normalization)
+        self._set_data('psf_file_name_format', file_name_format)
+
+        if (fluorophore_type == 'Gaussian'):
+            N = len(self.wave_length)
+            fluorophore_excitation = numpy.zeros(N, dtype=float)
+            fluorophore_emission = numpy.zeros(N, dtype=float)
+            index = (numpy.abs(self.wave_length - self.psf_wavelength)).argmin()
+            fluorophore_excitation[index] = 100
+            fluorophore_emission[index] = 100
+            self._set_data('fluoex_eff', fluorophore_excitation)
+            self._set_data('fluoem_eff', fluorophore_emission)
+
+            fluorophore_excitation /= sum(fluorophore_excitation)
+            fluorophore_emission /= sum(fluorophore_emission)
+            self._set_data('fluoex_norm', fluorophore_excitation)
+            self._set_data('fluoem_norm', fluorophore_emission)
+
+            self._set_data('psf_wavelength', wave_length)
+            self._set_data('psf_width', width)
+            self._set_data('psf_cutoff', cutoff)
+
+        else:
+            (fluorophore_excitation, fluorophore_emission) = read_fluorophore_catalog(fluorophore_type)
+            fluorophore_excitation = self.set_efficiency(fluorophore_excitation)
+            fluorophore_emission = self.set_efficiency(fluorophore_emission)
+            fluorophore_excitation = numpy.array(fluorophore_excitation)
+            fluorophore_emission = numpy.array(fluorophore_emission)
+            index_ex = fluorophore_excitation.argmax()
+            index_em = fluorophore_emission.argmax()
+            # index_ex = fluorophore_excitation.index(max(fluorophore_excitation))
+            # index_em = fluorophore_emission.index(max(fluorophore_emission))
+            fluorophore_excitation[index_ex] = 100
+            fluorophore_emission[index_em] = 100
+            self._set_data('fluoex_eff', fluorophore_excitation)
+            self._set_data('fluoem_eff', fluorophore_emission)
+
+            fluorophore_excitation /= sum(fluorophore_excitation)
+            fluorophore_emission /= sum(fluorophore_emission)
+            self._set_data('fluoex_norm', fluorophore_excitation)
+            self._set_data('fluoem_norm', fluorophore_emission)
+
+            if wave_length is not None:
+                warnings.warn('The given wave length [{}] was ignored'.format(wave_length))
+
+            # _log.info('    Excitation: Wave Length =  {} nm'.format(self.wave_length[index_ex]))
+            self._set_data('psf_wavelength', self.wave_length[index_em])
+
+    def set_magnification(self, magnification=None):
+        self._set_data('image_magnification', magnification)
+
+    def set_detector(
+            self, detector=None, image_size=None, pixel_length=None, exposure_time=None, focal_point=None,
+            QE=None, readout_noise=None, dark_count=None, emgain=None, switch=True):
+        self._set_data('detector_switch', switch)
         self._set_data('detector_type', detector)
         self._set_data('detector_image_size', image_size)
         self._set_data('detector_pixel_length', pixel_length)
-        self._set_data('detector_focal_point', focal_point)
-        #self._set_data('detector_base_position', base_position)
         self._set_data('detector_exposure_time', exposure_time)
+        self._set_data('detector_focal_point', focal_point)
         self._set_data('detector_qeff', QE)
         self._set_data('detector_readout_noise', readout_noise)
         self._set_data('detector_dark_count', dark_count)
         self._set_data('detector_emgain', emgain)
+        # self._set_data('detector_base_position', base_position)
 
-        _log.info('--- Detector:  {}'.format(self.detector_type))
-        _log.info('    Image Size  =  {} x {}'.format(self.detector_image_size[0], self.detector_image_size[1]))
-        _log.info('    Pixel Size  =  {} m/pixel'.format(self.detector_pixel_length))
-        _log.info('    Focal Point =  {}'.format(self.detector_focal_point))
-        #print '    Position    =  {}'.format(self.detector_base_position)
-        _log.info('    Exposure Time =  {} sec'.format(self.detector_exposure_time))
-        _log.info('    Quantum Efficiency =  {} %'.format(100*self.detector_qeff))
-        _log.info('    Readout Noise =  {} electron'.format(self.detector_readout_noise))
-        _log.info('    Dark Count =  {} electron/sec'.format(self.detector_dark_count))
-        _log.info('    EM gain = x {}'.format(self.detector_emgain))
-
-    def set_analog_to_digital_converter(self, bit = None,
-                        offset = None,
-                        fullwell = None,
-                        fpn_type = None,
-                        fpn_count = None,
-                        rng = None):
+    def set_analog_to_digital_converter(self, bit=None, offset=None, fullwell=None, fpn_type=None, fpn_count=None, rng=None):
         self._set_data('ADConverter_bit', bit)
-        self._set_data('ADConverter_gain', (fullwell - 0.0)/(pow(2.0, bit) - offset))
-        self._set_data('ADConverter_offset', offset)
+        # self._set_data('ADConverter_offset', offset)
         self._set_data('ADConverter_fullwell', fullwell)
         self._set_data('ADConverter_fpn_type', fpn_type)
         self._set_data('ADConverter_fpn_count', fpn_count)
 
-        _log.info('--- A/D Converter: %d-bit' % (self.ADConverter_bit))
-        _log.info('    Gain = %.3f electron/count' % (self.ADConverter_gain))
-        _log.info('    Offset =  {} count'.format(self.ADConverter_offset))
-        _log.info('    Fullwell =  {} electron'.format(self.ADConverter_fullwell))
-        _log.info('    {}-Fixed Pattern Noise: {} count'.format(self.ADConverter_fpn_type, self.ADConverter_fpn_count))
+        # if self.fullwel is not None and self.bit is not None and self.offset is not None:
+        #     self._set_data(
+        #         'ADConverter_gain',
+        #         (self.ADConverter_fullwell - 0.0) / (pow(2.0, self.ADConverter_bit) - self.ADConverter_offset))
 
-        self.set_analog_to_digital_converter_gain(rng)
+        offset, gain = self.calculate_analog_to_digital_converter_gain(offset, rng)
+        self._set_data('ADConverter_offset', offset)
+        self._set_data('ADConverter_gain', gain)
 
-    def set_analog_to_digital_converter_gain(self, rng):
+    def calculate_analog_to_digital_converter_gain(self, ADC0, rng):
         # image pixel-size
         Nw_pixel = self.detector_image_size[0]
         Nh_pixel = self.detector_image_size[1]
@@ -534,52 +509,55 @@ class EPIFMConfigs:
         # set ADC parameters
         bit  = self.ADConverter_bit
         fullwell = self.ADConverter_fullwell
-        ADC0 = self.ADConverter_offset
+        # ADC0 = self.ADConverter_offset
 
         # set Fixed-Pattern noise
-        FPN_type  = self.ADConverter_fpn_type
+        FPN_type = self.ADConverter_fpn_type
         FPN_count = self.ADConverter_fpn_count
 
-        if (FPN_type is None):
-            # offset = numpy.empty(Nw_pixel*Nh_pixel)
-            # offset.fill(ADC0)
-            offset = numpy.array([ADC0 for i in range(Nw_pixel * Nh_pixel)])
-
-        elif (FPN_type == 'pixel'):
+        if FPN_type is None:
+            offset = numpy.full(Nw_pixel * Nh_pixel, ADC0)
+        elif FPN_type == 'pixel':
             if rng is None:
                 raise RuntimeError('A random number generator is required.')
             offset = numpy.rint(rng.normal(ADC0, FPN_count, Nw_pixel * Nh_pixel))
-
-        elif (FPN_type == 'column'):
+        elif FPN_type == 'column':
             column = rng.normal(ADC0, FPN_count, Nh_pixel)
-            temporal = numpy.array([column for i in range(Nw_pixel)])
-            offset = numpy.rint(temporal.reshape(Nh_pixel*Nw_pixel))
+            temporal = numpy.full(Nw_pixel, column)
+            offset = numpy.rint(temporal.reshape(Nh_pixel * Nw_pixel))
+        else:
+            raise ValueError("FPN type [{}] is invalid ['pixel', 'column' or None]".format(FPN_type))
 
         # set ADC gain
-        # gain = numpy.array(map(lambda x: (fullwell - 0.0)/(pow(2.0, bit) - x), offset))
-        gain = (fullwell - 0.0) / ( pow(2.0, bit) - offset)
+        # gain = numpy.array(map(lambda x: (fullwell - 0.0) / (pow(2.0, bit) - x), offset))
+        gain = (fullwell - 0.0) / (pow(2.0, bit) - offset)
 
-        # reshape
-        self.ADConverter_offset = offset.reshape([Nw_pixel, Nh_pixel])
-        self.ADConverter_gain = gain.reshape([Nw_pixel, Nh_pixel])
+        offset = offset.reshape([Nw_pixel, Nh_pixel])
+        gain = gain.reshape([Nw_pixel, Nh_pixel])
 
-    def set_efficiency(self, array, index=1):
-        array = numpy.array(array, dtype = 'float')
-        array = array[array[:, 0] % 1 == 0,:]
+        return (offset, gain)
 
-        efficiency = numpy.zeros(len(self.wave_length))
-        idx1 = numpy.in1d(numpy.array(self.wave_length), array[:, 0])
-        idx2 = numpy.in1d(numpy.array(array[:, 0]), self.wave_length)
+    def set_dichroic_mirror(self, dm=None, switch=True):
+        self._set_data('dichroic_switch', switch)
+        if dm is not None:
+            dichroic_mirror = read_dichroic_catalog(dm)
+            self._set_data('dichroic_eff', self.set_efficiency(dichroic_mirror))
 
-        efficiency[idx1] = array[idx2, 1]
+    def set_excitation_filter(self, excitation=None, switch=True):
+        self._set_data('excitation_switch', switch)
+        if excitation is not None:
+            excitation_filter = read_excitation_catalog(excitation)
+            self._set_data('excitation_eff', self.set_efficiency(excitation_filter))
 
-        return efficiency.tolist()
+    def set_emission_filter(self, emission=None, switch=True):
+        self._set_data('emission_switch', switch)
+        if emission is not None:
+            emission_filter = read_emission_catalog(emission)
+            self._set_data('emission_eff', self.set_efficiency(emission_filter))
 
     def set_illumination_path(self, detector_focal_point, detector_focal_norm):
         self.detector_focal_point = detector_focal_point
         self.detector_focal_norm = detector_focal_norm
-        _log.info('Focal Center: {}'.format(self.detector_focal_point))
-        _log.info('Normal Vector: {}'.format(self.detector_focal_norm))
 
     # def set_Illumination_path(self):
     #     # define observational image plane in nm-scale
