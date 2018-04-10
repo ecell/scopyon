@@ -222,6 +222,10 @@ class EPIFMConfigs:
         pass
 
     def initialize(self, config, rng=None):
+        if rng is None:
+            warnings.warn('A random number generator [rng] is not given.')
+            rng = numpy.random.RandomState()
+
         self.ADConverter_fpn_type = None
         # self.emission_switch = False
         self.hc_const = 2.00e-25
@@ -1293,7 +1297,11 @@ class EPIFMVisualizer:
             # add to cellular plane
             cell[z0_from:z0_to, y0_from:y0_to] += signal[zi_from:zi_to, yi_from:yi_to]
 
-    def output_frames(self, rng, dataset, pathto='./images', image_fmt='image_%07d.npy', true_fmt='true_%07d.npy'):
+    def output_frames(self, dataset, pathto='./images', image_fmt='image_%07d.npy', true_fmt='true_%07d.npy', rng=None):
+        if rng is None:
+            warnings.warn('A random number generator [rng] is not given.')
+            rng = numpy.random.RandomState()
+
         # Check and create the folders for image and output files.
         if not os.path.exists(pathto):
             os.makedirs(pathto)

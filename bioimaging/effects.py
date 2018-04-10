@@ -181,7 +181,7 @@ class PhysicalEffects:
 
         return p_blink_on, p_blink_off
 
-    def get_photobleaching_property(self, dt, n_emit0):
+    def get_photobleaching_property(self, dt, n_emit0, rng):
         # set the photobleaching-time
         tau0  = self.photobleaching_tau0
         alpha = self.photobleaching_alpha
@@ -193,7 +193,7 @@ class PhysicalEffects:
         p_bleach = self.get_prob_bleach(tau_bleach, dt)
 
         # get photon budget and photobleaching-time
-        tau = numpy.random.choice(tau_bleach, 1, p=p_bleach)
+        tau = rng.choice(tau_bleach, 1, p=p_bleach)
         budget = (tau/tau0)*photon0
 
         return tau, budget
@@ -243,7 +243,7 @@ class PhysicalEffects:
 
         return numpy.array(state), numpy.array(budget)
 
-    def set_photophysics_4palm(self, start, end, dt, f, F, N_part):
+    def set_photophysics_4palm(self, start, end, dt, f, F, N_part, rng):
         ##### PALM Configuration
         NNN = int(1e+7)
 
@@ -287,10 +287,10 @@ class PhysicalEffects:
         state_act = []
 
         # get random number
-        numpy.random.seed()
+        # numpy.random.seed()
 
         # get photon budget and photobleaching-time
-        tau = numpy.random.choice(tau_bleach, N_part, p=p_bleach)
+        tau = rng.choice(tau_bleach, N_part, p=p_bleach)
 
         for i in range(N_part):
 
@@ -306,7 +306,7 @@ class PhysicalEffects:
             p = self.photoactivation_activation_yield
             q = self.photoactivation_frac_preactivation
 
-            r = numpy.random.uniform(0, 1, N/F*f)
+            r = rng.uniform(0, 1, N/F*f)
             s = (r < p).astype('int')
 
             index = numpy.abs(s - 1).argmin()
@@ -321,9 +321,9 @@ class PhysicalEffects:
             if (self.photoblinking_switch == True):
 
                 # ON-state
-                t_on  = numpy.random.choice(tau_on,  100, p=p_on)
+                t_on  = rng.choice(tau_on,  100, p=p_on)
                 # OFF-state
-                t_off = numpy.random.choice(tau_off, 100, p=p_off)
+                t_off = rng.choice(tau_off, 100, p=p_off)
 
                 k = (numpy.abs(numpy.cumsum(t_on) - tau[i])).argmin()
 
@@ -352,7 +352,7 @@ class PhysicalEffects:
         self.fluorescence_budget = numpy.array(budget)
         self.fluorescence_state  = numpy.array(state_act)
 
-    def set_photophysics_4lscm(self, start, end, dt, N_part):
+    def set_photophysics_4lscm(self, start, end, dt, N_part, rng):
         ##### LSCM Configuration
 
         NNN = int(1e+7)
@@ -396,10 +396,10 @@ class PhysicalEffects:
         state_act = []
 
         # get random number
-        numpy.random.seed()
+        # numpy.random.seed()
 
         # get photon budget and photobleaching-time
-        tau = numpy.random.choice(tau_bleach, N_part, p=p_bleach)
+        tau = rng.choice(tau_bleach, N_part, p=p_bleach)
 
         for i in range(N_part):
 
@@ -421,9 +421,9 @@ class PhysicalEffects:
             if (self.photoblinking_switch == True):
 
                 # ON-state
-                t_on  = numpy.random.choice(tau_on,  100, p=p_on)
+                t_on  = rng.choice(tau_on,  100, p=p_on)
                 # OFF-state
-                t_off = numpy.random.choice(tau_off, 100, p=p_off)
+                t_off = rng.choice(tau_off, 100, p=p_off)
 
                 k = (numpy.abs(numpy.cumsum(t_on) - tau[i])).argmin()
 
