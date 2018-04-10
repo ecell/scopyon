@@ -1,34 +1,57 @@
 import sys
 import os
 import copy
-import tempfile
 import math
-import random
-#import h5py
 import ctypes
 import multiprocessing
 import functools
 
-#import pylab
-import scipy
 import numpy
 
-from . import parameter_effects
-
-from scipy.special import j0
-from scipy.interpolate import interp1d
-from scipy.ndimage import map_coordinates
-from scipy.misc    import toimage
+from .configbase import Config
 
 from logging import getLogger
 _log = getLogger(__name__)
-
-IMAGE_SIZE_LIMIT=3000
 
 
 def levy_probability_function(t, t0, a):
     return (a / t0) * numpy.power(t0 / t, 1 + a)
     # return numpy.power(t0 / t, 1 + a)
+
+class PhysicalEffectsConfig(Config):
+
+    def __init__(self, filename=None, config=None):
+        Config.__init__(self, filename, config)
+
+    def set_background(self, mean=None):
+        self.update('background_switch', True)
+        self.update('background_mean', mean)
+
+    def set_crosstalk(self, width=None):
+        self.update('crosstalk_switch', True)
+        self.update('crosstalk_width', width)
+
+    def set_fluorescence(self, quantum_yield=None, abs_coefficient=None):
+        self.update('quantum_yield', quantum_yield)
+        self.update('abs_coefficient', abs_coefficient)
+
+    def set_photobleaching(self, tau0=None, alpha=None):
+        self.update('photobleaching_switch', True)
+        self.update('photobleaching_tau0', tau0)
+        self.update('photobleaching_alpha', alpha)
+
+    def set_photoactivation(self, turn_on_ratio=None, activation_yield=None, frac_preactivation=None):
+        self.update('photoactivation_switch', True)
+        self.update('photoactivation_turn_on_ratio', turn_on_ratio)
+        self.update('photoactivation_activation_yield', activation_yield)
+        self.update('photoactivation_frac_preactivation', frac_preactivation)
+
+    def set_photoblinking(self, t0_on=None, a_on=None, t0_off=None, a_off=None):
+        self.update('photoblinking_switch', True)
+        self.update('photoblinking_t0_on', t0_on)
+        self.update('photoblinking_a_on', a_on)
+        self.update('photoblinking_t0_off', t0_off)
+        self.update('photoblinking_a_off', a_off)
 
 class PhysicalEffects:
     '''
@@ -39,96 +62,93 @@ class PhysicalEffects:
         Photo-blinking
     '''
 
-    def __init__(self, user_configs_dict = None):
-        # default setting
-        configs_dict = parameter_effects.__dict__.copy()
+    def __init__(self):
+        pass
 
-        # user setting
-        if user_configs_dict is not None:
-            if type(user_configs_dict) != type({}):
-                _log.info('Illegal argument type for constructor of Configs class')
-                sys.exit()
-            configs_dict.update(user_configs_dict)
+    def initialize(self, config):
+        self.fluorescence_bleach = []
+        self.fluorescence_budget = []
+        self.fluorescence_state  = []
 
-        for key, val in configs_dict.items():
-            if key[0] != '_': # Data skip for private variables in setting_dict.
-                if type(val) == type({}) or type(val) == type([]):
-                    copy_val = copy.deepcopy(val)
-                else:
-                    copy_val = val
-                setattr(self, key, copy_val)
+        self._set_data('avogadoros_number', config.avogadoros_number)
+
+        self.set_background(mean=config.background_mean, switch=config.background_switch)
+
+        _log.info('--- Background: ')
+        _log.info('    Mean = {} photons'.format(self.background_mean))
+
+        self.set_crosstalk(width=config.crosstalk_width, switch=config.crosstalk_switch)
+
+        _log.info('--- Photoelectron Crosstalk: ')
+        _log.info('    Width = {} pixels'.format(self.crosstalk_width))
+
+        self.set_fluorescence(quantum_yield=config.quantum_yield, abs_coefficient=config.abs_coefficient)
+
+        _log.info('--- Fluorescence: ')
+        _log.info('    Quantum Yield =  {}'.format(self.quantum_yield))
+        _log.info('    Abs. Coefficient =  {} 1/(M cm)'.format(self.abs_coefficient))
+        _log.info('    Abs. Cross-section =  {} cm^2'.format((numpy.log(10) * self.abs_coefficient * 0.1 / 6.022e+23) * 1e+4))
+
+        self.set_photobleaching(tau0=config.photobleaching_tau0, alpha=config.photobleaching_alpha, switch=config.photobleaching_switch)
+
+        _log.info('--- Photobleaching: ')
+        _log.info('    Photobleaching tau0  =  {}'.format(self.photobleaching_tau0))
+        _log.info('    Photobleaching alpha =  {}'.format(self.photobleaching_alpha))
+
+        self.set_photoactivation(turn_on_ratio=config.photoactivation_turn_on_ratio, activation_yield=config.photoactivation_activation_yield, frac_preactivation=config.photoactivation_frac_preactivation, switch=config.photoactivation_switch)
+
+        _log.info('--- Photoactivation: ')
+        _log.info('    Turn-on Ratio  =  {}'.format(self.photoactivation_turn_on_ratio))
+        _log.info('    Effective Ratio  =  {}'.format(self.photoactivation_activation_yield * self.photoactivation_turn_on_ratio / (1 + self.photoactivation_frac_preactivation * self.photoactivation_turn_on_ratio)))
+        _log.info('    Reaction Yield =  {}'.format(self.photoactivation_activation_yield))
+        _log.info('    Fraction of Preactivation =  {}'.format(self.photoactivation_frac_preactivation))
+
+        self.set_photoblinking(t0_on=config.photoblinking_t0_on, a_on=config.photoblinking_a_on, t0_off=config.photoblinking_t0_off, a_off=config.photoblinking_a_off, switch=config.photoblinking_switch)
+
+        _log.info('--- Photo-blinking: ')
+        _log.info('    (ON)  t0 =  {} sec'.format(self.photoblinking_t0_on))
+        _log.info('    (ON)  a  =  {}'.format(self.photoblinking_a_on))
+        _log.info('    (OFF) t0 =  {} sec'.format(self.photoblinking_t0_off))
+        _log.info('    (OFF) a  =  {}'.format(self.photoblinking_a_off))
 
     def _set_data(self, key, val):
         if val != None:
             setattr(self, key, val)
 
-    def set_background(self, mean=None):
-        _log.info('--- Background: ')
-
-        self._set_data('background_switch', True)
+    def set_background(self, mean=None, switch=True):
+        self._set_data('background_switch', switch)
         self._set_data('background_mean', mean)
 
-        _log.info('    Mean = {} photons'.format(self.background_mean))
-
-    def set_crosstalk(self, width=None):
-        _log.info('--- Photoelectron Crosstalk: ')
-
-        self._set_data('crosstalk_switch', True)
+    def set_crosstalk(self, width=None, switch=True):
+        self._set_data('crosstalk_switch', switch)
         self._set_data('crosstalk_width', width)
-
-        _log.info('    Width = {} pixels'.format(self.crosstalk_width))
 
     def set_fluorescence(self, quantum_yield=None,
                                 abs_coefficient=None):
-        _log.info('--- Fluorescence: ')
-
         self._set_data('quantum_yield', quantum_yield)
         self._set_data('abs_coefficient', abs_coefficient)
 
-        _log.info('    Quantum Yield =  {}'.format(self.quantum_yield))
-        _log.info('    Abs. Coefficient =  {} 1/(M cm)'.format(self.abs_coefficient))
-        _log.info('    Abs. Cross-section =  {} cm^2'.format((numpy.log(10)*self.abs_coefficient*0.1/6.022e+23)*1e+4))
-
     def set_photobleaching(self, tau0=None,
-                                alpha=None):
-        _log.info('--- Photobleaching: ')
-
-        self._set_data('photobleaching_switch', True)
+                                alpha=None, switch=True):
+        self._set_data('photobleaching_switch', switch)
         self._set_data('photobleaching_tau0', tau0)
         self._set_data('photobleaching_alpha', alpha)
 
-        _log.info('    Photobleaching tau0  =  {}'.format(self.photobleaching_tau0))
-        _log.info('    Photobleaching alpha =  {}'.format(self.photobleaching_alpha))
-
     def set_photoactivation(self, turn_on_ratio=None,
                                 activation_yield=None,
-                                frac_preactivation=None):
-        _log.info('--- Photoactivation: ')
-
-        self._set_data('photoactivation_switch', True)
+                                frac_preactivation=None, switch=True):
+        self._set_data('photoactivation_switch', switch)
         self._set_data('photoactivation_turn_on_ratio', turn_on_ratio)
         self._set_data('photoactivation_activation_yield', activation_yield)
         self._set_data('photoactivation_frac_preactivation', frac_preactivation)
 
-        _log.info('    Turn-on Ratio  =  {}'.format(self.photoactivation_turn_on_ratio))
-        _log.info('    Effective Ratio  =  {}'.format(activation_yield*turn_on_ratio/(1 + frac_preactivation*turn_on_ratio)))
-        _log.info('    Reaction Yield =  {}'.format(self.photoactivation_activation_yield))
-        _log.info('    Fraction of Preactivation =  {}'.format(self.photoactivation_frac_preactivation))
-
     def set_photoblinking(self, t0_on=None, a_on=None,
-                                t0_off=None, a_off=None):
-        _log.info('--- Photo-blinking: ')
-
-        self._set_data('photoblinking_switch', True)
+                                t0_off=None, a_off=None, switch=True):
+        self._set_data('photoblinking_switch', switch)
         self._set_data('photoblinking_t0_on', t0_on)
         self._set_data('photoblinking_a_on', a_on)
         self._set_data('photoblinking_t0_off', t0_off)
         self._set_data('photoblinking_a_off', a_off)
-
-        _log.info('    (ON)  t0 =  {} sec'.format(self.photoblinking_t0_on))
-        _log.info('    (ON)  a  =  {}'.format(self.photoblinking_a_on))
-        _log.info('    (OFF) t0 =  {} sec'.format(self.photoblinking_t0_off))
-        _log.info('    (OFF) a  =  {}'.format(self.photoblinking_a_off))
 
     def get_prob_bleach(self, tau, dt):
         # set the photobleaching-time

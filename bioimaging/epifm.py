@@ -1,32 +1,21 @@
 import sys
 import shutil
 import copy
-import tempfile
 import math
 import operator
-# import h5py
 import csv
 import string
 import ctypes
 import multiprocessing
 import warnings
-
 import os
-import collections
-import configparser
-from ast import literal_eval
 
 import numpy
 
-import scipy
 from scipy.special import j0, i1, i1e
 from scipy.interpolate import interp1d
 from scipy.ndimage import map_coordinates
-#from scipy.misc    import toimage
-#from PIL.Image import fromarray
 
-from . import parameter_configs
-from . import parameter_effects
 from .effects import PhysicalEffects
 from . import io
 from .configbase import Config
