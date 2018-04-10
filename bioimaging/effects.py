@@ -3,7 +3,6 @@ import os
 import copy
 import tempfile
 import math
-import operator
 import random
 #import h5py
 import ctypes
@@ -15,8 +14,6 @@ import scipy
 import numpy
 
 from . import parameter_effects
-
-from time import sleep
 
 from scipy.special import j0
 from scipy.interpolate import interp1d
@@ -31,7 +28,7 @@ IMAGE_SIZE_LIMIT=3000
 
 def levy_probability_function(t, t0, a):
     return (a / t0) * numpy.power(t0 / t, 1 + a)
-    # return numpy.powre(t0 / t, 1 + a)
+    # return numpy.power(t0 / t, 1 + a)
 
 class PhysicalEffects:
     '''
