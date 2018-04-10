@@ -123,27 +123,22 @@ class PhysicalEffects:
         self._set_data('crosstalk_switch', switch)
         self._set_data('crosstalk_width', width)
 
-    def set_fluorescence(self, quantum_yield=None,
-                                abs_coefficient=None):
+    def set_fluorescence(self, quantum_yield=None, abs_coefficient=None):
         self._set_data('quantum_yield', quantum_yield)
         self._set_data('abs_coefficient', abs_coefficient)
 
-    def set_photobleaching(self, tau0=None,
-                                alpha=None, switch=True):
+    def set_photobleaching(self, tau0=None, alpha=None, switch=True):
         self._set_data('photobleaching_switch', switch)
         self._set_data('photobleaching_tau0', tau0)
         self._set_data('photobleaching_alpha', alpha)
 
-    def set_photoactivation(self, turn_on_ratio=None,
-                                activation_yield=None,
-                                frac_preactivation=None, switch=True):
+    def set_photoactivation(self, turn_on_ratio=None, activation_yield=None, frac_preactivation=None, switch=True):
         self._set_data('photoactivation_switch', switch)
         self._set_data('photoactivation_turn_on_ratio', turn_on_ratio)
         self._set_data('photoactivation_activation_yield', activation_yield)
         self._set_data('photoactivation_frac_preactivation', frac_preactivation)
 
-    def set_photoblinking(self, t0_on=None, a_on=None,
-                                t0_off=None, a_off=None, switch=True):
+    def set_photoblinking(self, t0_on=None, a_on=None, t0_off=None, a_off=None, switch=True):
         self._set_data('photoblinking_switch', switch)
         self._set_data('photoblinking_t0_on', t0_on)
         self._set_data('photoblinking_a_on', a_on)

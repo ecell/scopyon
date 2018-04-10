@@ -954,7 +954,7 @@ class EPIFMVisualizer:
         state_stack = numpy.column_stack((new_state_pb, (new_budget / N_emit0).astype('int')))
         return state_stack
 
-    def get_molecule_plane(self, cell, j, particle_j, p_b, p_0, true_data, dataset):
+    def get_molecule_plane(self, cell, j, particle_j, p_b, p_0, true_data, unit_time, dataset):
         # particles coordinate, species and lattice-IDs
         coordinate, m_id, s_id, _, p_state, _ = particle_j
 
@@ -978,7 +978,7 @@ class EPIFMVisualizer:
         amplitude = amplitude * numpy.exp(-depth / penet_depth)
 
         # get signal matrix
-        signal = self.get_signal(amplitude, radial, depth, p_state, dataset.interval, dataset.voxel_radius)
+        signal = self.get_signal(amplitude, radial, depth, p_state, unit_time dataset.voxel_radius)
 
         # add signal matrix to image plane
         self.overwrite_signal(cell, signal, p_i)
@@ -1321,7 +1321,7 @@ class EPIFMVisualizer:
         _log.debug('frames = {}'.format(str(frames)))
 
         # set Fluorophores PSF
-        self.set_fluo_psf(dataset)
+        self.set_fluo_psf(dataset, frames)
 
         if self.get_nprocs() == 1:
             self.output_frames_each_process(rng, dataset, pathto, image_fmt, true_fmt, frames)
@@ -1390,6 +1390,7 @@ class EPIFMVisualizer:
 
     def output_frame(self, rng, dataset, c0, c1, time):
         spatiocyte_data = dataset.data
+        exposure_time = self.configs.detector_exposure_time
 
         # cell size (nm scale)
         cell_size = self.get_cell_size(dataset.voxel_radius, dataset.lengths)
@@ -1411,18 +1412,24 @@ class EPIFMVisualizer:
         # c1 = (index - dataset.index0 + 1) * delta_count
         frame_data = spatiocyte_data[c0: c1]
 
+        # true_data = numpy.zeros(shape=(len(particles), 7))  #XXX: See below
+
         # loop for frame data
         for i, (i_time, particles) in enumerate(frame_data):
             _log.info('     {:02d}-th frame: {} sec'.format(i, i_time))
 
+            # unit_time = dataset.interval
+            next_time = frame_data[i + 1][0] if i + 1 < len(frame_data) else time + exposure_time
+            unit_time = next_time - i_time
+
             # define true-dataset in last-frame
             # [frame-time, m-ID, m-state, p-state, (depth,y0,z0), sqrt(<dr2>)]
-            true_data = numpy.zeros(shape=(len(particles), 7))
-            true_data[:, 0] = time
+            true_data = numpy.zeros(shape=(len(particles), 7))  #XXX: <== This might be a bug. It should be initialized above
+            true_data[: , 0] = time
 
             # loop for particles
             for j, particle_j in enumerate(particles):
-                self.get_molecule_plane(cell, j, particle_j, p_b, p_0, true_data, dataset)
+                self.get_molecule_plane(cell, j, particle_j, p_b, p_0, true_data, unit_time, dataset)
 
         # convert image in pixel-scale
         camera, true_data = self.detector_output(rng, cell, true_data, dataset)
@@ -1779,78 +1786,110 @@ class EPIFMVisualizer:
     def get_nprocs(self):
         return self.__nprocs
 
-    def set_fluo_psf(self, dataset):
+    def set_fluo_psf(self, dataset, frames):
         spatiocyte_data = dataset.data
-
-        depths = set()
 
         # get cell size
         Nx, Ny, Nz = self.get_cell_size(dataset.voxel_radius, dataset.lengths)
 
-        # count_array_size = len(self.configs.shutter_count_array)
+        # focal point
+        f_0 = self.configs.detector_focal_point
+        p_0 = numpy.array([Nx, Ny, Nz]) * f_0
 
-        exposure_time = self.configs.detector_exposure_time
-        # data_interval = self.configs.spatiocyte_interval
-
-        delta_count = int(round(exposure_time / dataset.interval))
-
-        for count in range(0, len(spatiocyte_data), delta_count):
-
-            # focal point
-            f_0 = self.configs.detector_focal_point
-            p_0 = numpy.array([Nx, Ny, Nz])*f_0
-            x_0, y_0, z_0 = p_0
-
-            frame_data = spatiocyte_data[count: count + delta_count]
-
-            for _, data in frame_data:
-                for data_j in data:
-
-                    p_i = numpy.array(data_j[0])/1e-9
+        depths = []
+        for frame_index, t, start_index, stop_index in frames:
+            frame_data = spatiocyte_data[start_index, stop_index]
+            for _, particles in frame_data:
+                for particle in particles:
+                    coordinate = particle[0]
+                    p_i = numpy.array(coordinate) / 1e-9
 
                     # Snell's law
-                    #amplitude, penet_depth = self.snells_law(p_i, p_0)
+                    # amplitude, penet_depth = self.snells_law(p_i, p_0)
 
                     # Particle coordinte in real(nm) scale
                     p_i, radial, depth = rotate_coordinate(p_i, p_0)
 
                     # fluorophore axial position
-                    fluo_depth = depth if depth < len(self.configs.depth) else -1
+                    fluo_depth = int(depth) if depth < len(self.configs.depth) else -1
 
-                    depths.add(int(fluo_depth))
+                    depths.append(fluo_depth)
 
-        depths = list(depths)
+        depths = list(set(depths))
 
-        if (len(depths) > 0):
-            if self.get_nprocs() != 1:
-                self.fluo_psf = {}
-                num_processes = min(multiprocessing.cpu_count(), len(depths))
+        self.fluo_psf = self.get_fluo_psf(depths)
 
-                n, m = divmod(len(depths), num_processes)
+        # spatiocyte_data = dataset.data
 
-                chunks = [n + 1 if i < m else n for i in range(num_processes)]
+        # depths = set()
 
-                processes = []
-                start_index = 0
+        # # get cell size
+        # Nx, Ny, Nz = self.get_cell_size(dataset.voxel_radius, dataset.lengths)
 
-                for chunk in chunks:
-                    stop_index = start_index + chunk
-                    p, c = multiprocessing.Pipe()
-                    process = multiprocessing.Process(
-                        target=self.get_fluo_psf_process,
-                        args=(depths[start_index:stop_index], c))
-                    processes.append((p, process))
-                    start_index = stop_index
+        # # count_array_size = len(self.configs.shutter_count_array)
 
-                for _, process in processes:
-                    process.start()
+        # exposure_time = self.configs.detector_exposure_time
+        # # data_interval = self.configs.spatiocyte_interval
 
-                for pipe, process in processes:
-                    self.fluo_psf.update(pipe.recv())
-                    process.join()
+        # delta_count = int(round(exposure_time / dataset.interval))
 
-            else:
-                self.fluo_psf = self.get_fluo_psf(depths)
+        # for count in range(0, len(spatiocyte_data), delta_count):
+
+        #     # focal point
+        #     f_0 = self.configs.detector_focal_point
+        #     p_0 = numpy.array([Nx, Ny, Nz])*f_0
+        #     x_0, y_0, z_0 = p_0
+
+        #     frame_data = spatiocyte_data[count: count + delta_count]
+
+        #     for _, data in frame_data:
+        #         for data_j in data:
+
+        #             p_i = numpy.array(data_j[0])/1e-9
+
+        #             # Snell's law
+        #             #amplitude, penet_depth = self.snells_law(p_i, p_0)
+
+        #             # Particle coordinte in real(nm) scale
+        #             p_i, radial, depth = rotate_coordinate(p_i, p_0)
+
+        #             # fluorophore axial position
+        #             fluo_depth = depth if depth < len(self.configs.depth) else -1
+
+        #             depths.add(int(fluo_depth))
+
+        # depths = list(depths)
+
+        # if (len(depths) > 0):
+        #     if self.get_nprocs() != 1:
+        #         self.fluo_psf = {}
+        #         num_processes = min(multiprocessing.cpu_count(), len(depths))
+
+        #         n, m = divmod(len(depths), num_processes)
+
+        #         chunks = [n + 1 if i < m else n for i in range(num_processes)]
+
+        #         processes = []
+        #         start_index = 0
+
+        #         for chunk in chunks:
+        #             stop_index = start_index + chunk
+        #             p, c = multiprocessing.Pipe()
+        #             process = multiprocessing.Process(
+        #                 target=self.get_fluo_psf_process,
+        #                 args=(depths[start_index:stop_index], c))
+        #             processes.append((p, process))
+        #             start_index = stop_index
+
+        #         for _, process in processes:
+        #             process.start()
+
+        #         for pipe, process in processes:
+        #             self.fluo_psf.update(pipe.recv())
+        #             process.join()
+
+        #     else:
+        #         self.fluo_psf = self.get_fluo_psf(depths)
 
     def get_fluo_psf(self, depths):
         r = self.configs.radial
