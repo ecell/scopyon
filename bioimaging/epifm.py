@@ -302,7 +302,7 @@ class EPIFMConfigs:
         self.depth = numpy.arange(1000, dtype=float)
         self.wave_length = numpy.arange(300, 1000, dtype=int)
         N = len(self.wave_length)
-        self.wave_number = 2 * numpy.pi / numpy.arange(N, dtype=float)
+        self.wave_number = 2 * numpy.pi / self.wave_length
         self.excitation_eff = numpy.zeros(N, dtype=float)
         self.dichroic_eff = numpy.zeros(N, dtype=float)
         self.emission_eff = numpy.zeros(N, dtype=float)
@@ -527,7 +527,7 @@ class EPIFMConfigs:
             offset = numpy.rint(rng.normal(ADC0, FPN_count, Nw_pixel * Nh_pixel))
         elif FPN_type == 'column':
             column = rng.normal(ADC0, FPN_count, Nh_pixel)
-            temporal = numpy.full(Nw_pixel, column)
+            temporal = numpy.tile(column, (1, Nw_pixel))
             offset = numpy.rint(temporal.reshape(Nh_pixel * Nw_pixel))
         else:
             raise ValueError("FPN type [{}] is invalid ['pixel', 'column' or None]".format(FPN_type))
