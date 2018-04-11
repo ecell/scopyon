@@ -26,120 +26,6 @@ from logging import getLogger
 _log = getLogger(__name__)
 
 
-class VisualizerError(Exception):
-    "Exception class for visualizer"
-
-    def __init__(self, info):
-        self.__info = info
-
-    def __repr__(self):
-        return self.__info
-
-    def __str__(self):
-        return self.__info
-
-def read_fluorophore_catalog(fluorophore_type):
-    filename = os.path.join(
-        os.path.abspath(os.path.dirname(__file__)), 'catalog/fluorophore/', fluorophore_type + '.csv')
-
-    if not os.path.exists(filename):
-        raise IOError('Catalog file [{}] was not found'.format(filename))
-
-    with open(filename, 'r') as fin:
-        lines = [_.rstrip() for _ in fin.readlines()]
-        header = lines[0: 5]
-        data = lines[5: ]
-
-        fluorophore_header = [_.split(',') for _ in header]
-        for _ in fluorophore_header:
-            _log.debug("     {}".format(_))
-
-        em_idx = data.index('Emission')
-        fluorophore_excitation = [_.split(',') for _ in data[1: em_idx]]
-        fluorophore_emission   = [_.split(',') for _ in data[(em_idx + 1): ]]
-
-    return (fluorophore_excitation, fluorophore_emission)
-
-def read_dichroic_catalog(dm):
-    filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/dichroic/', dm + '.csv')
-    if not os.path.exists(filename):
-        raise IOError('Catalog file [{}] was not found'.format(filename))
-
-    with open(filename, 'r') as fin:
-        lines = fin.readlines()
-        header = lines[0: 5]
-        data = lines[6:]
-
-        dichroic_header = []
-        dichroic_mirror = []
-
-        for i in range(len(header)):
-            dummy  = header[i].split('\r\n')
-            a_data = dummy[0].split(',')
-            dichroic_header.append(a_data)
-            _log.debug('     {}'.format(a_data))
-
-        for i in range(len(data)):
-            dummy0 = data[i].split('\r\n')
-            a_data = dummy0[0].split(',')
-            dichroic_mirror.append(a_data)
-
-    return dichroic_mirror
-
-def read_excitation_catalog(excitation):
-    filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/excitation/', excitation + '.csv')
-    if not os.path.exists(filename):
-        raise IOError('Catalog file [{}] was not found'.format(filename))
-
-    with open(filename, 'r') as fin:
-        lines = fin.readlines()
-
-        header = lines[0: 5]
-        data   = lines[6: ]
-
-        excitation_header = []
-        excitation_filter = []
-
-        for i in range(len(header)):
-            dummy  = header[i].split('\r\n')
-            a_data = dummy[0].split(',')
-            excitation_header.append(a_data)
-            _log.debug('    {}'.format(a_data))
-
-        for i in range(len(data)):
-            dummy0 = data[i].split('\r\n')
-            a_data = dummy0[0].split(',')
-            excitation_filter.append(a_data)
-
-    return excitation_filter
-
-def read_emission_catalog(emission):
-    filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/emission/', emission + '.csv')
-    if not os.path.exists(filename):
-        raise IOError('Catalog file [{}] was not found'.format(filename))
-
-    with open(filename, 'r') as fin:
-        lines = fin.readlines()
-
-        header = lines[0: 5]
-        data   = lines[6: ]
-
-        emission_header = []
-        emission_filter = []
-
-        for i in range(len(header)):
-            dummy  = header[i].split('\r\n')
-            a_data = dummy[0].split(',')
-            emission_header.append(a_data)
-            _log.info('    {}'.format(a_data))
-
-        for i in range(len(data)):
-            dummy0 = data[i].split('\r\n')
-            a_data = dummy0[0].split(',')
-            emission_filter.append(a_data)
-
-    return emission_filter
-
 class EPIFMConfig(Config):
 
     def __init__(self, filename=None, config=None):
@@ -378,7 +264,7 @@ class EPIFMConfigs:
             self._set_data('psf_cutoff', cutoff)
 
         else:
-            (fluorophore_excitation, fluorophore_emission) = read_fluorophore_catalog(fluorophore_type)
+            (fluorophore_excitation, fluorophore_emission) = io.read_fluorophore_catalog(fluorophore_type)
             fluorophore_excitation = self.set_efficiency(fluorophore_excitation)
             fluorophore_emission = self.set_efficiency(fluorophore_emission)
             fluorophore_excitation = numpy.array(fluorophore_excitation)
@@ -476,19 +362,19 @@ class EPIFMConfigs:
     def set_dichroic_mirror(self, dm=None, switch=True):
         self._set_data('dichroic_switch', switch)
         if dm is not None:
-            dichroic_mirror = read_dichroic_catalog(dm)
+            dichroic_mirror = io.read_dichroic_catalog(dm)
             self._set_data('dichroic_eff', self.set_efficiency(dichroic_mirror))
 
     def set_excitation_filter(self, excitation=None, switch=True):
         self._set_data('excitation_switch', switch)
         if excitation is not None:
-            excitation_filter = read_excitation_catalog(excitation)
+            excitation_filter = io.read_excitation_catalog(excitation)
             self._set_data('excitation_eff', self.set_efficiency(excitation_filter))
 
     def set_emission_filter(self, emission=None, switch=True):
         self._set_data('emission_switch', switch)
         if emission is not None:
-            emission_filter = read_emission_catalog(emission)
+            emission_filter = io.read_emission_catalog(emission)
             self._set_data('emission_eff', self.set_efficiency(emission_filter))
 
     def set_illumination_path(self, focal_point, focal_norm):
@@ -1029,21 +915,21 @@ class EPIFMVisualizer:
         Na = self.effects.avogadoros_number
 
         # Cross-section [m2]
-        x_sec = numpy.log(10)*abs_coeff*0.1/Na
+        x_sec = numpy.log(10) * abs_coeff * 0.1 / Na
 
         # get the number of absorption photons: [#/(m2 sec)]*[m2]*[sec]
-        n_abs = amplitude*x_sec*unit_time
+        n_abs = amplitude * x_sec * unit_time
 
         # spatiocyte voxel size (~ molecule size)
         # voxel_radius = self.configs.spatiocyte_VoxelRadius
-        voxel_volume = (4.0/3.0)*numpy.pi*voxel_radius**3
-        voxel_depth  = 2.0*voxel_radius
+        voxel_volume = (4.0 / 3.0) * numpy.pi * numpy.power(voxel_radius, 3)
+        voxel_depth  = 2.0 * voxel_radius
 
-        # Beer-Lamberts law: A = log(I0/I) = abs coef. * concentration * path length ([m2]*[#/m3]*[m])
-        A = (abs_coeff*0.1/Na)*(1.0/voxel_volume)*(voxel_depth)
+        # Beer-Lamberts law: A = log(I0 / I) = abs coef. * concentration * path length ([m2]*[#/m3]*[m])
+        A = (abs_coeff * 0.1 / Na) * (1.0 / voxel_volume) * voxel_depth
 
         # get the number of photons emitted
-        n_emit = QY*n_abs*(1 - 10**(-A))
+        n_emit = QY * n_abs * (1.0 - numpy.power(10.0, -A))
 
         return n_emit
 

@@ -2,13 +2,29 @@ import os.path
 import csv
 import copy
 from ast import literal_eval
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 
 import numpy
 
 from logging import getLogger
 _log = getLogger(__name__)
 
+
+def is_float(val):
+    """Check if the given string can be converted to float or not.
+    This method is fast when returning True
+
+    Args:
+        val (str): The input
+
+    Returns:
+        bool: Return True if the input can be converted to float
+    """
+    try:
+        float(val)
+        return True
+    except ValueError:
+        return False
 
 def read_spatiocyte(pathto, tstart, tend, exposure_time, observable=None, max_count=None):
     (interval, species_id, lengths, voxel_radius, observables) = read_spatiocyte_input(os.path.join(pathto, 'pt-input.csv'), observable)
@@ -117,3 +133,47 @@ def read_spatiocyte_data(pathto, count_array=None, species_id=None, observables=
 
     # data.sort(key=lambda x: x[0])
     return data
+
+def read_catalog(filename):
+    if not os.path.exists(filename):
+        raise IOError('Catalog file [{}] was not found'.format(filename))
+
+    catalog_data = defaultdict(list)
+    with open(filename, 'r') as fin:
+        for _ in range(5):
+            line = fin.readline()
+            line = line.rstrip()
+            _log.debug('     {}'.format(line))
+
+        reader = csv.reader(fin)
+
+        row = next(reader)
+        if len(row) != 1 or is_float(row[0]):
+            raise RuntimeError('A catalog in invalid format was given [{}]'.format(filename))
+        key = row[0]
+
+        for row in reader:
+            if len(row) == 1 and not is_float(row[0]):
+                key = row[0]
+            elif len(row) != 0:
+                catalog_data[key].append(row)
+    return catalog_data
+
+def read_fluorophore_catalog(fluorophore_type):
+    filename = os.path.join(
+        os.path.abspath(os.path.dirname(__file__)), 'catalog/fluorophore/', fluorophore_type + '.csv')
+    catalog_data = read_catalog(filename)
+    return catalog_data['Excitation'], catalog_data['Emission']
+
+def read_dichroic_catalog(dm):
+    filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/dichroic/', dm + '.csv')
+    return read_catalog(filename)['wavedataset']
+
+def read_excitation_catalog(excitation):
+    filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/excitation/', excitation + '.csv')
+    return read_catalog(filename)['wavedataset']
+
+def read_emission_catalog(emission):
+    filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/emission/', emission + '.csv')
+    return read_catalog(filename)['wavedataset']
+
