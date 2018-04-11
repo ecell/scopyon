@@ -193,50 +193,45 @@ class PhysicalEffects:
 
         return tau, budget
 
-    def get_photophysics_for_epifm(self, delta, n_emit0, N_part, interval, rng=None):
-        state = numpy.zeros(shape=(len(delta)))
-        dt = delta[0]
-
-        if (self.photobleaching_switch == True):
-            # set the photobleaching-time
-            tau0  = self.photobleaching_tau0
-            alpha = self.photobleaching_alpha
-            prob_func = functools.partial(levy_probability_function, t0=tau0, a=alpha)
-
-            # set photon budget
-            photon0 = (tau0 / interval) * n_emit0
-
-            tau_bleach = numpy.array([j * interval + tau0 for j in range(int(1e+7))])
-            prob = prob_func(tau_bleach)
-            norm = prob.sum()
-            p_bleach = prob / norm
-
-            # get photon budget and photobleaching-time
-            if rng is None:
-                raise RuntimeError('A random number generator is required.')
-            tau = rng.choice(tau_bleach, N_part, p=p_bleach)
-        else:
+    def get_photophysics_for_epifm(self, time_array, N_emit0, N_part, rng=None):
+        """
+        Args:
+            N_emit0 (float): The number of photons emitted per unit time.
+        """
+        if self.photobleaching_switch is False:
             raise RuntimeError('Not supported')
+        elif rng is None:
+            raise RuntimeError('A random number generator is required.')
+
+        # set the photobleaching-time
+        tau0  = self.photobleaching_tau0
+        alpha = self.photobleaching_alpha
+        prob_func = functools.partial(levy_probability_function, t0=tau0, a=alpha)
+
+        # set photon budget
+        photon0 = tau0 * N_emit0
+
+        dt = tau0 * 1e-3
+        tau_bleach = numpy.arange(tau0, 50001 * tau0, dt)
+        prob = prob_func(tau_bleach)
+        norm = prob.sum()
+        p_bleach = prob / norm
+
+        # get photobleaching-time
+        tau = rng.choice(tau_bleach, N_part, p=p_bleach)
 
         # sequences
-        budget = []
-        state  = []
-
+        budget = numpy.zeros(N_part)
+        state = numpy.zeros((N_part, len(time_array)))
         for i in range(N_part):
-            # get photon budget and photobleaching-time
-            photons = (tau[i] / tau0) * photon0
+            # get photon budget
+            budget[i] = tau[i] * N_emit0
 
             # bleaching time
-            Ni = (numpy.abs(numpy.cumsum(delta) - tau[i])).argmin()
+            Ni = numpy.searchsorted(time_array, tau[i])
+            state[i][0: Ni] = 1.0
 
-            state_bleach = numpy.zeros(shape=(len(delta)))
-            state_bleach[0: Ni] = numpy.ones(shape=(Ni))
-
-            # set photon budget and fluorescence state
-            budget.append(photons)
-            state.append(state_bleach)
-
-        return numpy.array(state), numpy.array(budget)
+        return state, budget
 
     def set_photophysics_4palm(self, start, end, dt, f, F, N_part, rng):
         ##### PALM Configuration

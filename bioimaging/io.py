@@ -16,8 +16,8 @@ def read_spatiocyte(pathto, tstart, tend, exposure_time, observable=None, max_co
     data = read_spatiocyte_data(pathto, count_array, species_id=species_id, observables=observables, max_count=max_count)
     assert len(count_array) == len(data)
 
-    SpatiocyteDataSet = namedtuple('SpatiocyteDataSet', ('data', 'interval', 'lengths', 'voxel_radius', 'N_count'))
-    return SpatiocyteDataSet(data, interval=interval, lengths=lengths, voxel_radius=voxel_radius, N_count=N_count)
+    SpatiocyteDataSet = namedtuple('SpatiocyteDataSet', ('data', 'lengths', 'voxel_radius'))
+    return SpatiocyteDataSet(data, lengths=lengths, voxel_radius=voxel_radius)
 
 def spatiocyte_time_arrays(start_time, end_time, interval, exposure_time):
     # set count arrays by spatiocyte interval
