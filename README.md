@@ -8,7 +8,7 @@ Monte Carlo simulation toolkit for bioimaging systems
 Requirements
 ------------
 
-You need Python 3 and its libraries, `numpy` and `scipy`, to run `bioimaging`.
+For `bioimaging`, Python 3 and its libraries, `numpy`, `scipy` and `matplotlib`, are required.
 
 Quick start
 -----------
@@ -18,7 +18,7 @@ $ python setup.py test install
 ```
 
 ```
-$ python script.py (initial time) (final time)
+$ python scripts/tirf_script.py
 ```
 
 License
