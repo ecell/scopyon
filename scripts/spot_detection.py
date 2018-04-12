@@ -207,35 +207,35 @@ def prune_blobs(blobs_array, overlap):
 
 def spot_detection(image, sigma_list, threshold, overlap) :
 
-#	# detecting spots
+#    # detecting spots
 #        if log_scale:
 #            start, stop = math.log(min_sigma, 10), math.log(max_sigma, 10)
 #            sigma_list = numpy.logspace(start, stop, num_sigma)
 #        else:
 #            sigma_list = numpy.linspace(min_sigma, max_sigma, num_sigma)
 
-        # computing gaussian laplace
-        # s**2 provides scale invariance
-        gl_images = [-gaussian_laplace(image, s) * s ** 2 for s in sigma_list]
-        image_cube = numpy.dstack(gl_images)
+    # computing gaussian laplace
+    # s**2 provides scale invariance
+    gl_images = [-gaussian_laplace(image, s) * s ** 2 for s in sigma_list]
+    image_cube = numpy.dstack(gl_images)
 
-	local_maxima = peak_local_max(image_cube, threshold_abs=threshold,
+    local_maxima = peak_local_max(image_cube, threshold_abs=threshold,
                                   footprint=numpy.ones((3, 3, 3)),
                                   threshold_rel=0.0,
                                   exclude_border=False)
 
-	# Catch no peaks
-        if local_maxima.size == 0:
-            return numpy.empty((0,3))
-        # Convert local_maxima to float64
-        lm = local_maxima.astype(numpy.float64)
-        # Convert the last index to its corresponding scale value
-        lm[:, 2] = sigma_list[local_maxima[:, 2]]
-        local_maxima = lm
+    # Catch no peaks
+    if local_maxima.size == 0:
+        return numpy.empty((0,3))
+    # Convert local_maxima to float64
+    lm = local_maxima.astype(numpy.float64)
+    # Convert the last index to its corresponding scale value
+    lm[:, 2] = sigma_list[local_maxima[:, 2]]
+    local_maxima = lm
 
-	spots = prune_blobs(local_maxima, overlap)
+    spots = prune_blobs(local_maxima, overlap)
 
-	return spots
+    return spots
 
 
 
@@ -305,22 +305,22 @@ def get_true_spot(reco_spot, true_data) :
     num_spots = len(true_data)
 
     if (num_spots == 0) :
-	true_spot = numpy.full((7), -100, dtype=int)
+        true_spot = numpy.full((7), -100, dtype=int)
 
     else :
-	reco_x, reco_y = reco_spot[1:3]
-	true_x, true_y, true_z = true_data[:,4], true_data[:,5], true_data[:,6]
+        reco_x, reco_y = reco_spot[1:3]
+        true_x, true_y, true_z = true_data[:,4], true_data[:,5], true_data[:,6]
 
-	b = true_z[true_z < 100]
+    b = true_z[true_z < 100]
 
-	if (len(b) > 0) :
-	    dist  = numpy.sqrt((reco_x - true_x)**2 + (reco_y - true_y)**2)
-	    index = numpy.argmin(dist)
+    if (len(b) > 0) :
+        dist  = numpy.sqrt((reco_x - true_x)**2 + (reco_y - true_y)**2)
+        index = numpy.argmin(dist)
 
-	    true_spot = true_data[index]
+        true_spot = true_data[index]
 
-	else :
-	    true_spot = numpy.full((7), -100, dtype=int)
+    else :
+        true_spot = numpy.full((7), -100, dtype=int)
 
     return true_spot
 
@@ -328,159 +328,160 @@ def get_true_spot(reco_spot, true_data) :
 
 def convert_image2numpy(ligand, cell_index, file_in, file_out) :
 
-	# set index
-	index = 0
-	spot_index = 0
+    # set index
+    index = 0
+    spot_index = 0
 
-	# set spot-data
-	spot_data = []
+    # set spot-data
+    spot_data = []
 
-	while (True) :
+    while (True) :
 
-	    # get arrays
-	    try :
-	        image_array = numpy.load(file_in + '/image_%07d.npy' % (index))
-	        true_array = numpy.load(file_in + '/true_%07d.npy' % (index))
-	    except Exception :
-	        print('error : file not found at %02d-th index' % (index))
-	        break
+        # get arrays
+        try :
+            image_array = numpy.load(file_in + '/image_%07d.npy' % (index))
+            true_array = numpy.load(file_in + '/true_%07d.npy' % (index))
+        except Exception :
+            print('error : file not found at %02d-th index' % (index))
+            break
 
-	    # image-array
-	    obs_image = image_array[:,:,1]
-	    exp_image = image_array[:,:,0]
+        # image-array
+        obs_image = image_array[:,:,1]
+        exp_image = image_array[:,:,0]
 
-	    # spot-detection
-            sigma = numpy.linspace(4.0, 6.0, 20)
-	    spots = spot_detection(obs_image, sigma_list=sigma, threshold=10, overlap=0.5)
+        # spot-detection
+        sigma = numpy.linspace(4.0, 6.0, 20)
+        spots = spot_detection(obs_image, sigma_list=sigma, threshold=10, overlap=0.5)
 
-	    for i in range(len(spots)) :
+        for i in range(len(spots)) :
 
-	        x, y, r = spots[i]
+            x, y, r = spots[i]
 
-	        x0, x1 = int(x-2*r), int(x+2*r)
-	        y0, y1 = int(y-2*r), int(y+2*r)
+            x0, x1 = int(x-2*r), int(x+2*r)
+            y0, y1 = int(y-2*r), int(y+2*r)
 
-	        image = obs_image[x0:x1,y0:y1]
-	        true_data = spot_candidates(true_array, x0,x1,y0,y1)
+            image = obs_image[x0:x1,y0:y1]
+            true_data = spot_candidates(true_array, x0,x1,y0,y1)
 
-	        if (image.sum() > 0) :
+            if (image.sum() > 0) :
 
-		    # Gaussian-fit to i-th spot
-	            reco_spot = fitgaussian(image)
-	            reco_N0 = reco_spot[0] # ADC-counts
-	            reco_x0 = reco_spot[1] + x0 # pixel
-	            reco_y0 = reco_spot[2] + y0 # pixel
-	            reco_wx = reco_spot[3]
-	            reco_wy = reco_spot[4]
-	            reco_bg = reco_spot[5]
+                # Gaussian-fit to i-th spot
+                reco_spot = fitgaussian(image)
+                reco_N0 = reco_spot[0] # ADC-counts
+                reco_x0 = reco_spot[1] + x0 # pixel
+                reco_y0 = reco_spot[2] + y0 # pixel
+                reco_wx = reco_spot[3]
+                reco_wy = reco_spot[4]
+                reco_bg = reco_spot[5]
 
-		    # get true-property
-	            #true_spot = numpy.full((7), -100, dtype=int)
-	            true_spot = get_true_spot(reco_spot, true_data)
-		    time, mol_id, mol_st, pho_st = true_spot[0:4]
-		    true_x0, true_y0, true_z0 = true_spot[4:7]
+            # get true-property
+            #true_spot = numpy.full((7), -100, dtype=int)
+            true_spot = get_true_spot(reco_spot, true_data)
+            time, mol_id, mol_st, pho_st = true_spot[0:4]
+            true_x0, true_y0, true_z0 = true_spot[4:7]
 
-		    if (true_x0 < 512 and true_y0 < 512) :
-		        true_N0 = exp_image[int(true_x0),int(true_y0)]
-		    else :
-		        true_N0 = -1
+            if (true_x0 < 512 and true_y0 < 512) :
+                true_N0 = exp_image[int(true_x0),int(true_y0)]
+            else :
+                true_N0 = -1
 
-		    # initial-cut
-		    if (time>-1 and \
-		        reco_x0>0 and reco_x0<512 and \
-			reco_y0>0 and reco_y0<512 and \
-			reco_wx>0 and reco_wy>0 and \
-			reco_N0>0 and reco_bg>0) :
+            # initial-cut
+            if (time>-1 and \
+                reco_x0>0 and reco_x0<512 and \
+                reco_y0>0 and reco_y0<512 and \
+                reco_wx>0 and reco_wy>0 and \
+                reco_N0>0 and reco_bg>0) :
 
-			variables = []
+                variables = []
 
-		        # get index
-	                variables.append(ligand)
-	                variables.append(cell_index)
-	                variables.append(spot_index)
+            # get index
+            variables.append(ligand)
+            variables.append(cell_index)
+            variables.append(spot_index)
 
-		        # get true-variables
-	                variables.append(time) # sec
-	                variables.append(mol_id) # Spatiocyte-molecule ID
-	                variables.append(mol_st) # Molecule state
-	                variables.append(pho_st) # Photon-emission state
-	                variables.append(true_N0)
-	                variables.append(true_x0) # pixel
-	                variables.append(true_y0) # pixel
-	                variables.append(true_z0) # nm
+            # get true-variables
+            variables.append(time) # sec
+            variables.append(mol_id) # Spatiocyte-molecule ID
+            variables.append(mol_st) # Molecule state
+            variables.append(pho_st) # Photon-emission state
+            variables.append(true_N0)
+            variables.append(true_x0) # pixel
+            variables.append(true_y0) # pixel
+            variables.append(true_z0) # nm
 
-		        # get reconstructed-variables
-	                variables.append(reco_N0) # ADC-counts
-	                variables.append(reco_x0) # pixel
-	                variables.append(reco_y0) # pixel
-	                variables.append(reco_wx) # pixel
-	                variables.append(reco_wy) # pixel
-	                variables.append(reco_bg) # ADC-counts
+            # get reconstructed-variables
+            variables.append(reco_N0) # ADC-counts
+            variables.append(reco_x0) # pixel
+            variables.append(reco_y0) # pixel
+            variables.append(reco_wx) # pixel
+            variables.append(reco_wy) # pixel
+            variables.append(reco_bg) # ADC-counts
 
-			spot_data.append(variables)
+            spot_data.append(variables)
 
-		        spot_index += 1
+            spot_index += 1
 
-	    index += 1
+        index += 1
 
-	# save the spot-data as numpy-file
-	array = numpy.array(spot_data)
-	numpy.save(file_out, array)
+    # save the spot-data as numpy-file
+    array = numpy.array(spot_data)
+    numpy.save(file_out, array)
 
 
 
 def get_figure(file_in, index) :
 
-	# get arrays
-	try :
-	    image_array = numpy.load(file_in + '/image_%07d.npy' % (index))
-	    true_array = numpy.load(file_in + '/true_%07d.npy' % (index))
-	except Exception :
-	    print('error : file not found at %02d-th index' % (index))
-	    exit()
+    # get arrays
+    try :
+        image_array = numpy.load(file_in + '/image_%07d.npy' % (index))
+        true_array = numpy.load(file_in + '/true_%07d.npy' % (index))
+    except Exception :
+        print('error : file not found at %02d-th index' % (index))
+        exit()
 
-	# image-array
-	# stochasticity
-	image = image_array[:,:,1]
-	## expected
-	#gain, k, adc0 = 300, 5.82, 2000
-	#image = gain*image_array[:,:,0]/k + adc0
-	#image = image_array
+    # image-array
+    # stochasticity
+    image = image_array[:,:,1]
+    ## expected
+    #gain, k, adc0 = 300, 5.82, 2000
+    #image = gain*image_array[:,:,0]/k + adc0
+    #image = image_array
 
-	amin = numpy.amin(image)
-	amax = numpy.amax(image)
+    amin = numpy.amin(image)
+    amax = numpy.amax(image)
 
-	print("{} {} {} {}".format(index, image.shape, amin, amax))
+    print("{} {} {} {}".format(index, image.shape, amin, amax))
 
-	# spot-detection
-        sigma = numpy.linspace(2.0, 4.0, 20)
-	spots = spot_detection(image, sigma_list=sigma, threshold=10, overlap=0.5)
-	print('No. spots: {}'.format(len(spots)))
+    # spot-detection
+    sigma = numpy.linspace(2.0, 4.0, 20)
+    spots = spot_detection(image, sigma_list=sigma, threshold=10, overlap=0.5)
+    print('No. spots: {}'.format(len(spots)))
 
-	# show figures
-	fig, ax = plt.subplots()
+    # show figures
+    fig, ax = plt.subplots()
 
-	ax.imshow(image, interpolation='nearest', vmin=90, vmax=160, cmap='gray')
+    ax.imshow(image, interpolation='nearest', vmin=1900, vmax=2500, cmap='gray')
+    # ax.imshow(image, interpolation='nearest', vmin=90, vmax=160, cmap='gray')
 
-	for spot in spots:
-	    y, x, r = spot
-	    c = plt.Circle((x, y), r, color='red', linewidth=1, fill=False)
-	    ax.add_patch(c)
-	ax.set_axis_off()
+    for spot in spots:
+        y, x, r = spot
+        c = plt.Circle((x, y), r, color='red', linewidth=1, fill=False)
+        ax.add_patch(c)
+    ax.set_axis_off()
 
-	plt.tight_layout()
-	plt.show()
+    plt.tight_layout()
+    plt.show()
 
 
 if __name__=='__main__':
 
-	file_in  = './numpys00'
-	file_out = './spots00.npy'
+    file_in  = './scripts/data/outputs_tirf'
+    file_out  = './scripts/data/outputs_tirf/spots.npy'
 
-	ligand, cell_index = 0, 0
+    ligand, cell_index = 0, 0
 
-	# convert the resutls to numpy-file
-	convert_image2numpy(ligand, cell_index, file_in, file_out)
-	#get_figure(file_in, index=3)
+    # convert the resutls to numpy-file
+    convert_image2numpy(ligand, cell_index, file_in, file_out)
+    get_figure(file_in, index=0)
 
 
