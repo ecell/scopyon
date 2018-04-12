@@ -24,7 +24,7 @@ def test_epifm() :
     config = EPIFMConfig()
     config.set_shutter(start_time=t0, end_time=t1)
     config.set_light_source(source_type='LASER', wave_length=532, flux_density=40, angle=72)
-    config.set_fluorophore(fluorophore_type='Tetramethylrhodamine(TRITC)', normalization=1.0)
+    config.set_fluorophore(fluorophore_type='Tetramethylrhodamine(TRITC)', normalization=1.0, radius=20)
     config.set_dichroic_mirror('FF562-Di03-25x36')
     # config.set_magnification(magnification=100)
     # config.set_detector(detector='CMOS', image_size=(512, 512), pixel_length=6.5e-6, exposure_time=exposure_time, focal_point=(0.0, 0.5, 0.5), QE=0.73)
@@ -67,8 +67,8 @@ def test_epifm() :
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
 
-    test_epifm()
+    # test_epifm()
 
-    # import sys
-    # for filename in sys.argv[1: ]:
-    #     convert_npy_to_8bit_image(filename, cmin=1900, cmax=2500)
+    import sys
+    for filename in sys.argv[1: ]:
+        convert_npy_to_8bit_image(filename, cmin=1900, cmax=2500)

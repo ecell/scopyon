@@ -1,10 +1,14 @@
+import os.path
 import numpy
 
-def convert_8bit(data, cmin=None, cmax=None, low=0, high=255):
+
+def convert_8bit(data, cmin=None, cmax=None, low=None, high=None):
     """Same as scipy.misc.bytescale"""
     data = numpy.asarray(data)
     cmin = cmin or data.min()
     cmax = cmax or data.max()
+    low = low or 0
+    high = high or 255
 
     cscale = cmax - cmin
     scale = float(high - low) / cscale
@@ -22,7 +26,7 @@ def save_as_image(filename, data, cmap=None, low=None, high=None):
     import matplotlib.pyplot as plt
     from matplotlib import cm
     cmap = cmap or cm.gray
-    plt.imsave(output_filename, bytedata, cmap=cmap, vmin=low, vmax=high)
+    plt.imsave(filename, data, cmap=cmap, vmin=low, vmax=high)
 
 def convert_npy_to_8bit_image(filename, output=None, cmap=None, cmin=None, cmax=None, low=None, high=None):
     output = output or '{}.png'.format(os.path.splitext(filename)[0])
