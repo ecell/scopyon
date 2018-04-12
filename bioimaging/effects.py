@@ -18,41 +18,6 @@ def levy_probability_function(t, t0, a):
     return (a / t0) * numpy.power(t0 / t, 1 + a)
     # return numpy.power(t0 / t, 1 + a)
 
-class PhysicalEffectsConfig(_Config):
-
-    def __init__(self, filename=None, config=None):
-        _Config.__init__(self, filename, config)
-
-    def set_background(self, mean=None):
-        self.update('background_switch', True)
-        self.update('background_mean', mean)
-
-    def set_crosstalk(self, width=None):
-        self.update('crosstalk_switch', True)
-        self.update('crosstalk_width', width)
-
-    def set_fluorescence(self, quantum_yield=None, abs_coefficient=None):
-        self.update('quantum_yield', quantum_yield)
-        self.update('abs_coefficient', abs_coefficient)
-
-    def set_photobleaching(self, tau0=None, alpha=None):
-        self.update('photobleaching_switch', True)
-        self.update('photobleaching_tau0', tau0)
-        self.update('photobleaching_alpha', alpha)
-
-    def set_photoactivation(self, turn_on_ratio=None, activation_yield=None, frac_preactivation=None):
-        self.update('photoactivation_switch', True)
-        self.update('photoactivation_turn_on_ratio', turn_on_ratio)
-        self.update('photoactivation_activation_yield', activation_yield)
-        self.update('photoactivation_frac_preactivation', frac_preactivation)
-
-    def set_photoblinking(self, t0_on=None, a_on=None, t0_off=None, a_off=None):
-        self.update('photoblinking_switch', True)
-        self.update('photoblinking_t0_on', t0_on)
-        self.update('photoblinking_a_on', a_on)
-        self.update('photoblinking_t0_off', t0_off)
-        self.update('photoblinking_a_off', a_off)
-
 class PhysicalEffects:
     '''
     Physical effects setting class
