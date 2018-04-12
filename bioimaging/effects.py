@@ -8,7 +8,7 @@ import functools
 
 import numpy
 
-from .configbase import Config
+from .configbase import _Config
 
 from logging import getLogger
 _log = getLogger(__name__)
@@ -18,10 +18,10 @@ def levy_probability_function(t, t0, a):
     return (a / t0) * numpy.power(t0 / t, 1 + a)
     # return numpy.power(t0 / t, 1 + a)
 
-class PhysicalEffectsConfig(Config):
+class PhysicalEffectsConfig(_Config):
 
     def __init__(self, filename=None, config=None):
-        Config.__init__(self, filename, config)
+        _Config.__init__(self, filename, config)
 
     def set_background(self, mean=None):
         self.update('background_switch', True)

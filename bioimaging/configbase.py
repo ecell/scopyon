@@ -7,7 +7,7 @@ from logging import getLogger
 _log = getLogger(__name__)
 
 
-class Config:
+class _Config:
 
     def __init__(self, filename=None, config=None):
         self.__data = collections.defaultdict(lambda: None)

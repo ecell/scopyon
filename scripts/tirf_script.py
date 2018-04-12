@@ -9,8 +9,6 @@ import os.path
 import numpy
 import glob
 
-from scipy.misc import imread, toimage
-
 
 def test_epifm() :
     exposure_time = 0.100
@@ -67,8 +65,8 @@ def test_epifm() :
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
 
-    # test_epifm()
+    test_epifm()
 
-    import sys
-    for filename in sys.argv[1: ]:
-        convert_npy_to_8bit_image(filename, cmin=1900, cmax=2500)
+    # import sys
+    # for filename in sys.argv[1: ]:
+    #     convert_npy_to_8bit_image(filename, cmin=1900, cmax=2500)

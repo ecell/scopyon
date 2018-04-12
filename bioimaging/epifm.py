@@ -18,7 +18,7 @@ from scipy.ndimage import map_coordinates
 
 from .effects import PhysicalEffects
 from . import io
-from .configbase import Config
+from .configbase import _Config
 
  # import numpy.random as rng
 
@@ -26,10 +26,10 @@ from logging import getLogger
 _log = getLogger(__name__)
 
 
-class EPIFMConfig(Config):
+class EPIFMConfig(_Config):
 
     def __init__(self, filename=None, config=None):
-        Config.__init__(self, filename, config)
+        _Config.__init__(self, filename, config)
 
     def set_shutter(self, start_time=None, end_time=None, time_open=None, time_lapse=None, switch=True):
         self.update('shutter_switch', switch)
@@ -47,8 +47,9 @@ class EPIFMConfig(Config):
         self.update('source_angle', angle)
 
     def set_fluorophore(
-            self, fluorophore_type=None, wave_length=None, normalization=None, width=None, cutoff=None, file_name_format=None):
+            self, fluorophore_type=None, wave_length=None, normalization=None, radius=None, width=None, cutoff=None, file_name_format=None):
         self.update('fluorophore_type', fluorophore_type)
+        self.update('fluorophore_radius', radius)
         self.update('psf_wavelength', wave_length)
         self.update('psf_normalization', normalization)
         self.update('psf_width', width)
@@ -147,11 +148,12 @@ class EPIFMConfigs:
 
         self.set_fluorophore(
             config.fluorophore_type, config.psf_wavelength, config.psf_normalization,
-            config.psf_width, config.psf_cutoff, config.psf_file_name_format)
+            config.fluorophore_radius, config.psf_width, config.psf_cutoff, config.psf_file_name_format)
 
         _log.info('--- Fluorophore: {} PSF'.format(self.fluorophore_type))
         _log.info('    Wave Length   =  {} nm'.format(self.psf_wavelength))
         _log.info('    Normalization =  {}'.format(self.psf_normalization))
+        _log.info('    Fluorophore radius =  {} nm'.format(self.fluorophore_radius))
         if hasattr(self, 'psf_width'):
             _log.info('    Lateral Width =  {} nm'.format(self.psf_width[0]))
             _log.info('    Axial Width =  {} nm'.format(self.psf_width[1]))
@@ -239,8 +241,9 @@ class EPIFMConfigs:
         self._set_data('source_angle', angle)
 
     def set_fluorophore(
-            self, fluorophore_type=None, wave_length=None, normalization=None, width=None, cutoff=None, file_name_format=None):
+            self, fluorophore_type=None, wave_length=None, normalization=None, radius=None, width=None, cutoff=None, file_name_format=None):
         self._set_data('fluorophore_type', fluorophore_type)
+        self._set_data('fluorophore_radius', radius)
         self._set_data('psf_normalization', normalization)
         self._set_data('psf_file_name_format', file_name_format)
 
@@ -681,7 +684,7 @@ class EPIFMVisualizer:
         time_array = numpy.array([t for t, _ in dataset.data])
         time_array -= self.configs.shutter_start_time
 
-        N_emit0 = self.get_emit_photons(amplitude0, 1.0, dataset.voxel_radius)
+        N_emit0 = self.get_emit_photons(amplitude0, 1.0)
         fluorescence_state, fluorescence_budget = self.effects.get_photophysics_for_epifm(
             time_array, N_emit0, N_particles, rng)
 
@@ -700,7 +703,7 @@ class EPIFMVisualizer:
             # self.set_molecular_states(k, dataset)
             self.initialize_molecular_states(molecule_states, k, particles)
 
-            N_emit0 = self.get_emit_photons(amplitude0, unit_time, dataset.voxel_radius)
+            N_emit0 = self.get_emit_photons(amplitude0, unit_time)
 
             # set photobleaching-dataset arrays
             self.update_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, k, particles, dataset.voxel_radius, p_0, unit_time)
@@ -812,7 +815,7 @@ class EPIFMVisualizer:
             # amplitide = amplitude * numpy.exp(-depth / pent_depth)
 
             # get the number of emitted photons
-            N_emit = self.get_emit_photons(amplitude, unit_time, voxel_radius)
+            N_emit = self.get_emit_photons(amplitude, unit_time)
 
             # get global-arrays for photobleaching-state and photon-budget
             state_pb = fluorescence_state[m_id, count]
@@ -894,17 +897,14 @@ class EPIFMVisualizer:
         psf_depth = self.fluo_psf[int(fluo_depth)]
 
         # get the number of photons emitted
-        N_emit = self.get_emit_photons(amplitude, unit_time, voxel_radius)
+        N_emit = self.get_emit_photons(amplitude, unit_time)
 
         # get signal
         signal = p_state*N_emit/(4.0*numpy.pi)*psf_depth
 
         return signal
 
-    def get_emit_photons(self, amplitude, unit_time, voxel_radius):
-        # Spatiocyte time interval [sec]
-        # unit_time = self.configs.spatiocyte_interval
-
+    def get_emit_photons(self, amplitude, unit_time):
         # Absorption coeff [1/(cm M)]
         abs_coeff = self.effects.abs_coefficient
 
@@ -920,13 +920,12 @@ class EPIFMVisualizer:
         # get the number of absorption photons: [#/(m2 sec)]*[m2]*[sec]
         n_abs = amplitude * x_sec * unit_time
 
-        # spatiocyte voxel size (~ molecule size)
-        # voxel_radius = self.configs.spatiocyte_VoxelRadius
-        voxel_volume = (4.0 / 3.0) * numpy.pi * numpy.power(voxel_radius, 3)
-        voxel_depth  = 2.0 * voxel_radius
-
         # Beer-Lamberts law: A = log(I0 / I) = abs coef. * concentration * path length ([m2]*[#/m3]*[m])
-        A = (abs_coeff * 0.1 / Na) * (1.0 / voxel_volume) * voxel_depth
+        fluorophore_radius = self.configs.fluorophore_radius * 1e-9
+        fluorophore_volume = (4.0 / 3.0) * numpy.pi * numpy.power(fluorophore_radius, 3)
+        fluorophore_depth  = 2.0 * fluorophore_radius
+
+        A = (abs_coeff * 0.1 / Na) * (1.0 / fluorophore_volume) * fluorophore_depth
 
         # get the number of photons emitted
         n_emit = QY * n_abs * (1.0 - numpy.power(10.0, -A))
