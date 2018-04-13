@@ -66,7 +66,13 @@ def test_epifm() :
 
 if __name__ == "__main__":
     import logging
-    logging.basicConfig(level=logging.DEBUG)
+    # logging.basicConfig(level=logging.DEBUG)
+    handler = logging.StreamHandler()
+    fmt = logging.Formatter(logging.BASIC_FORMAT)
+    handler.setFormatter(fmt)
+    log = logging.getLogger('bioimaging')
+    log.addHandler(handler)
+    log.setLevel(logging.DEBUG)
 
     test_epifm()
 
