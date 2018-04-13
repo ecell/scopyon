@@ -1264,7 +1264,7 @@ class EPIFMVisualizer:
                 self.get_molecule_plane(cell, j, particle_j, p_b, p_0, true_data, unit_time, dataset)
 
         # convert image in pixel-scale
-        camera, true_data = self.detector_output(rng, cell, true_data, dataset)
+        camera, true_data = self.detector_output(rng, cell, true_data)
         return (camera, true_data)
 
     def overwrite_smeared(self, cell_pixel, photon_dist, i, j):
@@ -1348,17 +1348,11 @@ class EPIFMVisualizer:
 
         return prob
 
-    def detector_output(self, rng, cell, true_data, dataset):
+    def detector_output(self, rng, cell, true_data):
         # Detector Output
-        voxel_radius = dataset.voxel_radius
-        voxel_size = (2.0*voxel_radius)/1e-9
-
         Nw_pixel, Nh_pixel = self.configs.detector_image_size
 
-        pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification
-        image_scaling = pixel_length / (2.0 * voxel_radius)
-        Np = image_scaling * voxel_size
-        # Np = self.configs.image_scaling*voxel_size
+        Np = self.configs.detector_pixel_length / self.configs.image_magnification / 1e-9
 
         # cell in nm-scale
         Nw_cell = len(cell)
