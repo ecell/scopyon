@@ -577,20 +577,23 @@ class EPIFMVisualizer:
         self.effects = PhysicalEffects()
         self.effects.initialize(self.__config)
 
-    def get_cell_size(self, voxel_radius, lengths):
-        # define observational image plane in nm-scale
-        voxel_size = 2 * voxel_radius / 1e-9
-        # voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
+    def get_cell_size(self, lengths):
+        return numpy.array([int(x) for x in lengths])
 
-        ## cell size (nm scale)
-        Nz = int(lengths[2] * voxel_size)
-        Ny = int(lengths[1] * voxel_size)
-        Nx = int(lengths[0] * voxel_size)
-        # Nz = int(self.configs.spatiocyte_lengths[2]*voxel_size)
-        # Ny = int(self.configs.spatiocyte_lengths[1]*voxel_size)
-        # Nx = int(self.configs.spatiocyte_lengths[0]*voxel_size)
+    # def get_cell_size(self, voxel_radius, lengths):
+    #     # define observational image plane in nm-scale
+    #     voxel_size = 2 * voxel_radius / 1e-9
+    #     # voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
 
-        return numpy.array([Nx, Ny, Nz])
+    #     ## cell size (nm scale)
+    #     Nz = int(lengths[2] * voxel_size)
+    #     Ny = int(lengths[1] * voxel_size)
+    #     Nx = int(lengths[0] * voxel_size)
+    #     # Nz = int(self.configs.spatiocyte_lengths[2]*voxel_size)
+    #     # Ny = int(self.configs.spatiocyte_lengths[1]*voxel_size)
+    #     # Nx = int(self.configs.spatiocyte_lengths[0]*voxel_size)
+
+    #     return numpy.array([Nx, Ny, Nz])
 
     def get_focal_center(self, cell_size):
         # focal point
@@ -605,7 +608,7 @@ class EPIFMVisualizer:
         N_particles = N_particles[0]
 
         # get focal point
-        cell_size = self.get_cell_size(dataset.voxel_radius, dataset.lengths)
+        cell_size = self.get_cell_size(dataset.lengths)
         p_0 = self.get_focal_center(cell_size)
 
         # beam position: Assuming beam position = focal point (for temporary)
@@ -644,7 +647,7 @@ class EPIFMVisualizer:
             N_emit0 = self.get_emit_photons(amplitude0, unit_time)
 
             # set photobleaching-dataset arrays
-            self.update_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, k, particles, dataset.voxel_radius, p_0, unit_time)
+            self.update_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, k, particles, p_0, unit_time)
 
             # get new-dataset
             new_state = self.get_new_state(molecule_states, fluorescence_state, fluorescence_budget, k, N_emit0)
@@ -681,7 +684,7 @@ class EPIFMVisualizer:
             # set molecule-states
             states[m_id] = int(s_id)
 
-    def update_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, voxel_radius, focal_center, unit_time):
+    def update_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time):
         if len(data) == 0:
             return
 
@@ -717,7 +720,7 @@ class EPIFMVisualizer:
             #XXX:     process.join()
 
         else:
-            state_pb, budget = self.get_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, count, data, voxel_radius, focal_center, unit_time)
+            state_pb, budget = self.get_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time)
 
         # reset global-arrays for photobleaching-state and photon-budget
         for key, value in state_pb.items():
@@ -726,7 +729,7 @@ class EPIFMVisualizer:
             # self.effects.fluorescence_state[key,count] = state_pb[key]
             # self.effects.fluorescence_budget[key] = budget[key]
 
-    def get_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, voxel_radius, focal_center, unit_time):
+    def get_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time):
         # get focal point
         p_0 = focal_center
 
@@ -1130,10 +1133,6 @@ class EPIFMVisualizer:
             cell[z0_from:z0_to, y0_from:y0_to] += signal[zi_from:zi_to, yi_from:yi_to]
 
     def output_frames(self, dataset, pathto='./images', image_fmt='image_%07d.npy', true_fmt='true_%07d.npy', rng=None):
-        if rng is None:
-            warnings.warn('A random number generator [rng] is not given.')
-            rng = numpy.random.RandomState()
-
         # Check and create the folders for image and output files.
         if not os.path.exists(pathto):
             os.makedirs(pathto)
@@ -1227,7 +1226,7 @@ class EPIFMVisualizer:
         exposure_time = self.configs.detector_exposure_time
 
         # cell size (nm scale)
-        cell_size = self.get_cell_size(dataset.voxel_radius, dataset.lengths)
+        cell_size = self.get_cell_size(dataset.lengths)
         _, Ny, Nz = cell_size
 
         # focal point
@@ -1623,7 +1622,7 @@ class EPIFMVisualizer:
         spatiocyte_data = dataset.data
 
         # get cell size
-        Nx, Ny, Nz = self.get_cell_size(dataset.voxel_radius, dataset.lengths)
+        Nx, Ny, Nz = self.get_cell_size(dataset.lengths)
 
         # focal point
         f_0 = self.configs.detector_focal_point
@@ -1657,7 +1656,7 @@ class EPIFMVisualizer:
         # depths = set()
 
         # # get cell size
-        # Nx, Ny, Nz = self.get_cell_size(dataset.voxel_radius, dataset.lengths)
+        # Nx, Ny, Nz = self.get_cell_size(dataset.lengths)
 
         # # count_array_size = len(self.configs.shutter_count_array)
 

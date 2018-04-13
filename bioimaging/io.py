@@ -57,12 +57,16 @@ def read_spatiocyte_input(filename, observable=None):
     with open(filename, 'r') as f:
         header = f.readline().rstrip().split(',')
 
-    header[:5] = [float(_) for _ in header[:5]]
-    interval, lengths, voxel_r, species_info = header[0], (header[3:0:-1]), header[4], header[5:]
+    header[: 5] = [float(_) for _ in header[: 5]]
+    interval, lengths, voxel_r, species_info = header[0], (header[3: 0: -1]), header[4], header[5: ]
 
-    species_id = range(len(species_info)-2)
-    species_index  = [_.split(':')[1].split(']')[0] for _ in species_info[0:len(species_info)-2]]
-    species_radius = [float(_.split('=')[1]) for _ in species_info[0:len(species_info)-2]]
+    lengths[0] *= 2 * voxel_r / 1e-9
+    lengths[1] *= 2 * voxel_r / 1e-9
+    lengths[2] *= 2 * voxel_r / 1e-9
+
+    species_id = range(len(species_info) - 2)
+    species_index  = [_.split(':')[1].split(']')[0] for _ in species_info[0: len(species_info) - 2]]
+    species_radius = [float(_.split('=')[1]) for _ in species_info[0: len(species_info) - 2]]
 
     # set observable
     if observable is None:
@@ -72,7 +76,8 @@ def read_spatiocyte_input(filename, observable=None):
 
     _log.info('    Time Interval = {} sec'.format(interval))
     _log.info('    Voxel radius  = {} m'.format(voxel_r))
-    _log.info('    Compartment lengths: {} voxels'.format(lengths))
+    _log.info('    Compartment lengths: {} nm'.format(lengths))
+    # _log.info('    Compartment lengths: {} voxels'.format(lengths))
     _log.info('    Species Index: {}'.format(species_index))
     _log.info('    Observable: {}'.format(index))
 
