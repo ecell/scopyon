@@ -706,7 +706,7 @@ class EPIFMVisualizer:
             #XXX:     stop_index = start_index + chunk
             #XXX:     p, c = multiprocessing.Pipe()
             #XXX:     process = multiprocessing.Process(target=self.get_photobleaching_dataset_process,
-            #XXX:                             args=(count, data[start_index:stop_index], voxel_radius, focal_center, c))
+            #XXX:                             args=(count, data[start_index:stop_index], focal_center, c))
             #XXX:     processes.append((p, process))
             #XXX:     start_index = stop_index
 
@@ -817,7 +817,7 @@ class EPIFMVisualizer:
         amplitude = amplitude * numpy.exp(-depth / penet_depth)
 
         # get signal matrix
-        signal = self.get_signal(amplitude, radial, depth, p_state, unit_time, dataset.voxel_radius)
+        signal = self.get_signal(amplitude, radial, depth, p_state, unit_time)
 
         # add signal matrix to image plane
         self.overwrite_signal(cell, signal, p_i)
@@ -830,7 +830,7 @@ class EPIFMVisualizer:
         true_data[j, 5] = p_i[1] # X-coordinate in the image-plane
         true_data[j, 6] = depth  # Depth from focal-plane
 
-    def get_signal(self, amplitude, radial, depth, p_state, unit_time, voxel_radius):
+    def get_signal(self, amplitude, radial, depth, p_state, unit_time):
         # fluorophore axial position
         fluo_depth = depth if depth < len(self.configs.depth) else -1
 
