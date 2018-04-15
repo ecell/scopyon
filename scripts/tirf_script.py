@@ -17,6 +17,10 @@ def test_epifm() :
 
     rng = numpy.random.RandomState(rndseed)
 
+    ## read input data
+    input_path = './scripts/data/inputs_epifm'
+    dataset = io.read_spatiocyte(t0, t1, input_path, observable='S', max_count=max_count)
+
     config = Config()
 
     ## set epifm configurations
@@ -41,12 +45,6 @@ def test_epifm() :
     config.set_effects_background(mean=0.01)
     config.set_effects_fluorescence(quantum_yield=0.61, abs_coefficient=83400)
     config.set_effects_photobleaching(tau0=2.27, alpha=0.73)
-
-    ## read input data
-    input_path = './scripts/data/inputs_epifm'
-    dataset = io.read_spatiocyte(
-        input_path, config.shutter_start_time, config.shutter_end_time, config.detector_exposure_time,
-        'S', max_count)
 
     ## create image
     sim = EPIFMVisualizer()
