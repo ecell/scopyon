@@ -329,7 +329,13 @@ if __name__ == "__main__":
         print('{} spot(s) were detected [{}]'.format(len(spots), filename))
 
         # show figures
-        fig, ax = plt.subplots()
+        dpi = 100
+        fig = plt.figure()
+        m, n = data.shape
+        fig.set_size_inches((m / dpi, n / dpi))
+        ax = plt.Axes(fig, [0, 0, 1, 1])
+        ax.set_axis_off()
+        fig.add_axes(ax)
 
         ax.imshow(data, interpolation='none', cmap='gray')
 
@@ -338,7 +344,4 @@ if __name__ == "__main__":
             c = plt.Circle((x, y), r, color='red', linewidth=1, fill=False)
             ax.add_patch(c)
 
-        ax.set_axis_off()
-
-        plt.tight_layout()
-        plt.show()
+        plt.savefig('out.png')

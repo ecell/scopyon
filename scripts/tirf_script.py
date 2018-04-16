@@ -3,10 +3,16 @@ import glob
 
 import numpy
 
-import bioimaging.io as io
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from matplotlib import cm
+
+from bioimaging.io import read_spatiocyte
 from bioimaging.config import Config
 from bioimaging.epifm import EPIFMVisualizer
-from bioimaging.image import convert_npy_to_8bit_image
+from bioimaging.image import convert_npy_to_8bit_image, convert_8bit
+from bioimaging.spot_detection import spot_detection
 
 
 def test_epifm() :
@@ -14,12 +20,14 @@ def test_epifm() :
     t0, t1 = 0.0, exposure_time * 2
     max_count = None # 20
     rndseed = 0
+    input_path = './scripts/data/inputs_epifm'
+    output_path = './scripts/data/outputs_tirf'
+    cmin, cmax = 1900, 2500
 
     rng = numpy.random.RandomState(rndseed)
 
     ## read input data
-    input_path = './scripts/data/inputs_epifm'
-    dataset = io.read_spatiocyte(t0, t1, input_path, observable='S', max_count=max_count)
+    dataset = read_spatiocyte(t0, t1, input_path, observable='S', max_count=max_count)
 
     config = Config()
 
@@ -53,13 +61,41 @@ def test_epifm() :
     ## bleaching
     new_dataset = sim.apply_photophysics_effects(dataset, rng=rng)
 
-    output_path = './scripts/data/outputs_tirf'
     sim.output_frames(new_dataset, pathto=output_path, rng=rng)
     # sim.output_frames(dataset, pathto=output_path, rng=rng)
 
     output_filenames = glob.glob(os.path.join(output_path, 'image_*.npy'))
+
     for filename in output_filenames:
-        convert_npy_to_8bit_image(filename, cmin=1900, cmax=2500)
+        # convert_npy_to_8bit_image(filename, cmin=cmin, cmax=cmax)
+
+        data = numpy.load(filename)
+        data = data[: , : , 1]
+        bytedata = convert_8bit(data, cmin, cmax, 0, 255)
+
+        ## spot-detection
+        sigma = numpy.linspace(2.0, 4.0, 20)
+        spots = spot_detection(data, sigma_list=sigma, threshold=10, overlap=0.5)
+        print('{} spot(s) were detected [{}]'.format(len(spots), filename))
+
+        ## draw spots
+        dpi = 100
+        fig = plt.figure()
+        m, n = data.shape
+        fig.set_size_inches((m / dpi, n / dpi))
+        ax = plt.Axes(fig, [0, 0, 1, 1])
+        ax.set_axis_off()
+        fig.add_axes(ax)
+
+        ax.imshow(bytedata, interpolation='none', cmap='gray', vmin=0, vmax=255)
+
+        for spot in spots:
+            y, x, r = spot
+            c = plt.Circle((x, y), r, color='red', linewidth=1, fill=False)
+            ax.add_patch(c)
+
+        plt.savefig('{}.png'.format(os.path.splitext(filename)[0]))
+        plt.clf()
 
 
 if __name__ == "__main__":
