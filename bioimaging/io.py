@@ -22,6 +22,7 @@ def is_float(val):
 
     Returns:
         bool: Return True if the input can be converted to float
+
     """
     try:
         float(val)
