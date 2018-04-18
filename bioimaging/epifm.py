@@ -793,17 +793,9 @@ class EPIFMVisualizer:
         state_stack = numpy.column_stack((new_state_pb, (new_budget / N_emit0).astype('int')))
         return state_stack
 
-    def get_molecule_plane(self, cell, j, particle_j, p_b, p_0, true_data, unit_time, dataset):
+    def get_molecule_plane(self, cell, j, particle_j, p_b, p_0, true_data, unit_time, fluo_psfs=None):
         # particles coordinate, species and lattice-IDs
         coordinate, m_id, s_id, _, p_state, _ = particle_j
-
-        # # check if the particle (species) is observable or not
-        # sid_array = numpy.array(dataset.species_id)
-        # sid_index = (numpy.abs(sid_array - int(s_id))).argmin()
-        # if dataset.observables[sid_index] is not True:
-        #     return
-
-        #if (p_state > 0):
 
         p_i = numpy.array(coordinate) / 1e-9
 
@@ -817,7 +809,7 @@ class EPIFMVisualizer:
         amplitude = amplitude * numpy.exp(-depth / penet_depth)
 
         # get signal matrix
-        signal = self.get_signal(amplitude, radial, depth, p_state, unit_time)
+        signal = self.get_signal(amplitude, radial, depth, p_state, unit_time, fluo_psfs)
 
         # add signal matrix to image plane
         self.overwrite_signal(cell, signal, p_i)
@@ -830,12 +822,12 @@ class EPIFMVisualizer:
         true_data[j, 5] = p_i[1] # X-coordinate in the image-plane
         true_data[j, 6] = depth  # Depth from focal-plane
 
-    def get_signal(self, amplitude, radial, depth, p_state, unit_time):
+    def get_signal(self, amplitude, radial, depth, p_state, unit_time, fluo_psfs=None):
         # fluorophore axial position
         fluo_depth = depth if depth < len(self.configs.depth) else -1
 
         # get fluorophore PSF
-        psf_depth = self.fluo_psf[int(fluo_depth)]
+        psf_depth = (fluo_psfs or self.fluo_psf)[int(fluo_depth)]
 
         # get the number of photons emitted
         N_emit = self.get_emit_photons(amplitude, unit_time)
@@ -1142,9 +1134,13 @@ class EPIFMVisualizer:
 
         times = numpy.array([t for t, _ in dataset.data])
         frames = []
+
         t = start_time
         while t + exposure_time <= end_time:
-            start_idx = numpy.searchsorted(times, t, side='left')
+            start_idx = numpy.searchsorted(times, t, side='right')
+            if start_idx != 0:
+                start_idx -= 1
+            # start_idx = numpy.searchsorted(times, t, side='left')
             end_idx = numpy.searchsorted(times, t + exposure_time, side='left')
             if times[start_idx] > t:
                 warnings.warn("No data input for interval [{}, {}]".format(t, times[start_idx]))
@@ -1252,7 +1248,9 @@ class EPIFMVisualizer:
             # When the first i_time is less than the start time given, exposure_time is shorter than expected
             # unit_time = dataset.interval
             next_time = frame_data[i + 1][0] if i + 1 < len(frame_data) else time + exposure_time
-            unit_time = next_time - i_time
+            unit_time = next_time - (i_time if i != 0 else time)
+            if unit_time < 1e-13:  #XXX: Skip merging when the exposure time is too short
+                continue
 
             # define true-dataset in last-frame
             # [frame-time, m-ID, m-state, p-state, (depth,y0,z0), sqrt(<dr2>)]
@@ -1261,7 +1259,69 @@ class EPIFMVisualizer:
 
             # loop for particles
             for j, particle_j in enumerate(particles):
-                self.get_molecule_plane(cell, j, particle_j, p_b, p_0, true_data, unit_time, dataset)
+                self.get_molecule_plane(cell, j, particle_j, p_b, p_0, true_data, unit_time)
+
+        # convert image in pixel-scale
+        camera, true_data = self.detector_output(rng, cell, true_data)
+        return (camera, true_data)
+
+    def new_output_frame(self, dataset, frame_index, rng=None):
+        start_time, end_time, exposure_time = (
+            self.configs.shutter_start_time, self.configs.shutter_end_time, self.configs.detector_exposure_time)
+
+        times = numpy.array([t for t, _ in dataset.data])
+        t = start_time + exposure_time * frame_index
+        assert t + exposure_time <= end_time + 1e-13
+        start_index = numpy.searchsorted(times, t, side='right')
+        if start_index != 0:
+            start_index -= 1
+        end_index = numpy.searchsorted(times, t + exposure_time, side='left')
+        if times[start_index] > t:
+            warnings.warn("No data input for interval [{}, {}]".format(t, times[start_index]))
+
+        frame_data = dataset.data[start_index: stop_index]
+
+        # set Fluorophores PSF
+        # self.set_fluo_psf(dataset, [(frame_index, t, start_index, end_index)])
+        fluo_psfs = self.get_fluo_psf(frame_data, dataset.lengths)
+
+        _log.info('time: {} sec ({})'.format(t, frame_index))
+
+        # cell size (nm scale)
+        cell_size = self.get_cell_size(dataset.lengths)
+        _, Ny, Nz = cell_size
+
+        # focal point
+        p_0 = self.get_focal_center(cell_size)
+
+        # beam position: Assuming beam position = focal point (for temporary)
+        p_b = copy.copy(p_0)
+
+        # define cell in nm-scale
+        cell = numpy.zeros(shape=(Nz, Ny))
+
+        # loop for frame data
+        for i, (i_time, particles) in enumerate(frame_data):
+            # When the first i_time is less than the start time given, exposure_time is shorter than expected
+            # unit_time = dataset.interval
+            current_time = i_time if i != 0 else t
+            next_time = frame_data[i + 1][0] if i + 1 < len(frame_data) else t + exposure_time
+            unit_time = next_time - current_time
+
+            _log.info('    {:03d}-th file in {:03d}-th frame: {} + {} sec'.format(
+                i, frame_index, current_time, unit_time))
+
+            if unit_time < 1e-13:  #XXX: Skip merging when the exposure time is too short
+                continue
+
+            # define true-dataset in last-frame
+            # [frame-time, m-ID, m-state, p-state, (depth,y0,z0), sqrt(<dr2>)]
+            true_data = numpy.zeros(shape=(len(particles), 7))  #XXX: <== true_data just keeps the last state in the frame
+            true_data[: , 0] = t
+
+            # loop for particles
+            for j, particle_j in enumerate(particles):
+                self.get_molecule_plane(cell, j, particle_j, p_b, p_0, true_data, unit_time, fluo_psfs)
 
         # convert image in pixel-scale
         camera, true_data = self.detector_output(rng, cell, true_data)
@@ -1609,135 +1669,59 @@ class EPIFMVisualizer:
         #return int(ADC)
         return ADC
 
-    def get_nprocs(self):
-        return self.__nprocs
-
     def set_fluo_psf(self, dataset, frames):
-        spatiocyte_data = dataset.data
+        data = []
+        for frame_index, t, start_index, stop_index in frames:
+            data.extend(dataset.data[start_index: stop_index])
 
+        self.fluo_psf = self.get_fluo_psfs(data, dataset.lengths)
+
+    def get_fluo_psfs(self, data, lengths):
         # get cell size
-        Nx, Ny, Nz = self.get_cell_size(dataset.lengths)
+        Nx, Ny, Nz = self.get_cell_size(lengths)
 
         # focal point
         f_0 = self.configs.detector_focal_point
         p_0 = numpy.array([Nx, Ny, Nz]) * f_0
 
         depths = []
-        for frame_index, t, start_index, stop_index in frames:
-            frame_data = spatiocyte_data[start_index: stop_index]
-            for _, particles in frame_data:
-                for particle in particles:
-                    coordinate = particle[0]
-                    p_i = numpy.array(coordinate) / 1e-9
+        for _, particles in data:
+            for particle in particles:
+                coordinate = particle[0]
+                p_i = numpy.array(coordinate) / 1e-9
 
-                    # Snell's law
-                    # amplitude, penet_depth = self.snells_law(p_i, p_0)
+                # Snell's law
+                # amplitude, penet_depth = self.snells_law(p_i, p_0)
 
-                    # Particle coordinte in real(nm) scale
-                    p_i, radial, depth = rotate_coordinate(p_i, p_0)
+                # Particle coordinte in real(nm) scale
+                p_i, radial, depth = rotate_coordinate(p_i, p_0)
 
-                    # fluorophore axial position
-                    fluo_depth = int(depth) if depth < len(self.configs.depth) else -1
+                # fluorophore axial position
+                fluo_depth = int(depth) if depth < len(self.configs.depth) else -1
 
-                    depths.append(fluo_depth)
+                depths.append(fluo_depth)
 
         depths = list(set(depths))
 
-        self.fluo_psf = self.get_fluo_psf(depths)
-
-        # spatiocyte_data = dataset.data
-
-        # depths = set()
-
-        # # get cell size
-        # Nx, Ny, Nz = self.get_cell_size(dataset.lengths)
-
-        # # count_array_size = len(self.configs.shutter_count_array)
-
-        # exposure_time = self.configs.detector_exposure_time
-        # # data_interval = self.configs.spatiocyte_interval
-
-        # delta_count = int(round(exposure_time / dataset.interval))
-
-        # for count in range(0, len(spatiocyte_data), delta_count):
-
-        #     # focal point
-        #     f_0 = self.configs.detector_focal_point
-        #     p_0 = numpy.array([Nx, Ny, Nz])*f_0
-        #     x_0, y_0, z_0 = p_0
-
-        #     frame_data = spatiocyte_data[count: count + delta_count]
-
-        #     for _, data in frame_data:
-        #         for data_j in data:
-
-        #             p_i = numpy.array(data_j[0])/1e-9
-
-        #             # Snell's law
-        #             #amplitude, penet_depth = self.snells_law(p_i, p_0)
-
-        #             # Particle coordinte in real(nm) scale
-        #             p_i, radial, depth = rotate_coordinate(p_i, p_0)
-
-        #             # fluorophore axial position
-        #             fluo_depth = depth if depth < len(self.configs.depth) else -1
-
-        #             depths.add(int(fluo_depth))
-
-        # depths = list(depths)
-
-        # if (len(depths) > 0):
-        #     if self.get_nprocs() != 1:
-        #         self.fluo_psf = {}
-        #         num_processes = min(multiprocessing.cpu_count(), len(depths))
-
-        #         n, m = divmod(len(depths), num_processes)
-
-        #         chunks = [n + 1 if i < m else n for i in range(num_processes)]
-
-        #         processes = []
-        #         start_index = 0
-
-        #         for chunk in chunks:
-        #             stop_index = start_index + chunk
-        #             p, c = multiprocessing.Pipe()
-        #             process = multiprocessing.Process(
-        #                 target=self.get_fluo_psf_process,
-        #                 args=(depths[start_index:stop_index], c))
-        #             processes.append((p, process))
-        #             start_index = stop_index
-
-        #         for _, process in processes:
-        #             process.start()
-
-        #         for pipe, process in processes:
-        #             self.fluo_psf.update(pipe.recv())
-        #             process.join()
-
-        #     else:
-        #         self.fluo_psf = self.get_fluo_psf(depths)
-
-    def get_fluo_psf(self, depths):
         r = self.configs.radial
 
         theta = numpy.linspace(0, 90, 91)
-
         z = numpy.linspace(0, +r[-1], len(r))
         y = numpy.linspace(0, +r[-1], len(r))
 
         coordinates = polar2cartesian_coordinates(r, theta, z, y)
         psf_t = numpy.ones_like(theta)
-        result = {}
 
+        fluo_psfs = {}
         for depth in depths:
             psf_r = self.configs.fluorophore_psf[depth]
             psf_polar = numpy.array(list(map(lambda x: psf_t * x, psf_r)))
-            result[depth] = polar2cartesian(psf_polar, coordinates, (len(r), len(r)))
+            fluo_psfs[depth] = polar2cartesian(psf_polar, coordinates, (len(r), len(r)))
 
-        return result
+        return fluo_psfs
 
-    def get_fluo_psf_process(self, depths, pipe):
-        pipe.send(self.get_fluo_psf(depths))
+    def get_nprocs(self):
+        return self.__nprocs
 
     def use_multiprocess(self):
         """Deprecated."""
