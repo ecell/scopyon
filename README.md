@@ -8,7 +8,7 @@ Monte Carlo simulation toolkit for bioimaging systems
 Requirements
 ------------
 
-For `bioimaging`, Python 3 and its libraries, `numpy`, `scipy` and `matplotlib`, are required.
+For `bioimaging`, Python 3 and its libraries, `numpy`, `scipy` and `matplotlib`, are required. 'scikit-image' is also needed by `bioimaing.spot_detection`.
 
 Quick start
 -----------
