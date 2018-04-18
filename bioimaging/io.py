@@ -30,8 +30,13 @@ def is_float(val):
     except ValueError:
         return False
 
-def read_spatiocyte(tstart, tend, pathto, observable=None, max_count=None):
-    spatiocyte_input = read_spatiocyte_input(os.path.join(pathto, 'pt-input.csv'))
+def read_spatiocyte(tstart, tend, pathto=None, input_filename=None, filenames=None, observable=None, max_count=None):
+    if input_filename is None:
+        assert pathto is not None
+        spatiocyte_input = read_spatiocyte_input(os.path.join(pathto, 'pt-input.csv'))
+    else:
+        spatiocyte_input = read_spatiocyte_input(input_filename)
+
     species_ids = spatiocyte_input['species_ids']
     lengths = spatiocyte_input['lengths']
     if isinstance(observable, str):
@@ -40,7 +45,9 @@ def read_spatiocyte(tstart, tend, pathto, observable=None, max_count=None):
     else:
         observables = None
 
-    filenames = glob.glob(os.path.join(pathto, 'pt-*.0.csv'))
+    if filenames is None:
+        assert pathto is not None
+        filenames = glob.glob(os.path.join(pathto, 'pt-*.0.csv'))
     data = read_inputs(filenames, tstart, tend, observables, max_count)
 
     SpatiocyteDataSet = namedtuple('SpatiocyteDataSet', ('data', 'lengths'))
