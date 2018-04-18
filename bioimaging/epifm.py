@@ -577,23 +577,13 @@ class EPIFMVisualizer:
         self.effects = PhysicalEffects()
         self.effects.initialize(self.__config)
 
+    def num_frames(self):
+        return math.ceil(
+            (self.configs.shutter_end_time - self.configs.shutter_start_time)
+            / self.configs.detector_exposure_time)
+
     def get_cell_size(self, lengths):
         return numpy.array([int(x) for x in lengths])
-
-    # def get_cell_size(self, voxel_radius, lengths):
-    #     # define observational image plane in nm-scale
-    #     voxel_size = 2 * voxel_radius / 1e-9
-    #     # voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
-
-    #     ## cell size (nm scale)
-    #     Nz = int(lengths[2] * voxel_size)
-    #     Ny = int(lengths[1] * voxel_size)
-    #     Nx = int(lengths[0] * voxel_size)
-    #     # Nz = int(self.configs.spatiocyte_lengths[2]*voxel_size)
-    #     # Ny = int(self.configs.spatiocyte_lengths[1]*voxel_size)
-    #     # Nx = int(self.configs.spatiocyte_lengths[0]*voxel_size)
-
-    #     return numpy.array([Nx, Ny, Nz])
 
     def get_focal_center(self, cell_size):
         # focal point
@@ -1129,61 +1119,8 @@ class EPIFMVisualizer:
         if not os.path.exists(pathto):
             os.makedirs(pathto)
 
-        start_time, end_time, exposure_time = (
-            self.configs.shutter_start_time, self.configs.shutter_end_time, self.configs.detector_exposure_time)
-
-        times = numpy.array([t for t, _ in dataset.data])
-        frames = []
-
-        t = start_time
-        while t + exposure_time <= end_time:
-            start_idx = numpy.searchsorted(times, t, side='right')
-            if start_idx != 0:
-                start_idx -= 1
-            # start_idx = numpy.searchsorted(times, t, side='left')
-            end_idx = numpy.searchsorted(times, t + exposure_time, side='left')
-            if times[start_idx] > t:
-                warnings.warn("No data input for interval [{}, {}]".format(t, times[start_idx]))
-            frames.append((len(frames), t, start_idx, end_idx))
-            t += exposure_time
-
-        _log.debug('frames = {}'.format(str(frames)))
-
-        # set Fluorophores PSF
-        self.set_fluo_psf(dataset, frames)
-
-        if self.get_nprocs() == 1:
-            self.output_frames_each_process(rng, dataset, pathto, image_fmt, true_fmt, frames)
-        else:
-            raise RuntimeError('Not supported')
-            # num_processes = multiprocessing.cpu_count()
-            # n, m = divmod(dataset.index_array_size, num_processes)
-            # # when 10 tasks is distributed to 4 processes,
-            # # number of tasks of each process must be [3, 3, 2, 2]
-            # chunks = [n + 1 if i < m else n for i in range(num_processes)]
-
-            # processes = []
-            # start_index = index0
-
-            # for chunk in chunks:
-            #     stop_index = start_index + chunk
-
-            #     #XXX: Initialize rng for each process
-            #     process = multiprocessing.Process(
-            #         target=self.output_frames_each_process,
-            #         args=(rng, dataset, pathto, image_fmt, true_fmt, start_index, stop_index))
-            #     process.start()
-            #     processes.append(process)
-            #     start_index = stop_index
-
-            # for process in processes:
-            #     process.join()
-
-    def output_frames_each_process(self, rng, dataset, pathto, image_fmt, true_fmt, frames):
-        for frame_index, t, start_index, stop_index in frames:
-            _log.info('time: {} sec ({})'.format(t, frame_index))
-
-            camera, true_data = self.output_frame(rng, dataset, start_index, stop_index, t)
+        for frame_index in range(self.num_frames()):
+            camera, true_data = self.output_frame(dataset, frame_index, rng=rng)
 
             # save image to numpy-binary file
             image_file_name = os.path.join(pathto, image_fmt % (frame_index))
@@ -1193,79 +1130,7 @@ class EPIFMVisualizer:
             true_file_name = os.path.join(pathto, true_fmt % (frame_index))
             numpy.save(true_file_name, true_data)
 
-        # # exposure time
-        # exposure_time = self.configs.detector_exposure_time
-
-        # # set delta_count
-        # delta_count = int(round(exposure_time / dataset.interval))
-
-        # for index in range(start_index, stop_index, 1):
-        #     # frame-time in sec
-        #     time = exposure_time * index
-        #     _log.info('time: {} sec ({})'.format(time, index))
-
-        #     c0 = (index - dataset.index0) * delta_count
-        #     c1 = (index - dataset.index0 + 1) * delta_count
-
-        #     camera, true_data = self.output_frame(rng, dataset, c0, c1, time)
-
-        #     # save image to numpy-binary file
-        #     image_file_name = os.path.join(pathto, image_fmt % (index))
-        #     numpy.save(image_file_name, camera)
-
-        #     # save true-dataset to numpy-binary file
-        #     true_file_name = os.path.join(pathto, true_fmt % (index))
-        #     numpy.save(true_file_name, true_data)
-
-    def output_frame(self, rng, dataset, c0, c1, time):
-        spatiocyte_data = dataset.data
-        exposure_time = self.configs.detector_exposure_time
-
-        # cell size (nm scale)
-        cell_size = self.get_cell_size(dataset.lengths)
-        _, Ny, Nz = cell_size
-
-        # focal point
-        p_0 = self.get_focal_center(cell_size)
-
-        # beam position: Assuming beam position = focal point (for temporary)
-        p_b = copy.copy(p_0)
-
-        # define cell in nm-scale
-        cell = numpy.zeros(shape=(Nz, Ny))
-
-        # # set delta_count
-        # exposure_time = self.configs.detector_exposure_time
-        # delta_count = int(round(exposure_time / dataset.interval))
-        # c0 = (index - dataset.index0) * delta_count
-        # c1 = (index - dataset.index0 + 1) * delta_count
-        frame_data = spatiocyte_data[c0: c1]
-
-        # loop for frame data
-        for i, (i_time, particles) in enumerate(frame_data):
-            _log.info('     {:02d}-th frame: {} sec'.format(i, i_time))
-
-            # When the first i_time is less than the start time given, exposure_time is shorter than expected
-            # unit_time = dataset.interval
-            next_time = frame_data[i + 1][0] if i + 1 < len(frame_data) else time + exposure_time
-            unit_time = next_time - (i_time if i != 0 else time)
-            if unit_time < 1e-13:  #XXX: Skip merging when the exposure time is too short
-                continue
-
-            # define true-dataset in last-frame
-            # [frame-time, m-ID, m-state, p-state, (depth,y0,z0), sqrt(<dr2>)]
-            true_data = numpy.zeros(shape=(len(particles), 7))  #XXX: <== true_data just keeps the last state in the frame
-            true_data[: , 0] = time
-
-            # loop for particles
-            for j, particle_j in enumerate(particles):
-                self.get_molecule_plane(cell, j, particle_j, p_b, p_0, true_data, unit_time)
-
-        # convert image in pixel-scale
-        camera, true_data = self.detector_output(rng, cell, true_data)
-        return (camera, true_data)
-
-    def new_output_frame(self, dataset, frame_index, rng=None):
+    def output_frame(self, dataset, frame_index, rng=None):
         start_time, end_time, exposure_time = (
             self.configs.shutter_start_time, self.configs.shutter_end_time, self.configs.detector_exposure_time)
 
@@ -1539,8 +1404,8 @@ class EPIFMVisualizer:
         f_x, f_y, f_z = self.configs.detector_focal_point
 
         # get dummy-image center and focal position
-        w0 = Nw_dummy//2 - int(Nw_cell/Np*(0.5-f_z))
-        h0 = Nh_dummy//2 - int(Nh_cell/Np*(0.5-f_y))
+        w0 = Nw_dummy // 2 - int(Nw_cell / Np * (0.5 - f_z))
+        h0 = Nh_dummy // 2 - int(Nh_cell / Np * (0.5 - f_y))
 
         # dummy_pixel image to camera_pixel image
         camera_pixel = numpy.zeros([Nw_pixel, Nh_pixel, 2])
@@ -1677,6 +1542,8 @@ class EPIFMVisualizer:
         self.fluo_psf = self.get_fluo_psfs(data, dataset.lengths)
 
     def get_fluo_psfs(self, data, lengths):
+        _log.info("get_fluo_psfs was called.")
+
         # get cell size
         Nx, Ny, Nz = self.get_cell_size(lengths)
 

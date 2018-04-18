@@ -64,11 +64,10 @@ def test_epifm() :
     ## bleaching
     new_dataset = sim.apply_photophysics_effects(dataset, rng=rng)
 
-    num_frames = math.ceil((t1 - t0) / exposure_time)
-    print(num_frames)
+    # sim.output_frames(new_dataset, pathto=output_path, rng=rng)
 
-    for i in range(num_frames):
-        camera, true_data = sim.new_output_frame(new_dataset, i, rng=rng)
+    for i in range(sim.num_frames()):
+        camera, true_data = sim.output_frame(new_dataset, i, rng=rng)
         # camera = numpy.load(output_path_.joinpath('image_{:07d}.npy'.format(i)))
         # true_data = numpy.load(output_path_.joinpath('true_{:07d}.npy'.format(i)))
 
