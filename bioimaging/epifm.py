@@ -1275,7 +1275,7 @@ class EPIFMVisualizer:
         start_index = numpy.searchsorted(times, t, side='right')
         if start_index != 0:
             start_index -= 1
-        end_index = numpy.searchsorted(times, t + exposure_time, side='left')
+        stop_index = numpy.searchsorted(times, t + exposure_time, side='left')
         if times[start_index] > t:
             warnings.warn("No data input for interval [{}, {}]".format(t, times[start_index]))
 
@@ -1283,7 +1283,7 @@ class EPIFMVisualizer:
 
         # set Fluorophores PSF
         # self.set_fluo_psf(dataset, [(frame_index, t, start_index, end_index)])
-        fluo_psfs = self.get_fluo_psf(frame_data, dataset.lengths)
+        fluo_psfs = self.get_fluo_psfs(frame_data, dataset.lengths)
 
         _log.info('time: {} sec ({})'.format(t, frame_index))
 

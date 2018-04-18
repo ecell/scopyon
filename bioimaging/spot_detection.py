@@ -139,8 +139,8 @@ def spot_detection(data, min_sigma=1, max_sigma=50, num_sigma=10, threshold=0.2,
             height > 0
             # and 0 <= center_x < data.shape[0]
             # and 0 <= center_y < data.shape[1]
-            # and 0 <= center_x < roi.shape[0]
-            # and 0 <= center_y < roi.shape[1]
+            and 0 <= center_x < roi.shape[0]
+            and 0 <= center_y < roi.shape[1]
             and bg > 0):
             continue
 

@@ -1,4 +1,6 @@
 import os.path
+import pathlib
+import math
 import glob
 
 import numpy
@@ -6,23 +8,29 @@ import numpy
 from bioimaging.io import read_spatiocyte
 from bioimaging.config import Config
 from bioimaging.epifm import EPIFMVisualizer
-from bioimaging.image import convert_npy_to_8bit_image, convert_8bit, save_image_with_spots, show_with_spots
+from bioimaging.image import convert_npy_to_8bit_image, convert_8bit, save_image_with_spots, show_with_spots, save_image
 from bioimaging.spot_detection import spot_detection, blob_detection
 
 
 def test_epifm() :
     exposure_time = 0.100
+    # t0, t1 = 0.0, exposure_time * 100
     t0, t1 = 0.0, exposure_time * 2
     max_count = None # 20
     rndseed = 0
+    cmin, cmax = 1900, 2500
     input_path = './scripts/data/inputs_epifm'
     output_path = './scripts/data/outputs_tirf'
-    cmin, cmax = 1900, 2500
+
+    output_path_ = pathlib.Path(output_path)
+    if not output_path_.exists():
+        output_path_.mkdir()
 
     rng = numpy.random.RandomState(rndseed)
 
     ## read input data
-    dataset = read_spatiocyte(t0, t1, input_path, observable='S', max_count=max_count)
+    # dataset = read_spatiocyte(t0, t1, input_filename=os.path.join(input_path, 'pt-input.csv'), filenames=glob.glob(os.path.join(input_path, 'pt-000000??0.0.csv')), observable='S', max_count=max_count)
+    dataset = read_spatiocyte(t0, t1, pathto=input_path, observable='S', max_count=max_count)
 
     config = Config()
 
@@ -49,34 +57,30 @@ def test_epifm() :
     config.set_effects_fluorescence(quantum_yield=0.61, abs_coefficient=83400)
     config.set_effects_photobleaching(tau0=2.27, alpha=0.73)
 
-    # ## create image
-    # sim = EPIFMVisualizer()
-    # sim.initialize(config, rng=rng)
+    ## create image
+    sim = EPIFMVisualizer()
+    sim.initialize(config, rng=rng)
 
-    # ## bleaching
-    # new_dataset = sim.apply_photophysics_effects(dataset, rng=rng)
+    ## bleaching
+    new_dataset = sim.apply_photophysics_effects(dataset, rng=rng)
 
-    # sim.output_frames(new_dataset, pathto=output_path, rng=rng)
-    # # sim.output_frames(dataset, pathto=output_path, rng=rng)
+    num_frames = math.ceil((t1 - t0) / exposure_time)
+    print(num_frames)
 
-    output_filenames = glob.glob(os.path.join(output_path, 'image_*.npy'))
+    for i in range(num_frames):
+        camera, true_data = sim.new_output_frame(new_dataset, i, rng=rng)
+        # camera = numpy.load(output_path_.joinpath('image_{:07d}.npy'.format(i)))
+        # true_data = numpy.load(output_path_.joinpath('true_{:07d}.npy'.format(i)))
 
-    for filename in output_filenames:
-        # convert_npy_to_8bit_image(filename, cmin=cmin, cmax=cmax)
-
-        data = numpy.load(filename)
-        data = data[: , : , 1]
-        bytedata = convert_8bit(data, cmin, cmax, 0, 255)
-
-        ## spot-detection
+        data = camera[: , : , 1]
+        bytedata = convert_8bit(data, cmin, cmax)
         spots = spot_detection(data, min_sigma=2.0, max_sigma=4.0, num_sigma=20, threshold=10.0, overlap=0.5)
 
-        ## draw spots
-        save_image_with_spots('{}.png'.format(os.path.splitext(filename)[0]), bytedata, spots, low=0, high=255)
-
-        # blobs = blob_detection(data, min_sigma=2.0, max_sigma=4.0, num_sigma=20, threshold=10.0, overlap=0.5)
-        # spots = spot_detection(data, blobs=blobs, opt=1)
-        # show_with_spots(bytedata, spots, blobs, low=0, high=255)
+        numpy.save(str(output_path_.joinpath('image_{:07d}.npy'.format(i))), camera)
+        numpy.save(str(output_path_.joinpath('true_{:07d}.npy'.format(i))), true_data)
+        numpy.save(str(output_path_.joinpath('spot_{:07d}.npy'.format(i))), spots)
+        # save_image(str(output_path_.joinpath('image_{:07d}.png'.format(i))), bytedata, low=0, high=255)
+        save_image_with_spots(str(output_path_.joinpath('image_{:07d}.png'.format(i))), bytedata, spots, low=0, high=255)
 
 
 if __name__ == "__main__":
@@ -91,6 +95,14 @@ if __name__ == "__main__":
 
     test_epifm()
 
-    # import sys
-    # for filename in sys.argv[1: ]:
-    #     convert_npy_to_8bit_image(filename, cmin=1900, cmax=2500)
+    # intensity = []
+    # for filename in pathlib.Path('./scripts/data/outputs_tirf').glob('spot_*.npy'):
+    #     data = numpy.load(str(filename))
+    #     intensity.extend(data.T[0])
+    # intensity = numpy.asarray(intensity)
+
+    # import matplotlib.pylab as plt
+    # fold = 30
+    # print(intensity.min(), intensity.max(), intensity.shape, intensity[intensity < intensity.min() * fold].size / intensity.size)
+    # plt.hist(intensity, bins=30, range=(0.0, intensity.min() * fold))
+    # plt.show()
