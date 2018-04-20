@@ -582,24 +582,16 @@ class EPIFMVisualizer:
             (self.configs.shutter_end_time - self.configs.shutter_start_time)
             / self.configs.detector_exposure_time)
 
-    def get_cell_size(self, lengths):
-        return numpy.array([int(x) for x in lengths])
-
-    def get_focal_center(self, cell_size):
-        # focal point
-        return cell_size * self.configs.detector_focal_point
-
-    def apply_photophysics_effects(self, dataset, rng=None):
+    def apply_photophysics_effects(self, input_data, rng=None):
         end_time = self.configs.shutter_end_time
 
-        N_particles = [len(particles) for _, particles in dataset.data]
+        N_particles = [len(particles) for _, particles in input_data]
         if min(N_particles) != max(N_particles):
             raise RuntimeError('The number of particles must be static during the simulation')
         N_particles = N_particles[0]
 
         # get focal point
-        cell_size = self.get_cell_size(dataset.lengths)
-        p_0 = self.get_focal_center(cell_size)
+        p_0 = numpy.asarray(self.configs.detector_focal_point)
 
         # beam position: Assuming beam position = focal point (for temporary)
         p_b = copy.copy(p_0)
@@ -612,7 +604,7 @@ class EPIFMVisualizer:
         # shutil.copyfile(csv_shape, output_file_dir + '/pt-shape.csv')
 
         # determine photon budgets
-        time_array = numpy.array([t for t, _ in dataset.data])
+        time_array = numpy.array([t for t, _ in input_data])
         time_array -= self.configs.shutter_start_time
 
         N_emit0 = self.get_emit_photons(amplitude0, 1.0)
@@ -621,17 +613,17 @@ class EPIFMVisualizer:
 
         new_data = []
         molecule_states = numpy.zeros(shape=(N_particles))
-        for k in range(len(dataset.data)):
+        for k in range(len(input_data)):
             # read input file
             # csv_file_path = self.configs.spatiocyte_file_directory + '/pt-%09d.0.csv' % (count_array[k])
             # csv_list = list(csv.reader(open(csv_file_path, 'r')))
-            # dataset = numpy.array(csv_list)
-            t, particles = dataset.data[k]
-            next_time = dataset.data[k + 1][0] if k + 1 < len(dataset.data) else end_time
+            # input_data = numpy.array(csv_list)
+            t, particles = input_data[k]
+            next_time = input_data[k + 1][0] if k + 1 < len(input_data) else end_time
             unit_time = next_time - t
 
             # set molecular-states (unbound-bound)
-            # self.set_molecular_states(k, dataset)
+            # self.set_molecular_states(k, input_data)
             self.initialize_molecular_states(molecule_states, k, particles)
 
             N_emit0 = self.get_emit_photons(amplitude0, unit_time)
@@ -641,7 +633,7 @@ class EPIFMVisualizer:
 
             # get new-dataset
             new_state = self.get_new_state(molecule_states, fluorescence_state, fluorescence_budget, k, N_emit0)
-            # new_dataset = numpy.column_stack((particles, state_stack))
+            # new_input_data = numpy.column_stack((particles, state_stack))
 
             new_particles = []
             for particle_j, (new_p_state, new_cyc_id) in zip(particles, new_state):
@@ -654,11 +646,9 @@ class EPIFMVisualizer:
 
             # with open(output_file, 'w') as f:
             #     writer = csv.writer(f)
-            #     writer.writerows(new_dataset)
+            #     writer.writerows(new_input_data)
 
-        keyval = dataset._asdict()
-        keyval['data'] = new_data
-        return dataset.__class__(**keyval)
+        return new_data
 
     def initialize_molecular_states(self, states, count, data):
         # reset molecule-states
@@ -767,8 +757,8 @@ class EPIFMVisualizer:
 
         return result_state_pb, result_budget
 
-    #XXX: def get_photobleaching_dataset_process(self, count, dataset, voxel_radius, lengths, pipe):
-    #XXX:     pipe.send(self.get_photobleaching_dataset(count, dataset, voxel_radius, lengths))
+    #XXX: def get_photobleaching_dataset_process(self, count, input_data, voxel_radius, lengths, pipe):
+    #XXX:     pipe.send(self.get_photobleaching_dataset(count, input_data, voxel_radius, lengths))
 
     def get_new_state(self, molecule_states, fluorescence_state, fluorescence_budget, count, N_emit0):
         state_mo = molecule_states
@@ -1073,13 +1063,13 @@ class EPIFMVisualizer:
         """Deprecated."""
         return polar2cartesian(grid, coordinates, shape)
 
-    def output_frames(self, dataset, pathto='./images', image_fmt='image_%07d.npy', true_fmt='true_%07d.npy', rng=None):
+    def output_frames(self, input_data, pathto='./images', image_fmt='image_%07d.npy', true_fmt='true_%07d.npy', rng=None):
         # Check and create the folders for image and output files.
         if not os.path.exists(pathto):
             os.makedirs(pathto)
 
         for frame_index in range(self.num_frames()):
-            camera, true_data = self.output_frame(dataset, frame_index, rng=rng)
+            camera, true_data = self.output_frame(input_data, frame_index, rng=rng)
 
             # save image to numpy-binary file
             image_file_name = os.path.join(pathto, image_fmt % (frame_index))
@@ -1089,11 +1079,11 @@ class EPIFMVisualizer:
             true_file_name = os.path.join(pathto, true_fmt % (frame_index))
             numpy.save(true_file_name, true_data)
 
-    def output_frame(self, dataset, frame_index, rng=None):
+    def output_frame(self, input_data, frame_index, rng=None):
         start_time, end_time, exposure_time = (
             self.configs.shutter_start_time, self.configs.shutter_end_time, self.configs.detector_exposure_time)
 
-        times = numpy.array([t for t, _ in dataset.data])
+        times = numpy.array([t for t, _ in input_data])
         t = start_time + exposure_time * frame_index
         assert t + exposure_time <= end_time + 1e-13
         start_index = numpy.searchsorted(times, t, side='right')
@@ -1103,18 +1093,15 @@ class EPIFMVisualizer:
         if times[start_index] > t:
             warnings.warn("No data input for interval [{}, {}]".format(t, times[start_index]))
 
-        frame_data = dataset.data[start_index: stop_index]
+        frame_data = input_data[start_index: stop_index]
 
         # set Fluorophores PSF
-        fluo_psfs = self.get_fluo_psfs(frame_data, dataset.lengths)
+        fluo_psfs = self.get_fluo_psfs(frame_data)
 
         _log.info('time: {} sec ({})'.format(t, frame_index))
 
-        # cell size (nm scale)
-        cell_size = self.get_cell_size(dataset.lengths)
-
         # focal point
-        p_0 = self.get_focal_center(cell_size)
+        p_0 = numpy.asarray(self.configs.detector_focal_point)
 
         # beam position: Assuming beam position = focal point (for temporary)
         p_b = copy.copy(p_0)
@@ -1129,7 +1116,6 @@ class EPIFMVisualizer:
         # loop for frame data
         for i, (i_time, particles) in enumerate(frame_data):
             # When the first i_time is less than the start time given, exposure_time is shorter than expected
-            # unit_time = dataset.interval
             current_time = i_time if i != 0 else t
             next_time = frame_data[i + 1][0] if i + 1 < len(frame_data) else t + exposure_time
             unit_time = next_time - current_time
@@ -1150,7 +1136,7 @@ class EPIFMVisualizer:
                 self.overlay_molecule_plane(cell, j, particle_j, p_b, p_0, true_data, unit_time, fluo_psfs)
 
         # convert image in pixel-scale
-        camera, true_data = self.detector_output(rng, cell, true_data, p_0)
+        camera, true_data = self.detector_output(rng, cell, true_data)
         return (camera, true_data)
 
     def overwrite_smeared(self, cell_pixel, photon_dist, i, j):
@@ -1234,7 +1220,9 @@ class EPIFMVisualizer:
 
         return prob
 
-    def detector_output(self, rng, cell, true_data, focal_center):
+    def detector_output(self, rng, cell, true_data):
+        focal_center = numpy.asarray(self.configs.detector_focal_point)
+
         Nw_pixel, Nh_pixel = self.configs.detector_image_size  # pixels
         pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification / 1e-9  # nm
         _, y0, z0 = focal_center  # nm
@@ -1374,15 +1362,11 @@ class EPIFMVisualizer:
         #return int(ADC)
         return ADC
 
-    def get_fluo_psfs(self, data, lengths):
+    def get_fluo_psfs(self, data):
         _log.info("get_fluo_psfs was called.")
 
-        # get cell size
-        Nx, Ny, Nz = self.get_cell_size(lengths)
-
-        # focal point
-        f_0 = self.configs.detector_focal_point
-        p_0 = numpy.array([Nx, Ny, Nz]) * f_0
+        # get_focal_center
+        p_0 = numpy.asarray(self.configs.detector_focal_point)
 
         depths = []
         for _, particles in data:

@@ -50,8 +50,9 @@ def read_spatiocyte(tstart, tend, pathto=None, input_filename=None, filenames=No
         filenames = glob.glob(os.path.join(pathto, 'pt-*.0.csv'))
     data = read_inputs(filenames, tstart, tend, observables, max_count)
 
-    SpatiocyteDataSet = namedtuple('SpatiocyteDataSet', ('data', 'lengths'))
-    return SpatiocyteDataSet(data, lengths=lengths)
+    # SpatiocyteDataSet = namedtuple('SpatiocyteDataSet', ('data', 'lengths'))
+    # return SpatiocyteDataSet(data, lengths=lengths)
+    return data, lengths
 
 def read_spatiocyte_input(filename):
     with open(filename, 'r') as f:

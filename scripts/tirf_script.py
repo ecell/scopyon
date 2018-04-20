@@ -29,8 +29,10 @@ def test_epifm() :
     rng = numpy.random.RandomState(rndseed)
 
     ## read input data
-    # dataset = read_spatiocyte(t0, t1, input_filename=os.path.join(input_path, 'pt-input.csv'), filenames=glob.glob(os.path.join(input_path, 'pt-000000??0.0.csv')), observable='S', max_count=max_count)
-    dataset = read_spatiocyte(t0, t1, pathto=input_path, observable='S', max_count=max_count)
+    # (input_data, lengths) = read_spatiocyte(t0, t1, input_filename=os.path.join(input_path, 'pt-input.csv'), filenames=glob.glob(os.path.join(input_path, 'pt-000000??0.0.csv')), observable='S', max_count=max_count)
+    (input_data, lengths) = read_spatiocyte(t0, t1, pathto=input_path, observable='S', max_count=max_count)
+
+    focal_point = numpy.array([lengths[0] * 0.0, lengths[1] * 0.5, lengths[2] * 0.5])
 
     config = Config()
 
@@ -49,7 +51,7 @@ def test_epifm() :
     config.set_epifm_magnification(magnification=241)
     config.set_epifm_detector(
         detector='EMCCD', image_size=(512, 512), pixel_length=16e-6, exposure_time=exposure_time,
-        focal_point=(0.0, 0.5, 0.5), QE=0.92, readout_noise=100, emgain=300)
+        focal_point=focal_point, QE=0.92, readout_noise=100, emgain=300)
     config.set_epifm_analog_to_digital_converter(bit=16, offset=2000, fullwell=800000)
 
     ## set effects configurations
@@ -62,23 +64,23 @@ def test_epifm() :
     sim.initialize(config, rng=rng)
 
     ## bleaching
-    new_dataset = sim.apply_photophysics_effects(dataset, rng=rng)
+    new_input_data = sim.apply_photophysics_effects(input_data, rng=rng)
 
-    # sim.output_frames(new_dataset, pathto=output_path, rng=rng)
+    # sim.output_frames(new_input_data, pathto=output_path, rng=rng)
 
     for i in range(sim.num_frames()):
-        camera, true_data = sim.output_frame(new_dataset, i, rng=rng)
+        camera, true_data = sim.output_frame(new_input_data, i, rng=rng)
         # camera = numpy.load(output_path_.joinpath('image_{:07d}.npy'.format(i)))
         # true_data = numpy.load(output_path_.joinpath('true_{:07d}.npy'.format(i)))
 
         data = camera[: , : , 1]
         bytedata = convert_8bit(data, cmin, cmax)
-        spots = spot_detection(data, min_sigma=2.0, max_sigma=4.0, num_sigma=20, threshold=10.0, overlap=0.5)
+        spots = spot_detection(data, min_sigma=2.0, max_sigma=4.0, num_sigma=20, threshold=10.0, overlap=0.5, opt=1)
 
         numpy.save(str(output_path_.joinpath('image_{:07d}.npy'.format(i))), camera)
         numpy.save(str(output_path_.joinpath('true_{:07d}.npy'.format(i))), true_data)
-        numpy.save(str(output_path_.joinpath('spot_{:07d}.npy'.format(i))), spots)
         # save_image(str(output_path_.joinpath('image_{:07d}.png'.format(i))), bytedata, low=0, high=255)
+        numpy.save(str(output_path_.joinpath('spot_{:07d}.npy'.format(i))), spots)
         save_image_with_spots(str(output_path_.joinpath('image_{:07d}.png'.format(i))), bytedata, spots, low=0, high=255)
 
 
