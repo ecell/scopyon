@@ -846,116 +846,8 @@ class EPIFMVisualizer:
         assert 0 <= y0_from and y0_from + h <= cell.shape[1]
         assert 0 <= zi_from and zi_from + w <= signal.shape[0]
         assert 0 <= yi_from and yi_from + h <= signal.shape[1]
-        print((z0_from, y0_from, zi_from, yi_from, w, h, cell.shape, signal.shape))
 
         cell[z0_from: z0_from + w, y0_from: y0_from + h] += signal[zi_from: zi_from + w, yi_from: yi_from + h]
-
-    def overwrite_signal(self, cell, signal, p_i):
-        # particle position
-        x_i, y_i, z_i = p_i
-
-        flag = True
-
-        # z-axis
-        Nz_cell  = len(cell)
-        Nz_signal = len(signal)
-        Nr = len(self.configs.radial)
-
-        z_to   = z_i + Nr
-        z_from = z_i - Nr
-
-        if (z_to > Nz_cell):
-            dz_to = z_to - Nz_cell
-            z0_to = int(Nz_cell)
-            zi_to = int(Nz_signal - dz_to)
-        elif (z_to > 0 and z_to < Nz_cell):
-            dz_to = Nz_cell - z_to
-            z0_to = int(Nz_cell - dz_to)
-            zi_to = int(Nz_signal)
-        else:
-            flag = False
-
-        if (z_from < 0):
-            dz_from = abs(z_from)
-            z0_from = 0
-            zi_from = int(dz_from)
-        elif (z_from > 0 and z_from < Nz_cell):
-            dz_from = z_from
-            z0_from = int(dz_from)
-            zi_from = 0
-        else:
-            flag = False
-
-        # y-axis
-        Ny_cell  = cell.size/Nz_cell
-        Ny_signal = signal.size/Nz_signal
-
-        y_to   = y_i + Nr
-        y_from = y_i - Nr
-
-        if (y_to > Ny_cell):
-            dy_to = y_to - Ny_cell
-            y0_to = int(Ny_cell)
-            yi_to = int(Ny_signal - dy_to)
-        elif (y_to > 0 and y_to < Ny_cell):
-            dy_to = Ny_cell - y_to
-            y0_to = int(Ny_cell - dy_to)
-            yi_to = int(Ny_signal)
-        else:
-            flag = False
-
-        if (y_from < 0):
-            dy_from = abs(y_from)
-            y0_from = 0
-            yi_from = int(dy_from)
-        elif (y_from > 0 and y_from < Ny_cell):
-            dy_from = y_from
-            y0_from = int(dy_from)
-            yi_from = 0
-        else:
-            flag = False
-
-        # signal plane in the cellular plane
-        if (flag == True):
-
-            # adjust index
-            ddy = (y0_to - y0_from) - (yi_to - yi_from)
-            ddz = (z0_to - z0_from) - (zi_to - zi_from)
-
-            if (ddy != 0): y0_to = y0_to - ddy
-            if (ddz != 0): z0_to = z0_to - ddz
-
-            # add to cellular plane
-            cell[z0_from:z0_to, y0_from:y0_to] += signal[zi_from:zi_to, yi_from:yi_to]
-
-    def get_molecule_plane(self, cell, j, particle_j, p_b, p_0, true_data, unit_time, fluo_psfs=None):
-        # particles coordinate, species and lattice-IDs
-        coordinate, m_id, s_id, _, p_state, _ = particle_j
-
-        p_i = numpy.array(coordinate) / 1e-9
-
-        # Snell's law
-        amplitude, penet_depth = self.snells_law(p_i, p_0)
-
-        # particles coordinate in real(nm) scale
-        p_i, radial, depth = rotate_coordinate(p_i, p_0)
-
-        # get exponential amplitude (only for TIRFM-configuration)
-        amplitude = amplitude * numpy.exp(-depth / penet_depth)
-
-        # get signal matrix
-        signal = self.get_signal(amplitude, radial, depth, p_state, unit_time, fluo_psfs)
-
-        # add signal matrix to image plane
-        self.overwrite_signal(cell, signal, p_i)
-
-        # set true-dataset
-        true_data[j, 1] = m_id # molecule-ID
-        true_data[j, 2] = int(s_id) # sid_index # molecular-state
-        true_data[j, 3] = p_state # photon-state
-        true_data[j, 4] = p_i[2] # Y-coordinate in the image-plane
-        true_data[j, 5] = p_i[1] # X-coordinate in the image-plane
-        true_data[j, 6] = depth  # Depth from focal-plane
 
     def get_signal(self, amplitude, radial, depth, p_state, unit_time, fluo_psfs=None):
         # fluorophore axial position
@@ -1214,14 +1106,12 @@ class EPIFMVisualizer:
         frame_data = dataset.data[start_index: stop_index]
 
         # set Fluorophores PSF
-        # self.set_fluo_psf(dataset, [(frame_index, t, start_index, end_index)])
         fluo_psfs = self.get_fluo_psfs(frame_data, dataset.lengths)
 
         _log.info('time: {} sec ({})'.format(t, frame_index))
 
         # cell size (nm scale)
         cell_size = self.get_cell_size(dataset.lengths)
-        _, Ny, Nz = cell_size
 
         # focal point
         p_0 = self.get_focal_center(cell_size)
@@ -1257,12 +1147,10 @@ class EPIFMVisualizer:
 
             # loop for particles
             for j, particle_j in enumerate(particles):
-                # self.get_molecule_plane(cell, j, particle_j, p_b, p_0, true_data, unit_time, fluo_psfs)
                 self.overlay_molecule_plane(cell, j, particle_j, p_b, p_0, true_data, unit_time, fluo_psfs)
 
         # convert image in pixel-scale
-        # camera, true_data = self.detector_output(rng, cell, true_data)
-        camera, true_data = self.new_detector_output(rng, cell, true_data, p_0)
+        camera, true_data = self.detector_output(rng, cell, true_data, p_0)
         return (camera, true_data)
 
     def overwrite_smeared(self, cell_pixel, photon_dist, i, j):
@@ -1346,7 +1234,7 @@ class EPIFMVisualizer:
 
         return prob
 
-    def new_detector_output(self, rng, cell, true_data, focal_center):
+    def detector_output(self, rng, cell, true_data, focal_center):
         Nw_pixel, Nh_pixel = self.configs.detector_image_size  # pixels
         pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification / 1e-9  # nm
         _, y0, z0 = focal_center  # nm
@@ -1463,244 +1351,6 @@ class EPIFMVisualizer:
 
         return camera_pixel, true_data
 
-    def detector_output(self, rng, cell, true_data):
-        # Detector Output
-        Nw_pixel, Nh_pixel = self.configs.detector_image_size
-
-        Np = self.configs.detector_pixel_length / self.configs.image_magnification / 1e-9
-
-        # cell in nm-scale
-        Nw_cell = len(cell)
-        Nh_cell = len(cell[0])
-
-        # cell in pixel-scale
-        Nw_cell_pixel = int(Nw_cell/Np)
-        Nh_cell_pixel = int(Nh_cell/Np)
-
-        # dummy image in pixel-scale
-        if (Nw_cell_pixel > Nw_pixel):
-            #Nw_dummy = 2*Nw_cell_pixel
-            Nw_dummy = Nw_cell_pixel
-        else:
-            Nw_dummy = 2*Nw_pixel
-
-        if (Nh_cell_pixel > Nh_pixel):
-            #Nh_dummy = 2*Nh_cell_pixel
-            Nh_dummy = Nh_cell_pixel
-        else:
-            Nh_dummy = 2*Nh_pixel
-
-        # dummy image in nm-scale
-        Nw_camera = Nw_dummy*Np
-        Nh_camera = Nh_dummy*Np
-
-        # weidth
-        w_cam_from = Nw_camera/2.0 - Nw_cell/2.0
-        w_cam_to   = Nw_camera/2.0 + Nw_cell/2.0
-
-        if (w_cam_from < 0):
-            w_cel_from = abs(w_cam_from)
-            w_cam_from = 0
-        else:
-            w_cel_from = 0
-
-        if (w_cam_to > Nw_camera):
-            w_cel_to = Nw_cell - (w_cam_to - Nw_camera)
-            w_cam_to = Nw_camera
-        else:
-            w_cel_to = Nw_cell
-
-        # height
-        h_cam_from = Nh_camera/2.0 - Nh_cell/2.0
-        h_cam_to   = Nh_camera/2.0 + Nh_cell/2.0
-
-        if (h_cam_from < 0):
-            h_cel_from = abs(h_cam_from)
-            h_cam_from = 0
-        else:
-            h_cel_from = 0
-
-        if (h_cam_to > Nh_camera):
-            h_cel_to = Nh_cell - (h_cam_to - Nh_camera)
-            h_cam_to = Nh_camera
-        else:
-            h_cel_to = Nh_cell
-
-        # image in nm-scale
-        w_cel0, w_cel1 = int(w_cel_from), int(w_cel_to)
-        h_cel0, h_cel1 = int(h_cel_from), int(h_cel_to)
-
-        plane = cell[w_cel0:w_cel1, h_cel0:h_cel1]
-
-        # declear cell image in pixel-scale
-        cell_pixel = numpy.zeros([Nw_cell_pixel, Nh_cell_pixel])
-
-        # Signal (photon distribution on cell)
-        for i in range(Nw_cell_pixel):
-            for j in range(Nh_cell_pixel):
-
-                # get photons
-                i0, i1 = int(i*Np), int((i+1)*Np)
-                j0, j1 = int(j*Np), int((j+1)*Np)
-
-                photons = numpy.sum(plane[i0:i1,j0:j1])
-                #photons = numpy.sum(plane[int(i*Np):int((i+1)*Np),int(j*Np):int((j+1)*Np)])
-                #cell_pixel[i][j] = photons
-
-                if (photons > 0):
-
-                    # get crosstalk
-                    if (self.effects.crosstalk_switch == True):
-
-                        width = self.effects.crosstalk_width
-
-                        n_i = rng.normal(0, width, int(photons))
-                        n_j = rng.normal(0, width, int(photons))
-
-                        smeared_photons, edge_i, edge_j = numpy.histogram2d(n_i, n_j, bins=(24, 24),
-                                                                            range=[[-12,12],[-12,12]])
-
-                        # smeared photon distributions
-                        cell_pixel = self.overwrite_smeared(cell_pixel, smeared_photons, i, j)
-
-                    else:
-                        cell_pixel[i][j] = photons
-
-        # declear photon distribution for dummy image
-        dummy_pixel = numpy.zeros([Nw_dummy, Nh_dummy])
-
-        w_cam0 = int(w_cam_from/Np)
-        w_cam1 = int(w_cam_to/Np)
-        h_cam0 = int(h_cam_from/Np)
-        h_cam1 = int(h_cam_to/Np)
-
-        w_cel0 = int(w_cel_from/Np)
-        w_cel1 = int(w_cel_to/Np)
-        h_cel0 = int(h_cel_from/Np)
-        h_cel1 = int(h_cel_to/Np)
-
-        ddw = (w_cam1 - w_cam0) - (w_cel1 - w_cel0)
-        ddh = (h_cam1 - h_cam0) - (h_cel1 - h_cel0)
-
-        if (ddw > 0): w_cam1 = w_cam1 - ddw
-        if (ddw < 0): w_cel1 = w_cel1 + ddw
-        if (ddh > 0): h_cam1 = h_cam1 - ddh
-        if (ddh < 0): h_cel1 = h_cel1 + ddh
-
-        # place cell_pixel data to camera image
-        dummy_pixel[w_cam0:w_cam1, h_cam0:h_cam1] = cell_pixel[w_cel0:w_cel1, h_cel0:h_cel1]
-
-        # get focal point
-        f_x, f_y, f_z = self.configs.detector_focal_point
-
-        # get dummy-image center and focal position
-        w0 = Nw_dummy // 2 - int(Nw_cell / Np * (0.5 - f_z))
-        h0 = Nh_dummy // 2 - int(Nh_cell / Np * (0.5 - f_y))
-
-        # dummy_pixel image to camera_pixel image
-        camera_pixel = numpy.zeros([Nw_pixel, Nh_pixel, 2])
-        camera_pixel[:,:,0] = dummy_pixel[w0-Nw_pixel//2:w0+Nw_pixel//2, h0-Nh_pixel//2:h0+Nh_pixel//2]
-
-        _log.info('scaling [nm/pixel]: {}'.format(Np))
-        _log.info('center (width, height): {} {}'.format(w0, h0))
-
-        # set true-dataset in pixel-scale
-        true_data[:,4] = true_data[:,4]/Np - w_cel0 + w_cam0 - (w0 - (Nw_pixel-1)/2.0)
-        true_data[:,5] = true_data[:,5]/Np - h_cel0 + h_cam0 - (h0 - (Nh_pixel-1)/2.0)
-
-        # CMOS (readout noise probability ditributions)
-        if (self.configs.detector_type == "CMOS"):
-            noise_data = numpy.loadtxt(os.path.join(os.path.abspath(os.path.dirname(__file__)),
-                                                    'catalog/detector/RNDist_F40.csv'), delimiter=',')
-            Nr_cmos = noise_data[:,0]
-            p_noise = noise_data[:,1]
-            p_nsum  = p_noise.sum()
-
-        # conversion: photon --> photoelectron --> ADC count
-        for i in range(Nw_pixel):
-            for j in range(Nh_pixel):
-                # pixel position
-                pixel = (i, j)
-
-                # Detector: Quantum Efficiency
-                #index = int(self.configs.psf_wavelength) - int(self.configs.wave_length[0])
-                #QE = self.configs.detector_qeff[index]
-                QE = self.configs.detector_qeff
-
-                # get signal (photons)
-                Photons = camera_pixel[i][j][0]
-
-                # get constant background (photoelectrons)
-                Photons_bg = self.effects.background_mean
-                Photons += Photons_bg
-
-                # get signal (expectation)
-                Exp = QE*Photons
-
-                # select Camera type
-                if (self.configs.detector_type == "CMOS"):
-
-                    # get signal (poisson distributions)
-                    signal = rng.poisson(Exp, None)
-
-                    # get detector noise (photoelectrons)
-                    noise  = rng.choice(Nr_cmos, None, p=p_noise/p_nsum)
-                    Nr = 1.3
-
-
-                elif (self.configs.detector_type == "EMCCD"):
-
-                    # get signal (photoelectrons)
-                    if (Exp > 0):
-
-                        # get EM gain
-                        M = self.configs.detector_emgain
-
-                        # set probability distributions
-                        s_min = M*int(Exp - 5.0*numpy.sqrt(Exp) - 10)
-                        s_max = M*int(Exp + 5.0*numpy.sqrt(Exp) + 10)
-
-                        if (s_min < 0): s_min = 0
-
-                        s = numpy.array([k for k in range(s_min, s_max)])
-                        p_signal = self.prob_EMCCD(s, Exp)
-                        p_ssum = p_signal.sum()
-
-                        # get signal (photoelectrons)
-                        signal = rng.choice(s, None, p=p_signal/p_ssum)
-
-                    else:
-                        signal = 0
-
-                    # get detector noise (photoelectrons)
-                    Nr = self.configs.detector_readout_noise
-
-                    if (Nr > 0):
-                        noise = rng.normal(0, Nr, None)
-                    else: noise = 0
-
-
-                elif (self.configs.detector_type == "CCD"):
-
-                    # get signal (poisson distributions)
-                    signal = rng.poisson(Exp, None)
-
-                    # get detector noise (photoelectrons)
-                    Nr = self.configs.detector_readout_noise
-
-                    if (Nr > 0):
-                        noise = rng.normal(0, Nr, None)
-                    else: noise = 0
-
-                # A/D converter: Photoelectrons --> ADC counts
-                PE  = signal + noise
-                ADC = self.get_ADC_value(rng, pixel, PE)
-
-                # set data in image array
-                camera_pixel[i][j] = [Exp, ADC]
-
-        return camera_pixel, true_data
-
     def get_ADC_value(self, rng, pixel, photoelectron):
         # pixel position
         i, j = pixel
@@ -1723,13 +1373,6 @@ class EPIFMVisualizer:
 
         #return int(ADC)
         return ADC
-
-    def set_fluo_psf(self, dataset, frames):
-        data = []
-        for frame_index, t, start_index, stop_index in frames:
-            data.extend(dataset.data[start_index: stop_index])
-
-        self.fluo_psf = self.get_fluo_psfs(data, dataset.lengths)
 
     def get_fluo_psfs(self, data, lengths):
         _log.info("get_fluo_psfs was called.")
