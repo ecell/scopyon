@@ -52,7 +52,7 @@ class PhysicalEffects:
         _log.info('--- Fluorescence: ')
         _log.info('    Quantum Yield =  {}'.format(self.quantum_yield))
         _log.info('    Abs. Coefficient =  {} 1/(M cm)'.format(self.abs_coefficient))
-        _log.info('    Abs. Cross-section =  {} cm^2'.format((numpy.log(10) * self.abs_coefficient * 0.1 / 6.022e+23) * 1e+4))
+        _log.info('    Abs. Cross-section =  {} cm^2'.format((numpy.log(10) * self.abs_coefficient * 0.1 / config.avogadoros_number) * 1e+4))
 
         self.set_photobleaching(tau0=config.photobleaching_tau0, alpha=config.photobleaching_alpha, switch=config.photobleaching_switch)
 

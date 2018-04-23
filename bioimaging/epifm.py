@@ -41,18 +41,16 @@ class EPIFMConfigs:
             warnings.warn('A random number generator [rng] is not given.')
             rng = numpy.random.RandomState()
 
-        self.ADConverter_fpn_type = None
-        # self.emission_switch = False
-        self.hc_const = 2.00e-25
-
-        self.radial = numpy.arange(1000, dtype=float)
-        self.depth = numpy.arange(1000, dtype=float)
-        self.wave_length = numpy.arange(300, 1000, dtype=int)
+        self.radial = numpy.arange(config.psf_radial_cutoff, dtype=float)
+        self.depth = numpy.arange(config.psf_depth_cutoff, dtype=float)
+        self.wave_length = numpy.arange(config.psf_min_wave_length, config.psf_max_wave_length, dtype=int)
         N = len(self.wave_length)
         self.wave_number = 2 * numpy.pi / self.wave_length
         self.excitation_eff = numpy.zeros(N, dtype=float)
         self.dichroic_eff = numpy.zeros(N, dtype=float)
         self.emission_eff = numpy.zeros(N, dtype=float)
+
+        self._set_data('hc_const', config.hc_const)
 
         self.set_shutter(
             config.shutter_start_time, config.shutter_end_time, config.shutter_time_open,
@@ -76,7 +74,7 @@ class EPIFMConfigs:
 
         self.set_fluorophore(
             config.fluorophore_type, config.psf_wavelength, config.psf_normalization,
-            config.fluorophore_radius, config.psf_width, config.psf_cutoff, config.psf_file_name_format)
+            config.fluorophore_radius, config.psf_width)
 
         _log.info('--- Fluorophore: {} PSF'.format(self.fluorophore_type))
         _log.info('    Wave Length   =  {} nm'.format(self.psf_wavelength))
@@ -169,11 +167,10 @@ class EPIFMConfigs:
         self._set_data('source_angle', angle)
 
     def set_fluorophore(
-            self, fluorophore_type=None, wave_length=None, normalization=None, radius=None, width=None, cutoff=None, file_name_format=None):
+            self, fluorophore_type=None, wave_length=None, normalization=None, radius=None, width=None):
         self._set_data('fluorophore_type', fluorophore_type)
         self._set_data('fluorophore_radius', radius)
         self._set_data('psf_normalization', normalization)
-        self._set_data('psf_file_name_format', file_name_format)
 
         if (fluorophore_type == 'Gaussian'):
             N = len(self.wave_length)
@@ -192,7 +189,6 @@ class EPIFMConfigs:
 
             self._set_data('psf_wavelength', wave_length)
             self._set_data('psf_width', width)
-            self._set_data('psf_cutoff', cutoff)
 
         else:
             (fluorophore_excitation, fluorophore_emission) = io.read_fluorophore_catalog(fluorophore_type)
@@ -268,7 +264,8 @@ class EPIFMConfigs:
         FPN_type = self.ADConverter_fpn_type
         FPN_count = self.ADConverter_fpn_count
 
-        if FPN_type is None:
+        # if FPN_type is None:
+        if FPN_type == 'none':
             offset = numpy.full(Nw_pixel * Nh_pixel, ADC0)
         elif FPN_type == 'pixel':
             if rng is None:
