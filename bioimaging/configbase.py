@@ -1,7 +1,10 @@
 import os
+import re
 import configparser
 import collections
 import ast
+
+import numpy
 
 from logging import getLogger
 _log = getLogger(__name__)
@@ -24,10 +27,14 @@ class _Config:
                 for key, val in config.items():
                     if key.startswith('_'):
                         continue  #XXX: For compatibility
+                    # elif isinstance(val, (dict, list)):
+                    #     self.__update(key, copy.deepcopy(val))
+                    # else:
+                    #     self.__update(key, val)
                     elif isinstance(val, (dict, list)):
-                        self.__update(key, copy.deepcopy(val))
+                        self.update(key, copy.deepcopy(val))
                     else:
-                        self.__update(key, val)
+                        self.update(key, val)
             else:
                 raise ValueError("Argument [conf] must be either 'str' or 'dict'.")
         else:
@@ -50,6 +57,25 @@ class _Config:
             for opt, val in parser[sec].items():
                 self.__update(opt, ast.literal_eval(val))  #XXX: None is accepted here for compatibility
 
+    def write(self, filename):
+        parser = configparser.SafeConfigParser()
+        parser.optionxform = str  # Preserving case
+        data = {}
+        for opt, val in self.__data.items():
+            if isinstance(val, str):
+                data[opt] = "'{}'".format(re.sub(u'[\']', lambda mo: u'\\' + mo.group(), val))
+            elif isinstance(val, numpy.ndarray):
+                data[opt] = str(tuple(val))
+            elif isinstance(val, (int, float, bool, tuple, list, dict)):
+                data[opt] = str(val)
+            elif val is None:
+                continue
+            else:
+                raise RuntimeError('A value type unsupported [{}] was found [{}, {}]'.format(type(val), opt, val))
+        parser.read_dict({'all': data})
+        with open(filename, 'w') as f:
+            parser.write(f, space_around_delimiters=True)
+
     def __update(self, key, val):
         _log.debug('EPIFMConfig.__update: {} = {}'.format(key, val))
         # setattr(self, key, val)
@@ -68,4 +94,3 @@ class _Config:
 
     def keys(self):
         return self.__data.keys()
-

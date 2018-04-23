@@ -32,8 +32,6 @@ def test_tirf() :
     # (input_data, lengths) = read_spatiocyte(t0, t1, input_filename=os.path.join(input_path, 'pt-input.csv'), filenames=glob.glob(os.path.join(input_path, 'pt-000000??0.0.csv')), observable='S', max_count=max_count)
     (input_data, lengths) = read_spatiocyte(t0, t1, pathto=input_path, observable='S', max_count=max_count)
 
-    focal_point = numpy.array([lengths[0] * 0.0, lengths[1] * 0.5, lengths[2] * 0.5])
-
     config = Config()
 
     ## set epifm configurations
@@ -42,10 +40,11 @@ def test_tirf() :
     config.set_epifm_fluorophore(
         fluorophore_type='Tetramethylrhodamine(TRITC)', normalization=1.0, radius=20)
     config.set_epifm_dichroic_mirror('FF562-Di03-25x36')
+    focal_point = numpy.array([lengths[0] * 0.0, lengths[1] * 0.5, lengths[2] * 0.5])
     # config.set_epifm_magnification(magnification=100)
     # config.set_epifm_detector(
     #     detector='CMOS', image_size=(512, 512), pixel_length=6.5e-6, exposure_time=exposure_time,
-    #     focal_point=(0.0, 0.5, 0.5), QE=0.73)
+    #     focal_point=focal_point, QE=0.73)
     # config.set_epifm_analog_to_digital_converter(
     #     bit=16, offset=100, fullwell=30000, fpn_type='column', fpn_count=2)
     config.set_epifm_magnification(magnification=241)
@@ -58,6 +57,8 @@ def test_tirf() :
     config.set_effects_background(mean=0.01)
     config.set_effects_fluorescence(quantum_yield=0.61, abs_coefficient=83400)
     config.set_effects_photobleaching(tau0=2.27, alpha=0.73)
+
+    # config.write('tirf_script.ini')
 
     ## create image
     sim = EPIFMVisualizer()
