@@ -21,7 +21,7 @@ $ python setup.py test install
 $ python scripts/tirf_script.py
 ```
 
-![TIRF Image](https://github.com/ecell/bioimaging/raw/epi/scripts/data/outputs_tirf/image_0000000.png)
+![TIRF Image](https://github.com/ecell/bioimaging/raw/master/scripts/data/outputs_tirf/image_0000000.png)
 
 License
 -------
