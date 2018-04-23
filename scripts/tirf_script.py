@@ -12,7 +12,7 @@ from bioimaging.image import convert_npy_to_8bit_image, convert_8bit, save_image
 from bioimaging.spot_detection import spot_detection, blob_detection
 
 
-def test_epifm() :
+def test_tirf() :
     exposure_time = 0.100
     # t0, t1 = 0.0, exposure_time * 100
     t0, t1 = 0.0, exposure_time * 2
@@ -94,16 +94,4 @@ if __name__ == "__main__":
     log.addHandler(handler)
     log.setLevel(logging.DEBUG)
 
-    test_epifm()
-
-    # intensity = []
-    # for filename in pathlib.Path('./scripts/data/outputs_tirf').glob('spot_*.npy'):
-    #     data = numpy.load(str(filename))
-    #     intensity.extend(data.T[0])
-    # intensity = numpy.asarray(intensity)
-
-    # import matplotlib.pylab as plt
-    # fold = 30
-    # print(intensity.min(), intensity.max(), intensity.shape, intensity[intensity < intensity.min() * fold].size / intensity.size)
-    # plt.hist(intensity, bins=30, range=(0.0, intensity.min() * fold))
-    # plt.show()
+    test_tirf()

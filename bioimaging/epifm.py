@@ -20,8 +20,6 @@ from .effects import PhysicalEffects
 from . import io
 from .config import Config
 
- # import numpy.random as rng
-
 from logging import getLogger
 _log = getLogger(__name__)
 
@@ -560,8 +558,8 @@ class EPIFMVisualizer:
     EPIFM Visualization class of e-cell simulator
     '''
 
-    def __init__(self, nprocs=1):
-        self.__nprocs = nprocs
+    def __init__(self):
+        pass
 
     def initialize(self, config=None, rng=None):
         if config is None:
@@ -599,10 +597,6 @@ class EPIFMVisualizer:
         # Snell's law
         amplitude0, penet_depth = self.snells_law(p_0, p_0)
 
-        # # copy shape-file
-        # csv_shape = self.configs.spatiocyte_file_directory + '/pt-shape.csv'
-        # shutil.copyfile(csv_shape, output_file_dir + '/pt-shape.csv')
-
         # determine photon budgets
         time_array = numpy.array([t for t, _ in input_data])
         time_array -= self.configs.shutter_start_time
@@ -614,10 +608,6 @@ class EPIFMVisualizer:
         new_data = []
         molecule_states = numpy.zeros(shape=(N_particles))
         for k in range(len(input_data)):
-            # read input file
-            # csv_file_path = self.configs.spatiocyte_file_directory + '/pt-%09d.0.csv' % (count_array[k])
-            # csv_list = list(csv.reader(open(csv_file_path, 'r')))
-            # input_data = numpy.array(csv_list)
             t, particles = input_data[k]
             next_time = input_data[k + 1][0] if k + 1 < len(input_data) else end_time
             unit_time = next_time - t
@@ -641,13 +631,6 @@ class EPIFMVisualizer:
                 new_particles.append((coordinate, m_id, s_id, l_id, new_p_state, new_cyc_id))
             new_data.append((t, new_particles))
 
-            # # write output file
-            # output_file = output_file_dir + '/pt-%09d.0.csv' % (count_array[k])
-
-            # with open(output_file, 'w') as f:
-            #     writer = csv.writer(f)
-            #     writer.writerows(new_input_data)
-
         return new_data
 
     def initialize_molecular_states(self, states, count, data):
@@ -664,43 +647,13 @@ class EPIFMVisualizer:
             # set molecule-states
             states[m_id] = int(s_id)
 
-    def update_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time):
+    def update_fluorescence_photobleaching(
+            self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time):
         if len(data) == 0:
             return
 
-        if self.get_nprocs() != 1:
-            raise RuntimeError('Not supported.')
-            #XXX: # set arrays for photobleaching-state and photon-budget
-            #XXX: state_pb = {}
-            #XXX: budget = {}
-
-            #XXX: num_processes = min(multiprocessing.cpu_count(), len(data))
-            #XXX: n, m = divmod(len(data), num_processes)
-
-            #XXX: chunks = [n + 1 if i < m else n for i in range(num_processes)]
-
-            #XXX: processes = []
-            #XXX: start_index = 0
-
-            #XXX: for chunk in chunks:
-            #XXX:     stop_index = start_index + chunk
-            #XXX:     p, c = multiprocessing.Pipe()
-            #XXX:     process = multiprocessing.Process(target=self.get_photobleaching_dataset_process,
-            #XXX:                             args=(count, data[start_index:stop_index], focal_center, c))
-            #XXX:     processes.append((p, process))
-            #XXX:     start_index = stop_index
-
-            #XXX: for _, process in processes:
-            #XXX:     process.start()
-
-            #XXX: for pipe, process in processes:
-            #XXX:     new_state_pb, new_budget = pipe.recv()
-            #XXX:     state_pb.update(new_state_pb)
-            #XXX:     budget.update(new_budget)
-            #XXX:     process.join()
-
-        else:
-            state_pb, budget = self.get_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time)
+        state_pb, budget = self.get_fluorescence_photobleaching(
+            fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time)
 
         # reset global-arrays for photobleaching-state and photon-budget
         for key, value in state_pb.items():
@@ -756,9 +709,6 @@ class EPIFMVisualizer:
             result_budget[m_id] = budget
 
         return result_state_pb, result_budget
-
-    #XXX: def get_photobleaching_dataset_process(self, count, input_data, voxel_radius, lengths, pipe):
-    #XXX:     pipe.send(self.get_photobleaching_dataset(count, input_data, voxel_radius, lengths))
 
     def get_new_state(self, molecule_states, fluorescence_state, fluorescence_budget, count, N_emit0):
         state_mo = molecule_states
@@ -1051,19 +1001,8 @@ class EPIFMVisualizer:
         amplitude = (A2_Tp + A2_Ts)/2
         return amplitude, penetration_depth
 
-    def get_coordinate(self, p_i, p_0):
-        """Deprecated."""
-        return rotate_coordinate(p_i, p_0)
-
-    def polar2cartesian_coordinates(self, r, t, x, y):
-        """Deprecated."""
-        return polar2cartesian_coordinates(r, t, x, y)
-
-    def polar2cartesian(self, grid, coordinates, shape):
-        """Deprecated."""
-        return polar2cartesian(grid, coordinates, shape)
-
-    def output_frames(self, input_data, pathto='./images', image_fmt='image_%07d.npy', true_fmt='true_%07d.npy', rng=None):
+    def output_frames(
+            self, input_data, pathto='./images', image_fmt='image_%07d.npy', true_fmt='true_%07d.npy', rng=None):
         # Check and create the folders for image and output files.
         if not os.path.exists(pathto):
             os.makedirs(pathto)
@@ -1403,13 +1342,3 @@ class EPIFMVisualizer:
             fluo_psfs[depth] = polar2cartesian(psf_polar, coordinates, (len(r), len(r)))
 
         return fluo_psfs
-
-    def get_nprocs(self):
-        return self.__nprocs
-
-    def use_multiprocess(self):
-        """Deprecated."""
-        warnings.warn('This is no longer supported.')
-        return (self.get_nprocs() != 1)
-        # envname = 'ECELL_MICROSCOPE_SINGLE_PROCESS'
-        # return not (envname in os.environ and os.environ[envname])
