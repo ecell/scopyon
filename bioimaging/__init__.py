@@ -12,3 +12,5 @@ __all__ = [
     # "flip_handler",
     # "fcs_handler",
     ]
+
+__version__ = '0.1.0'
