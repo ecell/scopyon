@@ -7,7 +7,7 @@ import numpy
 
 from bioimaging.io import read_spatiocyte
 from bioimaging.config import Config
-from bioimaging.epifm import EPIFMVisualizer
+from bioimaging.epifm import EPIFMSimulator
 from bioimaging.image import convert_npy_to_8bit_image, convert_8bit, save_image_with_spots, show_with_spots, save_image
 from bioimaging.spot_detection import spot_detection, blob_detection
 
@@ -61,28 +61,28 @@ def test_tirf() :
     # config.write('tirf_script.ini')
 
     ## create image
-    sim = EPIFMVisualizer()
-    sim.initialize(config, rng=rng)
+    sim = EPIFMSimulator(config, rng=rng)
 
     ## bleaching
     new_input_data = sim.apply_photophysics_effects(input_data, rng=rng)
 
-    # sim.output_frames(new_input_data, pathto=output_path, rng=rng)
+    ## output frame data
+    sim.output_frames(new_input_data, pathto=output_path, rng=rng)
 
-    for i in range(sim.num_frames()):
-        camera, true_data = sim.output_frame(new_input_data, i, rng=rng)
-        # camera = numpy.load(output_path_.joinpath('image_{:07d}.npy'.format(i)))
-        # true_data = numpy.load(output_path_.joinpath('true_{:07d}.npy'.format(i)))
+    # for i in range(sim.num_frames()):
+    #     camera, true_data = sim.output_frame(new_input_data, i, rng=rng)
+    #     # camera = numpy.load(output_path_.joinpath('image_{:07d}.npy'.format(i)))
+    #     # true_data = numpy.load(output_path_.joinpath('true_{:07d}.npy'.format(i)))
 
-        data = camera[: , : , 1]
-        bytedata = convert_8bit(data, cmin, cmax)
-        spots = spot_detection(data, min_sigma=2.0, max_sigma=4.0, num_sigma=20, threshold=10.0, overlap=0.5, opt=1)
+    #     data = camera[: , : , 1]
+    #     bytedata = convert_8bit(data, cmin, cmax)
+    #     spots = spot_detection(data, min_sigma=2.0, max_sigma=4.0, num_sigma=20, threshold=10.0, overlap=0.5, opt=1)
 
-        numpy.save(str(output_path_.joinpath('image_{:07d}.npy'.format(i))), camera)
-        numpy.save(str(output_path_.joinpath('true_{:07d}.npy'.format(i))), true_data)
-        # save_image(str(output_path_.joinpath('image_{:07d}.png'.format(i))), bytedata, low=0, high=255)
-        numpy.save(str(output_path_.joinpath('spot_{:07d}.npy'.format(i))), spots)
-        save_image_with_spots(str(output_path_.joinpath('image_{:07d}.png'.format(i))), bytedata, spots, low=0, high=255)
+    #     numpy.save(str(output_path_.joinpath('image_{:07d}.npy'.format(i))), camera)
+    #     numpy.save(str(output_path_.joinpath('true_{:07d}.npy'.format(i))), true_data)
+    #     # save_image(str(output_path_.joinpath('image_{:07d}.png'.format(i))), bytedata, low=0, high=255)
+    #     numpy.save(str(output_path_.joinpath('spot_{:07d}.npy'.format(i))), spots)
+    #     save_image_with_spots(str(output_path_.joinpath('image_{:07d}.png'.format(i))), bytedata, spots, low=0, high=255)
 
 
 if __name__ == "__main__":
