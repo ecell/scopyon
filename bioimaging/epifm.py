@@ -19,6 +19,7 @@ from scipy.ndimage import map_coordinates
 from .effects import PhysicalEffects
 from . import io
 from .config import Config
+from .image import save_image, convert_8bit
 
 from logging import getLogger
 _log = getLogger(__name__)
@@ -663,8 +664,9 @@ class EPIFMSimulator:
         return new_data
 
     def output_frames(
-            self, input_data, pathto='./images', image_fmt='image_%07d.png', data_fmt='image_%07d.npy',
-            true_fmt='true_%07d.npy', cmin=None, cmax=None, rng=None):
+            self, input_data, pathto='./images', data_fmt='image_%07d.npy', true_fmt='true_%07d.npy',
+            image_fmt='image_%07d.png', cmin=None, cmax=None, low=None, high=None, cmap=None,
+            rng=None):
         """Output all images from the given particle data.
 
         Args:
@@ -686,7 +688,10 @@ class EPIFMSimulator:
             cmin (int, optional): A minimal value used to generate 8-bit images.
             cmax (int, optional): A maximum value used to generate 8-bit images.
             low (int, optional): A minimal value used to generate 8-bit images.
+                Defaults to 0.
             high (int, optional): A maximum value used to generate 8-bit images.
+                Defaults to 255.
+            cmap (matplotlib.colors.ColorMap): A color map to visualize images.
                 See also `bioimaging.image.convert_8bit`.
             rng (numpy.RandomState, optional): A random number generator.
 
@@ -694,6 +699,9 @@ class EPIFMSimulator:
         # Check and create the folders for image and output files.
         if not os.path.exists(pathto):
             os.makedirs(pathto)
+
+        low = 0 if low is None else low
+        high = 255 if high is None else high
 
         for frame_index in range(self.num_frames()):
             camera, true_data = self.output_frame(input_data, frame_index, rng=rng)
@@ -709,10 +717,10 @@ class EPIFMSimulator:
                 numpy.save(true_file_name, true_data)
 
             # save images to numpy-binary file
-            if data_fmt is not None:
-                data_file_name = os.path.join(pathto, data_fmt % (frame_index))
-                numpy.save(data_file_name, camera)
-
+            if image_fmt is not None:
+                bytedata = convert_8bit(camera[: , : , 1], cmin, cmax, low, high)
+                image_file_name = os.path.join(pathto, image_fmt % (frame_index))
+                save_image(image_file_name, bytedata, cmap, low, high)
 
     def output_frame(self, input_data, frame_index, rng=None):
         """Output an image from the given particle data.

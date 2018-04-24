@@ -67,7 +67,7 @@ def test_tirf() :
     new_input_data = sim.apply_photophysics_effects(input_data, rng=rng)
 
     ## output frame data
-    sim.output_frames(new_input_data, pathto=output_path, rng=rng)
+    sim.output_frames(new_input_data, pathto=output_path, cmin=cmin, cmax=cmax, rng=rng)
 
     # for i in range(sim.num_frames()):
     #     camera, true_data = sim.output_frame(new_input_data, i, rng=rng)
