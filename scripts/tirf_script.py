@@ -22,10 +22,6 @@ def test_tirf() :
     input_path = './scripts/data/inputs_epifm'
     output_path = './scripts/data/outputs_tirf'
 
-    output_path_ = pathlib.Path(output_path)
-    if not output_path_.exists():
-        output_path_.mkdir()
-
     rng = numpy.random.RandomState(rndseed)
 
     ## read input data
@@ -68,21 +64,6 @@ def test_tirf() :
 
     ## output frame data
     sim.output_frames(new_input_data, pathto=output_path, cmin=cmin, cmax=cmax, rng=rng)
-
-    # for i in range(sim.num_frames()):
-    #     camera, true_data = sim.output_frame(new_input_data, i, rng=rng)
-    #     # camera = numpy.load(output_path_.joinpath('image_{:07d}.npy'.format(i)))
-    #     # true_data = numpy.load(output_path_.joinpath('true_{:07d}.npy'.format(i)))
-
-    #     data = camera[: , : , 1]
-    #     bytedata = convert_8bit(data, cmin, cmax)
-    #     spots = spot_detection(data, min_sigma=2.0, max_sigma=4.0, num_sigma=20, threshold=10.0, overlap=0.5, opt=1)
-
-    #     numpy.save(str(output_path_.joinpath('image_{:07d}.npy'.format(i))), camera)
-    #     numpy.save(str(output_path_.joinpath('true_{:07d}.npy'.format(i))), true_data)
-    #     # save_image(str(output_path_.joinpath('image_{:07d}.png'.format(i))), bytedata, low=0, high=255)
-    #     numpy.save(str(output_path_.joinpath('spot_{:07d}.npy'.format(i))), spots)
-    #     save_image_with_spots(str(output_path_.joinpath('image_{:07d}.png'.format(i))), bytedata, spots, low=0, high=255)
 
 
 if __name__ == "__main__":
