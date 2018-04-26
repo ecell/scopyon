@@ -445,7 +445,7 @@ class _EPIFMConfigs:
 
     def get_PSF_fluorophore(self, r, z, wave_length):
         # set Magnification of optical system
-        M = self.image_magnification
+        # M = self.image_magnification
 
         # set Numerical Appature
         NA = 1.4  # self.objective_NA
@@ -475,7 +475,6 @@ class _EPIFMConfigs:
 
 def _rotate_coordinate(p_i, p_0):
     _, y_0, z_0 = p_0
-    _, y_i, z_i = p_i
 
     # Rotation of focal plane
     cos_th0 = 1
@@ -734,7 +733,6 @@ class EPIFMSimulator:
 
         times = numpy.array([t for t, _ in input_data])
         t = start_time + exposure_time * frame_index
-        assert t + exposure_time <= end_time + 1e-13
         start_index = numpy.searchsorted(times, t, side='right')
         if start_index != 0:
             start_index -= 1
@@ -790,11 +788,11 @@ class EPIFMSimulator:
         states.fill(0.0)
 
         # loop for particles
-        for j, particle_j in enumerate(data):
+        for particle in data:
             (coordinate, m_id, s_id, l_id, p_state, cyc_id) = particle_j
 
             # set particle position
-            p_i = numpy.array(coordinate) / 1e-9
+            # p_i = numpy.array(coordinate) / 1e-9
 
             # set molecule-states
             states[m_id] = int(s_id)
@@ -809,7 +807,7 @@ class EPIFMSimulator:
 
         # reset global-arrays for photobleaching-state and photon-budget
         for key, value in state_pb.items():
-            fluorescence_state[key, count] = state_pb[key]
+            fluorescence_state[key, count] = value
             fluorescence_budget[key] = budget[key]
             # self.effects.fluorescence_state[key,count] = state_pb[key]
             # self.effects.fluorescence_budget[key] = budget[key]
@@ -993,8 +991,8 @@ class EPIFMSimulator:
         return n_emit
 
     def __snells_law(self, p_i, p_0):
-        x_0, y_0, z_0 = p_0
-        x_i, y_i, z_i = p_i
+        # x_0, y_0, z_0 = p_0
+        # x_i, y_i, z_i = p_i
 
         # (plank const) * (speed of light) [joules meter]
         hc = self.configs.hc_const

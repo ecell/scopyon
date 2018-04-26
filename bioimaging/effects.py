@@ -250,7 +250,7 @@ class PhysicalEffects:
 
             #### Photoactivation: overall activation yeild
             p = self.photoactivation_activation_yield
-            q = self.photoactivation_frac_preactivation
+            # q = self.photoactivation_frac_preactivation
 
             r = rng.uniform(0, 1, N/F*f)
             s = (r < p).astype('int')

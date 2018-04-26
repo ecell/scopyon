@@ -31,7 +31,8 @@ def is_float(val):
 
 def read_spatiocyte(tstart, tend, pathto=None, input_filename=None, filenames=None, observable=None, max_count=None):
     if input_filename is None:
-        assert pathto is not None
+        if pathto is None:
+            raise RuntimeError('No path to output is given. Set "pathto"')
         spatiocyte_input = read_spatiocyte_input(os.path.join(pathto, 'pt-input.csv'))
     else:
         spatiocyte_input = read_spatiocyte_input(input_filename)
@@ -45,7 +46,8 @@ def read_spatiocyte(tstart, tend, pathto=None, input_filename=None, filenames=No
         observables = None
 
     if filenames is None:
-        assert pathto is not None
+        if pathto is None:
+            raise RuntimeError('No path to output is given. Set "pathto"')
         filenames = glob.glob(os.path.join(pathto, 'pt-*.0.csv'))
     data = read_inputs(filenames, tstart, tend, observables, max_count)
 
@@ -56,7 +58,8 @@ def read_spatiocyte(tstart, tend, pathto=None, input_filename=None, filenames=No
 def read_spatiocyte_input(filename):
     with open(filename, 'r') as f:
         header = f.readline().rstrip().split(',')
-    assert len(header) >= 5
+    if len(header) < 5:
+        raise RuntimeError('The file given [{}] was invalid: "{}"'.format(filename, header))
 
     interval, lz, ly, lx, voxel_radius = [float(_) for _ in header[: 5]]
     species_info = header[5:  ]
@@ -133,10 +136,12 @@ def read_inputs(filenames, tstart, tend, observables=None, max_count=None):
                 # radius = float(row[4])
                 # Molecule ID and its state
                 id1 = literal_eval(row[5])
-                assert isinstance(id1, tuple) and len(id1) == 2
+                if not (isinstance(id1, tuple) and len(id1) == 2):
+                    raise RuntimeError('The file given [{}] was invalid: "{}"'.format(filename, row[5]))
                 # Fluorophore ID and compartment ID
                 id2 = literal_eval(row[6])
-                assert isinstance(id2, tuple) and len(id2) == 2
+                if not (isinstance(id2, tuple) and len(id2) == 2):
+                    raise RuntimeError('The file given [{}] was invalid: "{}"'.format(filename, row[6]))
 
                 if len(row) >= 9:
                     p_state, cyc_id = float(row[7]), float(row[8])

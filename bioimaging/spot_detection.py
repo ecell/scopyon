@@ -1,7 +1,6 @@
 import numpy
 
 import scipy.optimize
-import scipy.ndimage as ndimage
 
 from logging import getLogger
 _log = getLogger(__name__)
