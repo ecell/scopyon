@@ -629,14 +629,20 @@ class EPIFMSimulator:
 
         new_data = []
         molecule_states = numpy.zeros(shape=(N_particles))
-        for k in range(len(input_data)):
-            t, particles = input_data[k]
+        for k, (t, particles) in enumerate(input_data):
             next_time = input_data[k + 1][0] if k + 1 < len(input_data) else end_time
             unit_time = next_time - t
 
             # set molecular-states (unbound-bound)
             # self.set_molecular_states(k, input_data)
-            self.__initialize_molecular_states(molecule_states, k, particles)
+            # self.__initialize_molecular_states(molecule_states, k, particles)
+            # reset molecule-states
+            molecule_states.fill(0.0)
+
+            # loop for particles
+            for (coordinate, m_id, s_id, l_id, p_state, cyc_id) in particles:
+                # set molecule-states
+                molecule_states[m_id] = int(s_id)
 
             N_emit0 = self.__get_emit_photons(amplitude0, unit_time)
 
@@ -644,8 +650,15 @@ class EPIFMSimulator:
             self.__update_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, k, particles, p_0, unit_time)
 
             # get new-dataset
-            new_state = self.__get_new_state(molecule_states, fluorescence_state, fluorescence_budget, k, N_emit0)
-            # new_input_data = numpy.column_stack((particles, state_stack))
+            # new_state = self.__get_new_state(molecule_states, fluorescence_state, fluorescence_budget, k, N_emit0)
+            # # new_input_data = numpy.column_stack((particles, state_stack))
+            # set additional arrays for new-dataset
+            state_pb = fluorescence_state[: , k]
+            new_state_pb = state_pb[molecule_states > 0]
+            new_budget = fluorescence_budget[molecule_states > 0]
+
+            # set new-dataset
+            new_state = numpy.column_stack((new_state_pb, (new_budget / N_emit0).astype('int')))
 
             new_particles = []
             for particle_j, (new_p_state, new_cyc_id) in zip(particles, new_state):
@@ -728,8 +741,9 @@ class EPIFMSimulator:
             rng (numpy.RandomState, optional): A random number generator.
 
         """
-        start_time, end_time, exposure_time = (
-            self.configs.shutter_start_time, self.configs.shutter_end_time, self.configs.detector_exposure_time)
+        start_time = self.configs.shutter_start_time
+        # end_time = self.configs.shutter_end_time
+        exposure_time = self.configs.detector_exposure_time
 
         times = numpy.array([t for t, _ in input_data])
         t = start_time + exposure_time * frame_index
@@ -783,19 +797,14 @@ class EPIFMSimulator:
         camera, true_data = self.__detector_output(rng, camera_pixel, true_data)
         return (camera, true_data)
 
-    def __initialize_molecular_states(self, states, count, data):
-        # reset molecule-states
-        states.fill(0.0)
+    # def __initialize_molecular_states(self, states, count, data):
+    #     # reset molecule-states
+    #     states.fill(0.0)
 
-        # loop for particles
-        for particle in data:
-            (coordinate, m_id, s_id, l_id, p_state, cyc_id) = particle_j
-
-            # set particle position
-            # p_i = numpy.array(coordinate) / 1e-9
-
-            # set molecule-states
-            states[m_id] = int(s_id)
+    #     # loop for particles
+    #     for (coordinate, m_id, s_id, l_id, p_state, cyc_id) in data:
+    #         # set molecule-states
+    #         states[m_id] = int(s_id)
 
     def __update_fluorescence_photobleaching(
             self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time):
@@ -821,9 +830,7 @@ class EPIFMSimulator:
         result_budget = {}
 
         # loop for particles
-        for j, particle_j in enumerate(data):
-            (coordinate, m_id, s_id, l_id, p_state, cyc_id) = particle_j
-
+        for (coordinate, m_id, s_id, l_id, p_state, cyc_id) in data:
             # set particle position
             p_i = numpy.array(coordinate) / 1e-9
 
@@ -860,18 +867,18 @@ class EPIFMSimulator:
 
         return result_state_pb, result_budget
 
-    def __get_new_state(self, molecule_states, fluorescence_state, fluorescence_budget, count, N_emit0):
-        state_mo = molecule_states
-        state_pb = fluorescence_state[: , count]
-        budget = fluorescence_budget
+    # def __get_new_state(self, molecule_states, fluorescence_state, fluorescence_budget, count, N_emit0):
+    #     state_mo = molecule_states
+    #     state_pb = fluorescence_state[: , count]
+    #     budget = fluorescence_budget
 
-        # set additional arrays for new-dataset
-        new_state_pb = state_pb[state_mo > 0]
-        new_budget = budget[state_mo > 0]
+    #     # set additional arrays for new-dataset
+    #     new_state_pb = state_pb[state_mo > 0]
+    #     new_budget = budget[state_mo > 0]
 
-        # set new-dataset
-        state_stack = numpy.column_stack((new_state_pb, (new_budget / N_emit0).astype('int')))
-        return state_stack
+    #     # set new-dataset
+    #     state_stack = numpy.column_stack((new_state_pb, (new_budget / N_emit0).astype('int')))
+    #     return state_stack
 
     def __overlay_molecule_plane(self, camera, particle_i, p_b, p_0, true_data_i, unit_time, fluo_psfs=None):
         # p_b (ndarray): beam position (assumed to be the same with focal center), but not used.
