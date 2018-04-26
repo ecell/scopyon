@@ -1,6 +1,7 @@
 Bioimaging
 ==========
 
+[![CircleCI](https://circleci.com/gh/ecell/bioimaging.svg?style=svg)](https://circleci.com/gh/ecell/bioimaging)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/ca714025c04b456dbaa036e0275cb603)](https://www.codacy.com/app/ecell/bioimaging?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=ecell/bioimaging&amp;utm_campaign=Badge_Grade)
 
 Monte Carlo simulation toolkit for bioimaging systems
