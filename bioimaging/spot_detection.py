@@ -1,11 +1,9 @@
-import itertools
 import math
 
 import numpy
 
 import scipy.optimize
 import scipy.ndimage as ndimage
-from scipy.ndimage import gaussian_laplace
 
 from logging import getLogger
 _log = getLogger(__name__)
@@ -27,7 +25,7 @@ def moments(data):
     the gaussian parameters of a 2D distribution by calculating its
     moments
     http://scipy-cookbook.readthedocs.io/items/FittingData.html
-    
+
     """
     total = data.sum()
     X, Y = numpy.indices(data.shape)
@@ -62,7 +60,7 @@ def fitgaussian(data, opt=1):
     """Returns (height, x, y, width_x, width_y, bg)
     the gaussian parameters of a 2D distribution found by a fit
     http://scipy-cookbook.readthedocs.io/items/FittingData.html
-    
+
     """
     params = moments(data)
 

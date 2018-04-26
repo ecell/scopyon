@@ -2,10 +2,9 @@ import os.path
 import warnings
 import re
 import csv
-import copy
 import glob
 from ast import literal_eval
-from collections import namedtuple, defaultdict
+from collections import defaultdict
 
 import numpy
 

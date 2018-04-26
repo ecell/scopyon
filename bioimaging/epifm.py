@@ -1,18 +1,11 @@
-import sys
-import shutil
 import copy
 import math
-import operator
-import csv
-import string
-import ctypes
-import multiprocessing
 import warnings
 import os
 
 import numpy
 
-from scipy.special import j0, i1, i1e
+from scipy.special import j0, i1e
 from scipy.interpolate import interp1d
 from scipy.ndimage import map_coordinates
 

@@ -1,7 +1,6 @@
 import unittest
-from unittest import TestCase
 
-from bioimaging import tirfm_handler
+# from bioimaging import epifm
 
 
 class TestTirfm(unittest.TestCase):

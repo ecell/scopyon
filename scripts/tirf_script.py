@@ -1,14 +1,9 @@
-import os.path
-import pathlib
-import math
-import glob
-
 import numpy
 
 from bioimaging.io import read_spatiocyte
 from bioimaging.config import Config
 from bioimaging.epifm import EPIFMSimulator
-from bioimaging.image import convert_npy_to_8bit_image, convert_8bit, save_image_with_spots, show_with_spots, save_image
+from bioimaging.image import convert_8bit, save_image_with_spots, show_with_spots, save_image
 from bioimaging.spot_detection import spot_detection, blob_detection
 
 
@@ -25,6 +20,8 @@ def test_tirf() :
     rng = numpy.random.RandomState(rndseed)
 
     ## read input data
+    # import os.path
+    # import glob
     # (input_data, lengths) = read_spatiocyte(t0, t1, input_filename=os.path.join(input_path, 'pt-input.csv'), filenames=glob.glob(os.path.join(input_path, 'pt-000000??0.0.csv')), observable='S', max_count=max_count)
     (input_data, lengths) = read_spatiocyte(t0, t1, pathto=input_path, observable='S', max_count=max_count)
 
