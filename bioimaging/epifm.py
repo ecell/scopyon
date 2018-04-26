@@ -762,13 +762,6 @@ class EPIFMSimulator:
         # beam position: Assuming beam position = focal point (for temporary)
         p_b = copy.copy(p_0)
 
-        # # define cell in nm-scale
-        # Nw_pixel, Nh_pixel = self.configs.detector_image_size  # in pixels
-        # pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification / 1e-9  # in nm
-        # Lw, Lh = Nw_pixel * pixel_length, Nh_pixel * pixel_length  # in nm
-        # Nw, Nh = math.ceil(Lw), math.ceil(Lh)
-        # cell = numpy.zeros(shape=(Nw, Nh))
-
         # camera pixels
         Nw_pixel, Nh_pixel = self.configs.detector_image_size  # pixels
         pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification / 1e-9  # nm
@@ -794,12 +787,10 @@ class EPIFMSimulator:
 
             # loop for particles
             for j, particle_j in enumerate(particles):
-                self.__overlay_molecule_plane(camera_pixel[: , : , 0], j, particle_j, p_b, p_0, true_data, unit_time, fluo_psfs)
-                # self.__overlay_molecule_plane(cell, j, particle_j, p_b, p_0, true_data, unit_time, fluo_psfs)
+                self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0, true_data[j], unit_time, fluo_psfs)
 
-        # convert image in pixel-scale
+        # apply detector effects
         camera, true_data = self.__detector_output(rng, camera_pixel, true_data)
-        # camera, true_data = self.__detector_output(rng, cell, true_data)
         return (camera, true_data)
 
     def __initialize_molecular_states(self, states, count, data):
@@ -892,89 +883,20 @@ class EPIFMSimulator:
         state_stack = numpy.column_stack((new_state_pb, (new_budget / N_emit0).astype('int')))
         return state_stack
 
-    # def __overlay_molecule_plane(self, cell, j, particle_j, p_b, p_0, true_data, unit_time, fluo_psfs=None):
-    #     # particles coordinate, species and lattice-IDs
-    #     coordinate, m_id, s_id, _, p_state, _ = particle_j
+    def __overlay_molecule_plane(self, camera, particle_i, p_b, p_0, true_data_i, unit_time, fluo_psfs=None):
+        # p_b (ndarray): beam position (assumed to be the same with focal center), but not used.
+        # p_0 (ndarray): focal center
 
-    #     p_i = numpy.array(coordinate) / 1e-9
-
-    #     # Snell's law
-    #     amplitude, penet_depth = self.__snells_law(p_i, p_0)
-
-    #     # particles coordinate in real(nm) scale
-    #     p_i, radial, depth = _rotate_coordinate(p_i, p_0)
-
-    #     # get exponential amplitude (only for TIRFM-configuration)
-    #     amplitude = amplitude * numpy.exp(-depth / penet_depth)
-
-    #     # get signal matrix
-    #     signal = self.__get_signal(amplitude, radial, depth, p_state, unit_time, fluo_psfs)
-
-    #     # add signal matrix to image plane
-    #     self.__overlay_signal(cell, signal, p_i, p_0)
-    #     # self.overwrite_signal(cell, signal, p_i)
-
-    #     # set true-dataset
-    #     true_data[j, 1] = m_id # molecule-ID
-    #     true_data[j, 2] = int(s_id) # sid_index # molecular-state
-    #     true_data[j, 3] = p_state # photon-state
-    #     true_data[j, 4] = p_i[2] # Y-coordinate in the image-plane
-    #     true_data[j, 5] = p_i[1] # X-coordinate in the image-plane
-    #     true_data[j, 6] = depth  # Depth from focal-plane
-
-    # def __overlay_signal(self, cell, signal, p_i, p_0):
-    #     # particle position
-    #     _, yi, zi = p_i  # rotated particle position
-    #     _, y0, z0 = p_0  # focal center
-
-    #     z0_from = math.floor((zi - signal.shape[0] / 2) - (z0 - cell.shape[0] / 2))
-    #     zi_from = 0
-    #     w = signal.shape[0]
-    #     if z0_from > cell.shape[0] or z0_from + w < 0:
-    #         return
-    #     elif z0_from < 0:
-    #         w += z0_from
-    #         zi_from = -z0_from
-    #         z0_from = 0
-    #     elif z0_from + w > cell.shape[0]:
-    #         w = cell.shape[0] - z0_from
-
-    #     y0_from = math.floor((yi - signal.shape[1] / 2) - (y0 - cell.shape[1] / 2))
-    #     yi_from = 0
-    #     h = signal.shape[1]
-    #     if y0_from > cell.shape[1] or y0_from + h < 0:
-    #         return
-    #     elif y0_from < 0:
-    #         h += y0_from
-    #         yi_from = -y0_from
-    #         y0_from = 0
-    #     elif y0_from + h > cell.shape[1]:
-    #         h = cell.shape[1] - y0_from
-
-    #     assert 0 <= z0_from and z0_from + w <= cell.shape[0]
-    #     assert 0 <= y0_from and y0_from + h <= cell.shape[1]
-    #     assert 0 <= zi_from and zi_from + w <= signal.shape[0]
-    #     assert 0 <= yi_from and yi_from + h <= signal.shape[1]
-
-    #     cell[z0_from: z0_from + w, y0_from: y0_from + h] += signal[zi_from: zi_from + w, yi_from: yi_from + h]
-
-    def __overlay_molecule_plane(self, camera, j, particle_j, p_b, p_0, true_data, unit_time, fluo_psfs=None):
-        """
-
-        p_b (ndarray): beam position (assumed to be the same with focal center), but not used.
-        p_0 (ndarray): focal center
-
-        """
         # particles coordinate, species and lattice-IDs
-        coordinate, m_id, s_id, _, p_state, _ = particle_j
+        coordinate, m_id, s_id, _, p_state, _ = particle_i
 
-        p_j = numpy.array(coordinate) / 1e-9
+        p_i = numpy.array(coordinate) / 1e-9
 
         # Snell's law
-        amplitude, penet_depth = self.__snells_law(p_j, p_0)
+        amplitude, penet_depth = self.__snells_law(p_i, p_0)
 
         # particles coordinate in real(nm) scale
-        p_j, radial, depth = _rotate_coordinate(p_j, p_0)
+        p_i, radial, depth = _rotate_coordinate(p_i, p_0)
 
         # get exponential amplitude (only for TIRFM-configuration)
         amplitude = amplitude * numpy.exp(-depth / penet_depth)
@@ -983,15 +905,15 @@ class EPIFMSimulator:
         signal = self.__get_signal(amplitude, radial, depth, p_state, unit_time, fluo_psfs)
 
         # add signal matrix to image plane
-        self.__overlay_signal(camera, signal, p_j, p_0)
+        self.__overlay_signal(camera, signal, p_i, p_0)
 
         # set true-dataset
-        true_data[j, 1] = m_id # molecule-ID
-        true_data[j, 2] = int(s_id) # sid_index # molecular-state
-        true_data[j, 3] = p_state # photon-state
-        true_data[j, 4] = p_j[2] # Y-coordinate in the image-plane
-        true_data[j, 5] = p_j[1] # X-coordinate in the image-plane
-        true_data[j, 6] = depth  # Depth from focal-plane
+        true_data_i[1] = m_id # molecule-ID
+        true_data_i[2] = int(s_id) # sid_index # molecular-state
+        true_data_i[3] = p_state # photon-state
+        true_data_i[4] = p_i[2] # Y-coordinate in the image-plane
+        true_data_i[5] = p_i[1] # X-coordinate in the image-plane
+        true_data_i[6] = depth  # Depth from focal-plane
 
     def __overlay_signal(self, camera, signal, p_i, p_0):
         # camera pixel
@@ -1328,7 +1250,6 @@ class EPIFMSimulator:
 
         return prob
 
-    # def __detector_output(self, rng, cell, true_data):
     def __detector_output(self, rng, camera_pixel, true_data):
         focal_center = numpy.asarray(self.configs.detector_focal_point)
 
@@ -1338,33 +1259,6 @@ class EPIFMSimulator:
 
         _log.info('scaling [nm/pixel]: {}'.format(pixel_length))
         _log.info('center (width, height): {} {}'.format(z0, y0))
-
-        # camera_pixel = numpy.zeros((Nw_pixel, Nh_pixel, 2))
-
-        # for i in range(Nw_pixel):
-        #     for j in range(Nh_pixel):
-        #         i0 = max(math.floor(((2 * i - Nw_pixel) * pixel_length + cell.shape[0]) / 2), 0)
-        #         i1 = min(math.floor(((2 * (i + 1) - Nw_pixel) * pixel_length + cell.shape[0]) / 2), cell.shape[0])
-        #         j0 = max(math.floor(((2 * j - Nh_pixel) * pixel_length + cell.shape[1]) / 2), 0)
-        #         j1 = min(math.floor(((2 * (j + 1) - Nh_pixel) * pixel_length + cell.shape[1]) / 2), cell.shape[1])
-        #         if i0 >= i1 or j0 >= j1:
-        #             continue
-
-        #         photons = cell[i0: i1, j0: j1].sum()
-        #         if photons <= 0:
-        #             continue
-
-        #         # get crosstalk
-        #         if self.effects.crosstalk_switch is True:
-        #             n_i, n_j = rng.normal(0, self.effects.crosstalk_width, int(photons), 2)
-
-        #             smeared_photons, edge_i, edge_j = numpy.histogram2d(
-        #                 n_i, n_j, bins=(24, 24), range=[[-12, 12], [-12, 12]])
-
-        #             # smeared photon distributions
-        #             camera_pixel[: , : , 0] = self.__overwrite_smeared(camera_pixel[: , : , 0], smeared_photons, i, j)
-        #         else:
-        #             camera_pixel[i, j, 0] = photons
 
         if self.effects.crosstalk_switch is True:
             for i in range(Nw_pixel):
