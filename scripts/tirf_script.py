@@ -3,8 +3,6 @@ import numpy
 from bioimaging.io import read_spatiocyte
 from bioimaging.config import Config
 from bioimaging.epifm import EPIFMSimulator
-from bioimaging.image import convert_8bit, save_image_with_spots, show_with_spots, save_image
-from bioimaging.spot_detection import spot_detection, blob_detection
 
 
 def test_tirf() :

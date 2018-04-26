@@ -2,8 +2,6 @@ import functools
 
 import numpy
 
-from .configbase import _Config
-
 from logging import getLogger
 _log = getLogger(__name__)
 
@@ -138,7 +136,6 @@ class PhysicalEffects:
     def get_photobleaching_property(self, dt, n_emit0, rng):
         # set the photobleaching-time
         tau0  = self.photobleaching_tau0
-        alpha = self.photobleaching_alpha
 
         # set photon budget
         photon0 = (tau0/dt)*n_emit0
@@ -168,7 +165,7 @@ class PhysicalEffects:
         prob_func = functools.partial(levy_probability_function, t0=tau0, a=alpha)
 
         # set photon budget
-        photon0 = tau0 * N_emit0
+        # photon0 = tau0 * N_emit0
 
         dt = tau0 * 1e-3
         tau_bleach = numpy.arange(tau0, 50001 * tau0, dt)
@@ -201,7 +198,7 @@ class PhysicalEffects:
         alpha = self.photobleaching_alpha
 
         # set photon budget
-        #photon0 = (tau0/dt)*N_emit0
+        # photon0 = (tau0/dt)*N_emit0
         photon0 = (tau0/dt)*1.0
 
         tau_bleach = numpy.array([j*dt+tau0 for j in range(NNN)])

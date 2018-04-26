@@ -474,8 +474,8 @@ class _EPIFMConfigs:
         return psf
 
 def _rotate_coordinate(p_i, p_0):
-    x_0, y_0, z_0 = p_0
-    x_i, y_i, z_i = p_i
+    _, y_0, z_0 = p_0
+    _, y_i, z_i = p_i
 
     # Rotation of focal plane
     cos_th0 = 1
@@ -615,7 +615,7 @@ class EPIFMSimulator:
         p_0 = numpy.asarray(self.configs.detector_focal_point)
 
         # beam position: Assuming beam position = focal point (for temporary)
-        p_b = copy.copy(p_0)
+        # p_b = copy.copy(p_0)
 
         # Snell's law
         amplitude0, penet_depth = self.__snells_law(p_0, p_0)
@@ -757,7 +757,6 @@ class EPIFMSimulator:
 
         # camera pixels
         Nw_pixel, Nh_pixel = self.configs.detector_image_size  # pixels
-        pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification / 1e-9  # nm
         camera_pixel = numpy.zeros((Nw_pixel, Nh_pixel, 2))
 
         # loop for frame data
@@ -834,7 +833,7 @@ class EPIFMSimulator:
             amplitude, penet_depth = self.__snells_law(p_i, p_0)
 
             # particle coordinate in real(nm) scale
-            p_i, radial, depth = _rotate_coordinate(p_i, p_0)
+            p_i, _, depth = _rotate_coordinate(p_i, p_0)
 
             state_j = 1  # particles given is always observable. already filtered when read
 
@@ -1030,7 +1029,7 @@ class EPIFMSimulator:
         # index of refraction
         n_1 = 1.46  # fused silica
         n_2 = 1.384 # cell
-        n_3 = 1.337 # culture medium
+        # n_3 = 1.337 # culture medium
 
         r  = n_2/n_1
         r2 = r**2
@@ -1172,7 +1171,7 @@ class EPIFMSimulator:
 
         if (i_to > Ni_pixel):
             di_to = i_to - Ni_pixel
-            i10_to = int(Ni_pixel)
+            # i10_to = int(Ni_pixel)  #XXX: Is this a typo of 'i0_to'?
             i1_to = int(Ni_pe - di_to)
         else:
             di_to = Ni_pixel - (i + Ni_pe/2)
