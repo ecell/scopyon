@@ -13,6 +13,14 @@ jobs:
     steps:
       - checkout
 
+
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+          - v1-dependencies-{{ checksum "requirements.txt" }}
+          # fallback to using the latest cache if no exact match is found
+          - v1-dependencies-
+
       - run:
           name: install dependencies
           command: |
@@ -21,15 +29,22 @@ jobs:
             pip install --upgrade pip | cat && test ${PIPESTATUS} -eq 0
             pip install --progress-bar=off -r requirements.txt
 
+      - save_cache:
+          paths:
+            - ./venv
+          key: v1-dependencies-{{ checksum "requirements.txt" }}
+
       - run:
           name: run tests
           command: |
+            . venv/bin/activate
             python setup.py test
 
       - run:
           name: build wheels
           command: |
-            pip install wheel
+            . venv/bin/activate
+            pip install --progress-bar=off wheel
             python setup.py bdist_wheel
 
       - store_artifacts:
