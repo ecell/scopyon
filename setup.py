@@ -4,6 +4,8 @@ from setuptools import setup
 import os.path
 
 
+install_requires = [pkg_name.rstrip('\r\n') for pkg_name in open('requirements.txt').readlines()]
+
 # version
 here = os.path.dirname(os.path.abspath(__file__))
 version = next(
@@ -23,7 +25,7 @@ setup(
     packages=['bioimaging'],
     package_dir={'bioimaging': 'bioimaging'},
     package_data={'bioimaging': ['default_parameters.ini', 'catalog/*.txt', 'catalog/*/*.csv']},
-    install_requires=['numpy', 'scipy'],
+    install_requires=install_requires,
     test_suite='test',
     license='BSD-3-Clause',
     classifiers=[
