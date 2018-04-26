@@ -16,6 +16,8 @@ jobs:
       - run:
           name: install dependencies
           command: |
+            python3 -m venv venv
+            . venv/bin/activate
             pip install --upgrade pip | cat && test ${PIPESTATUS} -eq 0
             pip install --progress-bar=off -r requirements.txt
 
@@ -27,7 +29,7 @@ jobs:
       - run:
           name: build wheels
           command: |
-            # pip install wheel
+            pip install wheel
             python setup.py bdist_wheel
 
       - store_artifacts:
