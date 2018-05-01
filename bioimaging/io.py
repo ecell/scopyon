@@ -149,7 +149,7 @@ def read_inputs(filenames, tstart, tend, observables=None, max_count=None):
                     p_state, cyc_id = 1.0, float('inf')
 
                 if observables is None or int(id1[1]) in observables:
-                    particles.append((coordinate, id1[0], id1[1], id2[1], p_state, cyc_id))
+                    particles.append((coordinate[0], coordinate[1], coordinate[2], id1[0], id1[1], id2[1], p_state, cyc_id))
 
                 if t != t_:
                     raise RuntimeError('File [{}] contains multiple time'.format(csv_file_path))
@@ -157,6 +157,8 @@ def read_inputs(filenames, tstart, tend, observables=None, max_count=None):
         # Just for debugging
         if max_count is not None and len(particles) > max_count:
             particles = particles[: max_count]
+
+        particles = numpy.array(particles, dtype='f8, f8, f8, i4, i4, i4, f8, f8')
 
         _log.debug('File [{}] was loaded. [t={}, #particles={}]'.format(filename, t, len(particles)))
         data.append([t, particles])

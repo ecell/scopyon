@@ -591,7 +591,7 @@ class EPIFMSimulator:
 
         Args:
             input_data (list): An input data. A list of pairs of time and a list of particles.
-                Each particle is represented as a list of numbers: a coordinate (a triplet of floats),
+                Each particle is represented as a list of numbers: a coordinate (x, y, z),
                 molecule id, species id, and location id (and optionally a state of fluorecent
                 and photon budget).
                 The number of particles in each frame must be static.
@@ -640,9 +640,11 @@ class EPIFMSimulator:
             molecule_states.fill(0.0)
 
             # loop for particles
-            for (coordinate, m_id, s_id, l_id, p_state, cyc_id) in particles:
+            # for (x, y, z, m_id, s_id, l_id, p_state, cyc_id) in particles:
+            for particle in particles:
+                m_id, s_id = particle[3], particle[4]
                 # set molecule-states
-                molecule_states[m_id] = int(s_id)
+                molecule_states[m_id] = s_id  # s_id
 
             N_emit0 = self.__get_emit_photons(amplitude0, unit_time)
 
@@ -662,8 +664,10 @@ class EPIFMSimulator:
 
             new_particles = []
             for particle_j, (new_p_state, new_cyc_id) in zip(particles, new_state):
-                (coordinate, m_id, s_id, l_id, p_state, cyc_id) = particle_j
-                new_particles.append((coordinate, m_id, s_id, l_id, new_p_state, new_cyc_id))
+                new_particle = (*tuple(particle_j)[: 6], new_p_state, new_cyc_id)
+                new_particles.append(new_particle)
+
+            new_particles = numpy.array(new_particles, dtype='f8, f8, f8, i4, i4, i4, f8, f8')
             new_data.append((t, new_particles))
 
         return new_data
@@ -732,7 +736,7 @@ class EPIFMSimulator:
 
         Args:
             input_data (list): An input data. A list of pairs of time and a list of particles.
-                Each particle is represented as a list of numbers: a coordinate (a triplet of floats),
+                Each particle is represented as a list of numbers: a coordinate (x, y, z),
                 molecule id, species id, and location id (and optionally a state of fluorecent
                 and photon budget).
                 The number of particles in each frame must be static.
@@ -790,8 +794,10 @@ class EPIFMSimulator:
             true_data[: , 0] = t
 
             # loop for particles
-            for j, particle_j in enumerate(particles):
-                self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0, true_data[j], unit_time, fluo_psfs)
+            # for j, particle_j in enumerate(particles):
+            #     self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0, true_data[j], unit_time, fluo_psfs)
+            for particle_j, true_data_j in zip(particles, true_data):
+                self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0, true_data_j, unit_time, fluo_psfs)
 
         # apply detector effects
         camera, true_data = self.__detector_output(rng, camera_pixel, true_data)
@@ -830,9 +836,13 @@ class EPIFMSimulator:
         result_budget = {}
 
         # loop for particles
-        for (coordinate, m_id, s_id, l_id, p_state, cyc_id) in data:
+        # for (x, y, z, m_id, s_id, l_id, p_state, cyc_id) in data:
+        for particle in data:
+            x, y, z, m_id = particle[0], particle[1], particle[2], particle[3]
+
             # set particle position
-            p_i = numpy.array(coordinate) / 1e-9
+            # p_i = numpy.array(coordinate) / 1e-9
+            p_i = numpy.array([x, y, z]) / 1e-9
 
             # Snell's law
             amplitude, penet_depth = self.__snells_law(p_i, p_0)
@@ -855,7 +865,7 @@ class EPIFMSimulator:
             # reset photon-budget
             photons = budget - N_emit * state_j
 
-            if (photons > 0):
+            if photons > 0:
                 budget = photons
                 state_pb = state_j
             else:
@@ -885,9 +895,9 @@ class EPIFMSimulator:
         # p_0 (ndarray): focal center
 
         # particles coordinate, species and lattice-IDs
-        coordinate, m_id, s_id, _, p_state, _ = particle_i
+        x, y, z, m_id, s_id, _, p_state, _ = particle_i
 
-        p_i = numpy.array(coordinate) / 1e-9
+        p_i = numpy.array([x, y, z]) / 1e-9
 
         # Snell's law
         amplitude, penet_depth = self.__snells_law(p_i, p_0)
