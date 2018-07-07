@@ -10,21 +10,24 @@ install_requires = [pkg_name.rstrip('\r\n') for pkg_name in open('requirements.t
 here = os.path.dirname(os.path.abspath(__file__))
 version = next(
     (line.split('=')[1].strip().replace("'", '')
-     for line in open(os.path.join(here, 'bioimaging', '__init__.py'))
+     for line in open(os.path.join(here, 'scopyon', '__init__.py'))
      if line.startswith('__version__ = ')),
     '0.0.dev0')  ## default
 
 setup(
-    name='bioimaging',
+    name='scopyon',
     version=version,
+    url='https://github.com/ecell/scopyon',
     description='Monte Carlo simulation toolkit for bioimaging systems',
+    long_description=open('README.md').read(),
+    long_description_content_type='text/markdown',
     author='Masaki Watabe',
     author_email='masaki@riken.jp',
     maintainer='Kazunari Kaizu',
     maintainer_email='kaizu@riken.jp',
-    packages=['bioimaging'],
-    package_dir={'bioimaging': 'bioimaging'},
-    package_data={'bioimaging': ['default_parameters.ini', 'catalog/*.txt', 'catalog/*/*.csv']},
+    packages=['scopyon'],
+    package_dir={'scopyon': 'scopyon'},
+    package_data={'scopyon': ['default_parameters.ini', 'catalog/*.txt', 'catalog/*/*.csv']},
     install_requires=install_requires,
     test_suite='test',
     license='BSD-3-Clause',
