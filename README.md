@@ -1,6 +1,7 @@
 scopyon
 =======
 
+[![PyPI version](https://badge.fury.io/py/scopyon.svg)](https://badge.fury.io/py/scopyon)
 [![CircleCI](https://circleci.com/gh/ecell/scopyon.svg?style=svg)](https://circleci.com/gh/ecell/scopyon)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/ca714025c04b456dbaa036e0275cb603)](https://www.codacy.com/app/ecell/scopyon?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=ecell/scopyon&amp;utm_campaign=Badge_Grade)
 
