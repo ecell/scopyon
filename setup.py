@@ -2,6 +2,7 @@
 
 from setuptools import setup
 import os.path
+import glob
 
 
 install_requires = [pkg_name.rstrip('\r\n') for pkg_name in open('requirements.txt').readlines()]
@@ -28,6 +29,7 @@ setup(
     packages=['scopyon'],
     package_dir={'scopyon': 'scopyon'},
     package_data={'scopyon': ['default_parameters.ini', 'catalog/*.txt', 'catalog/*/*.csv']},
+    data_files=[('examples', ['examples/tirf_script.py']), ('examples/data/inputs_epifm', glob.glob('examples/data/inputs_epifm/*.csv')), ('examples/data/outputs_tirf', glob.glob('examples/data/outputs_tirf/*.png'))],
     install_requires=install_requires,
     test_suite='test',
     license='BSD-3-Clause',

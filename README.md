@@ -1,5 +1,5 @@
-Bioimaging
-==========
+scopyon
+=======
 
 [![CircleCI](https://circleci.com/gh/ecell/scopyon.svg?style=svg)](https://circleci.com/gh/ecell/scopyon)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/ca714025c04b456dbaa036e0275cb603)](https://www.codacy.com/app/ecell/scopyon?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=ecell/scopyon&amp;utm_campaign=Badge_Grade)
@@ -9,7 +9,7 @@ Monte Carlo simulation toolkit for bioimaging systems
 Requirements
 ------------
 
-For `scopyon`, Python 3 and its libraries, `numpy`, `scipy` and `matplotlib`, are required. `scikit-image` is also needed by `bioimaing.spot_detection`.
+For `scopyon`, Python 3 and its libraries, `numpy`, `scipy` and `matplotlib`, are required. `scikit-image` is also needed by `scopyon.spot_detection`.
 
 Quick start
 -----------
@@ -19,10 +19,10 @@ $ python setup.py test install
 ```
 
 ```
-$ python scripts/tirf_script.py
+$ python examples/tirf_script.py
 ```
 
-![TIRF Image](https://github.com/ecell/scopyon/raw/master/scripts/data/outputs_tirf/image_0000000.png)
+![TIRF Image](https://github.com/ecell/scopyon/raw/master/examples/data/outputs_tirf/image_0000000.png)
 
 License
 -------
