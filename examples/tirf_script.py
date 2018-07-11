@@ -1,8 +1,8 @@
 import numpy
 
-from bioimaging.io import read_spatiocyte
-from bioimaging.config import Config
-from bioimaging.epifm import EPIFMSimulator
+from scopyon.io import read_spatiocyte
+from scopyon.config import Config
+from scopyon.epifm import EPIFMSimulator
 
 
 def test_tirf() :
@@ -12,8 +12,8 @@ def test_tirf() :
     max_count = None # 20
     rndseed = 0
     cmin, cmax = 1900, 2500
-    input_path = './scripts/data/inputs_epifm'
-    output_path = './scripts/data/outputs_tirf'
+    input_path = './examples/data/inputs_epifm'
+    output_path = './examples/data/outputs_tirf'
 
     rng = numpy.random.RandomState(rndseed)
 
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     handler = logging.StreamHandler()
     fmt = logging.Formatter(logging.BASIC_FORMAT)
     handler.setFormatter(fmt)
-    log = logging.getLogger('bioimaging')
+    log = logging.getLogger('scopyon')
     log.addHandler(handler)
     log.setLevel(logging.DEBUG)
 

@@ -701,7 +701,7 @@ class EPIFMSimulator:
             high (int, optional): A maximum value used to generate 8-bit images.
                 Defaults to 255.
             cmap (matplotlib.colors.ColorMap): A color map to visualize images.
-                See also `bioimaging.image.convert_8bit`.
+                See also `scopyon.image.convert_8bit`.
             rng (numpy.RandomState, optional): A random number generator.
 
         """
