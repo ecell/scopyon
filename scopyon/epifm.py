@@ -945,17 +945,22 @@ class EPIFMSimulator:
         jmin = max(jmin, 0)
         jmax = min(jmax, camera.shape[1])
 
-        for i in range(imin, imax):
-            for j in range(jmin, jmax):
-                i0 = (i * pixel_length - dz) / signal_resolution
-                i0 = max(math.floor(i0), 0)
-                i1 = ((i + 1) * pixel_length - dz) / signal_resolution
-                i1 = min(math.floor(i1), signal.shape[0])
-                j0 = (j * pixel_length - dy) / signal_resolution
-                j0 = max(math.floor(j0), 0)
-                j1 = ((j + 1) * pixel_length - dy) / signal_resolution
-                j1 = min(math.floor(j1), signal.shape[1])
-                if i0 >= i1 or j0 >= j1:
+        iarray = numpy.arange(imin, imax + 1)
+        ibottom = (iarray[: -1] * pixel_length - dz) / signal_resolution
+        ibottom = numpy.maximum(numpy.floor(ibottom).astype(int), 0)
+        itop = (iarray[1: ] * pixel_length - dz) / signal_resolution
+        itop = numpy.minimum(numpy.floor(itop).astype(int), signal.shape[0])
+        jarray = numpy.arange(jmin, jmax)
+        jbottom = (jarray[: -1] * pixel_length - dy) / signal_resolution
+        jbottom = numpy.maximum(numpy.floor(jbottom).astype(int), 0)
+        jtop = (jarray[1: ] * pixel_length - dy) / signal_resolution
+        jtop = numpy.minimum(numpy.floor(jtop).astype(int), signal.shape[1])
+
+        for i, i0, i1 in zip(iarray[: -1], ibottom, itop):
+            if i0 >= i1:
+                continue
+            for j, j0, j1 in zip(jarray[: -1], jbottom, jtop):
+                if j0 >= j1:
                     continue
 
                 photons = signal[i0: i1, j0: j1].sum()
