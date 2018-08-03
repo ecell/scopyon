@@ -21,10 +21,10 @@ $ python setup.py test install
 ```
 
 ```
-$ python examples/tirf_script.py
+$ python examples/two_color.py
 ```
 
-![TIRF Image](https://github.com/ecell/scopyon/raw/master/examples/data/outputs_tirf/image_0000000.png)
+![TIRF Image](https://github.com/ecell/scopyon/raw/master/examples/data/outputs_tirf/twocolor_0000000.png)
 
 License
 -------
