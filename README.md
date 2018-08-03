@@ -21,7 +21,7 @@ $ python setup.py test install
 ```
 
 ```
-$ python examples/two_color.py
+$ python examples/twocolor_script.py
 ```
 
 ![TIRF Image](https://github.com/ecell/scopyon/raw/master/examples/data/outputs_tirf/twocolor_0000000.png)
