@@ -537,8 +537,9 @@ def _polar2cartesian(grid, coordinates, shape):
     return psf_cart
 
 class EPIFMSimulator:
-    """A class of the simulator for Epifluorescence microscopy (EPI).
-    """
+    '''
+    A class of the simulator for Epifluorescence microscopy (EPI).
+    '''
 
     def __init__(self, config=None, rng=None):
         """A constructor of EPIFMSimulator.
