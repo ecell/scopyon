@@ -629,6 +629,7 @@ class EPIFMSimulator:
 
         new_data = []
         molecule_states = numpy.zeros(shape=(N_particles))
+        m_id_map = {}
         for k, (t, particles) in enumerate(input_data):
             next_time = input_data[k + 1][0] if k + 1 < len(input_data) else end_time
             unit_time = next_time - t
@@ -643,13 +644,19 @@ class EPIFMSimulator:
             # for (x, y, z, m_id, s_id, l_id, p_state, cyc_id) in particles:
             for particle in particles:
                 m_id, s_id = particle[3], particle[4]
+                # molecule_states[m_id] = s_id  # s_id
+                if m_id in m_id_map:
+                    m_idx = m_id_map[m_id]
+                else:
+                    m_idx = len(m_id_map)
+                    m_id_map[m_id] = m_idx
                 # set molecule-states
-                molecule_states[m_id] = s_id  # s_id
+                molecule_states[m_idx] = s_id  # s_id
 
             N_emit0 = self.__get_emit_photons(amplitude0, unit_time)
 
             # set photobleaching-dataset arrays
-            self.__update_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, k, particles, p_0, unit_time)
+            self.__update_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, k, particles, p_0, unit_time, m_id_map)
 
             # get new-dataset
             # new_state = self.__get_new_state(molecule_states, fluorescence_state, fluorescence_budget, k, N_emit0)
@@ -813,12 +820,12 @@ class EPIFMSimulator:
     #         states[m_id] = int(s_id)
 
     def __update_fluorescence_photobleaching(
-            self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time):
+            self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time, m_id_map):
         if len(data) == 0:
             return
 
         state_pb, budget = self.__get_fluorescence_photobleaching(
-            fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time)
+            fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time, m_id_map)
 
         # reset global-arrays for photobleaching-state and photon-budget
         for key, value in state_pb.items():
@@ -827,7 +834,7 @@ class EPIFMSimulator:
             # self.effects.fluorescence_state[key,count] = state_pb[key]
             # self.effects.fluorescence_budget[key] = budget[key]
 
-    def __get_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time):
+    def __get_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time, m_id_map):
         # get focal point
         p_0 = focal_center
 
@@ -859,8 +866,9 @@ class EPIFMSimulator:
             N_emit = self.__get_emit_photons(amplitude, unit_time)
 
             # get global-arrays for photobleaching-state and photon-budget
-            state_pb = fluorescence_state[m_id, count]
-            budget = fluorescence_budget[m_id]
+            m_idx = m_id_map[m_id]
+            state_pb = fluorescence_state[m_idx, count]
+            budget = fluorescence_budget[m_idx]
 
             # reset photon-budget
             photons = budget - N_emit * state_j
@@ -872,8 +880,8 @@ class EPIFMSimulator:
                 budget = 0
                 state_pb = 0
 
-            result_state_pb[m_id] = state_pb
-            result_budget[m_id] = budget
+            result_state_pb[m_idx] = state_pb
+            result_budget[m_idx] = budget
 
         return result_state_pb, result_budget
 

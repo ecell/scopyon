@@ -44,6 +44,7 @@ def read_spatiocyte(tstart, tend, pathto=None, input_filename=None, filenames=No
                        if re.search(observable, sp_id) is not None]
     else:
         observables = None
+    print('observables = {}'.format(observables))
 
     if filenames is None:
         if pathto is None:
@@ -148,7 +149,7 @@ def read_inputs(filenames, tstart, tend, observables=None, max_count=None):
                 else:
                     p_state, cyc_id = 1.0, float('inf')
 
-                if observables is None or int(id1[1]) in observables:
+                if observables is None or int(id2[1]) in observables:
                     particles.append((coordinate[0], coordinate[1], coordinate[2], id1[0], id1[1], id2[1], p_state, cyc_id))
 
                 if t != t_:
