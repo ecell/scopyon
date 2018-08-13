@@ -38,7 +38,7 @@ class _Config:
             else:
                 raise ValueError("Argument [conf] must be either 'str' or 'dict'.")
         else:
-            filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'default_parameters.ini')
+            filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'defaults.ini')
             self.read(filename)
 
     def read_string(self, config):
