@@ -114,7 +114,7 @@ def move_points(rng, points, D, dt, lengths=None):
         fluorophore_id = int(fluorophore_id)
         for dim in range(ndim):
             if D[fluorophore_id][dim] > 0:
-                ret[i , dim] = numpy.random.normal(0.0, 2 * D[fluorophore_id][dim] * dt)
+                ret[i, dim] += numpy.random.normal(0.0, 2 * D[fluorophore_id][dim] * dt)
 
     if lengths is not None:
         for dim in range(ndim):
@@ -188,7 +188,7 @@ def attempt_reactions(rng, points, dt, transitions=None, degradation=None, synth
 
 if __name__ == "__main__":
     import numpy
-    from .samples import generate_points
+    from .samples import generate_points, move_points, attempt_reactions
 
 
     rng = numpy.random.RandomState(0)
