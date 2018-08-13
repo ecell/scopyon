@@ -50,6 +50,9 @@ class _Config:
                 self.__update(opt, ast.literal_eval(val))  #XXX: None is accepted here for compatibility
 
     def read(self, filename):
+        if not os.path.isfile(filename):
+            raise IOError('No such file [{}].'.format(filename))
+
         parser = configparser.SafeConfigParser()
         parser.optionxform = str  # Preserving case
         parser.read(filename)
