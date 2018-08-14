@@ -12,7 +12,7 @@ def test_samples():
     rndseed = 0
     rng = numpy.random.RandomState(rndseed)
 
-    exposure_time = 0.33
+    exposure_time = 33e-3
     cmin, cmax = 1900, 2500
     low, high = 0, 255
 
@@ -25,7 +25,7 @@ def test_samples():
     lower = numpy.array([3.26599e-08, 0.0, 0.0])
     upper = numpy.array([3.26599e-08, 50033.2e-9, 50060e-9])
     lengths = upper - lower
-    dt = 33e-3
+    dt = exposure_time
     N1 = 120
     N2 = 60
     D1 = 0.1e-6

@@ -49,9 +49,9 @@ def generate_points(rng, N=None, conc=None, lower=None, upper=None, start=0, flu
         lengths = upper - lower
         size = numpy.multiply.reduce(lengths[lengths != 0])
         if isinstance(conc, collections.Iterable):
-            N_list = [numpy.random.poisson(size * conc_) for conc_ in conc]
+            N_list = [rng.poisson(size * conc_) for conc_ in conc]
         else:
-            N_list = [numpy.random.poisson(size * conc)]
+            N_list = [rng.poisson(size * conc)]
     elif not isinstance(N, collections.Iterable):
         N_list = [N]
     else:
@@ -114,7 +114,7 @@ def move_points(rng, points, D, dt, lengths=None):
         fluorophore_id = int(fluorophore_id)
         for dim in range(ndim):
             if D[fluorophore_id][dim] > 0:
-                ret[i, dim] += numpy.random.normal(0.0, 2 * D[fluorophore_id][dim] * dt)
+                ret[i, dim] += rng.normal(0.0, 2 * D[fluorophore_id][dim] * dt)
 
     if lengths is not None:
         for dim in range(ndim):
@@ -160,7 +160,7 @@ def attempt_reactions(rng, points, dt, transitions=None, degradation=None, synth
 
         n, m = Pacc.shape
 
-        rnd = numpy.random.uniform(size=len(ret))
+        rnd = rng.uniform(size=len(ret))
         for i, fluorophore_id in enumerate(ret[: , ndim + 2]):
             fluorophore_id = int(fluorophore_id)
             assert 0 <= fluorophore_id < n
@@ -173,7 +173,7 @@ def attempt_reactions(rng, points, dt, transitions=None, degradation=None, synth
         Pacc = 1.0 - numpy.exp(-degradation * dt)
         Pacc = numpy.add.accumulate(Pacc)
 
-        rnd = numpy.random.uniform(size=len(ret))
+        rnd = rng.uniform(size=len(ret))
         surv = numpy.array([rnd[i] > Pacc[int(fluorophore_id)] for i, fluorophore_id in enumerate(ret[: , ndim + 2])])
         ret = ret[surv]
 
