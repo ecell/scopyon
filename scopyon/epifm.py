@@ -420,24 +420,25 @@ class _EPIFMConfigs:
         if self.emission_switch:
             I = I * 0.01 * self.emission_eff
 
-        # For normalization
-        # norm = list(map(lambda x: True if x > 1e-4 else False, I))
-        norm = (I > 1e-4)
-
         # PSF: Fluorophore
 
         if self.fluorophore_type == 'Gaussian':
-            N0 = self.psf_normalization
+            # For normalization
+            # norm = list(map(lambda x: True if x > 1e-4 else False, I))
+            norm = (I > 1e-4)
+
             # Ir = sum(list(map(lambda x: x * numpy.exp(-0.5 * (r / self.psf_width[0]) ** 2), norm)))
             # Iz = sum(list(map(lambda x: x * numpy.exp(-0.5 * (z / self.psf_width[1]) ** 2), norm)))
             Ir = norm * numpy.exp(-0.5 * numpy.power(r / self.psf_width[0], 2))
             Iz = norm * numpy.exp(-0.5 * numpy.power(r / self.psf_width[1], 2))
 
-            psf_fl = numpy.sum(I) * N0 * numpy.array(list(map(lambda x: Ir * x, Iz)))
+            psf_fl = numpy.sum(I) * numpy.array(list(map(lambda x: Ir * x, Iz)))
 
         else:
             # make the norm and wave_length array shorter
             psf_fl = numpy.sum(I) * self.get_PSF_fluorophore(r, z, wave_length)
+
+        psf_fl *= self.psf_normalization
 
         # self.fluorophore_psf = psf_fl
         # self._set_data('fluorophore_psf', psf_fl)
@@ -466,11 +467,8 @@ class _EPIFMConfigs:
         I  = numpy.array(list(map(lambda x: x * J0, Y)))
         I_sum = I.sum(axis=2)
 
-        # set normalization factor
-        Norm = self.psf_normalization
-
         # set PSF
-        psf = Norm * numpy.array(list(map(lambda x: abs(x) ** 2, I_sum)))
+        psf = numpy.array(list(map(lambda x: abs(x) ** 2, I_sum)))
         return psf
 
 def _rotate_coordinate(p_i, p_0):
@@ -739,7 +737,7 @@ class EPIFMSimulator:
                 image_file_name = os.path.join(pathto, image_fmt % (frame_index))
                 save_image(image_file_name, bytedata, cmap, low, high)
 
-    def output_frame(self, input_data, frame_index, rng=None):
+    def output_frame(self, input_data, frame_index=0, start_time=None, exposure_time=None, rng=None):
         """Output an image from the given particle data.
 
         Args:
@@ -748,14 +746,19 @@ class EPIFMSimulator:
                 molecule id, species id, and location id (and optionally a state of fluorecent
                 and photon budget).
                 The number of particles in each frame must be static.
-            frame_index (int): An index of the frame. The value must be 0 and more.
+            frame_index (int, optional): An index of the frame. The value must be 0 and more.
+                Defaults to 0.
                 See also `EPIFMSimulator.num_frames`.
+            start_time (float, optional): A time to open a shutter.
+                Defaults to `shutter_start_time` in the configuration.
+            exposure_time (float, optional): An exposure time.
+                Defaults to `detector_exposure_time` in the configuration.
             rng (numpy.RandomState, optional): A random number generator.
 
         """
-        start_time = self.configs.shutter_start_time
+        start_time = start_time or self.configs.shutter_start_time
         # end_time = self.configs.shutter_end_time
-        exposure_time = self.configs.detector_exposure_time
+        exposure_time = exposure_time or self.configs.detector_exposure_time
 
         times = numpy.array([t for t, _ in input_data])
         t = start_time + exposure_time * frame_index
@@ -783,6 +786,8 @@ class EPIFMSimulator:
         Nw_pixel, Nh_pixel = self.configs.detector_image_size  # pixels
         camera_pixel = numpy.zeros((Nw_pixel, Nh_pixel, 2))
 
+        true_data = None
+
         # loop for frame data
         for i, (i_time, particles) in enumerate(frame_data):
             # When the first i_time is less than the start time given, exposure_time is shorter than expected
@@ -796,16 +801,24 @@ class EPIFMSimulator:
             if unit_time < 1e-13:  #XXX: Skip merging when the exposure time is too short
                 continue
 
-            # define true-dataset in last-frame
-            # [frame-time, m-ID, m-state, p-state, (depth,y0,z0), sqrt(<dr2>)]
-            true_data = numpy.zeros(shape=(len(particles), 7))  #XXX: <== true_data just keeps the last state in the frame
-            true_data[: , 0] = t
+            # # define true-dataset in last-frame
+            # # [frame-time, m-ID, m-state, p-state, (depth,y0,z0), sqrt(<dr2>)]
+            # true_data = numpy.zeros(shape=(len(particles), 7))  #XXX: <== true_data just keeps the last state in the frame
+            # true_data[: , 0] = t
+
+            if true_data is None:
+                true_data = numpy.zeros(shape=(len(particles), 7))
+                true_data[: , 0] = t
+            # elif len(particles) > true_data.shape[0]:
+            #     particles = numpy.vstack(particles, numpy.zeros(shape=(len(particles) - true_data.shape[0], 7)))
 
             # loop for particles
             # for j, particle_j in enumerate(particles):
             #     self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0, true_data[j], unit_time, fluo_psfs)
             for particle_j, true_data_j in zip(particles, true_data):
                 self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0, true_data_j, unit_time, fluo_psfs)
+
+        true_data[: , 3: 7] /= exposure_time
 
         # apply detector effects
         camera, true_data = self.__detector_output(rng, camera_pixel, true_data)
@@ -926,10 +939,10 @@ class EPIFMSimulator:
         # set true-dataset
         true_data_i[1] = m_id # molecule-ID
         true_data_i[2] = int(s_id) # sid_index # molecular-state
-        true_data_i[3] = p_state # photon-state
-        true_data_i[4] = p_i[2] # Y-coordinate in the image-plane
-        true_data_i[5] = p_i[1] # X-coordinate in the image-plane
-        true_data_i[6] = depth  # Depth from focal-plane
+        true_data_i[3] += unit_time * p_state # photon-state
+        true_data_i[4] += unit_time * p_i[2] # Y-coordinate in the image-plane
+        true_data_i[5] += unit_time * p_i[1] # X-coordinate in the image-plane
+        true_data_i[6] += unit_time * depth  # Depth from focal-plane
 
     def __overlay_signal(self, camera, signal, p_i, p_0):
         # camera pixel
@@ -1295,10 +1308,13 @@ class EPIFMSimulator:
                     #FIXME: Update camera_pixel iteratively
                     camera_pixel[: , : , 0] = self.__overwrite_smeared(camera_pixel[: , : , 0], smeared_photons, i, j)
 
-        true_data[: , 4] = numpy.floor(
-            (numpy.floor(true_data[: , 4] ) - math.floor(z0 - Nw_pixel * pixel_length / 2)) / pixel_length)
-        true_data[: , 5] = numpy.floor(
-            (numpy.floor(true_data[: , 5] ) - math.floor(y0 - Nh_pixel * pixel_length / 2)) / pixel_length)
+
+        true_data[: , 4] = (true_data[: , 4] - (z0 - Nw_pixel * pixel_length / 2)) / pixel_length
+        true_data[: , 5] = (true_data[: , 5] - (y0 - Nh_pixel * pixel_length / 2)) / pixel_length
+        # true_data[: , 4] = numpy.floor(
+        #     (numpy.floor(true_data[: , 4] ) - math.floor(z0 - Nw_pixel * pixel_length / 2)) / pixel_length)
+        # true_data[: , 5] = numpy.floor(
+        #     (numpy.floor(true_data[: , 5] ) - math.floor(y0 - Nh_pixel * pixel_length / 2)) / pixel_length)
 
         ## CMOS (readout noise probability ditributions)
         if self.configs.detector_type == "CMOS":
