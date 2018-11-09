@@ -13,12 +13,21 @@ Requirements
 
 For `scopyon`, Python 3 and its libraries, `numpy`, `scipy` and `matplotlib`, are required. `scikit-image` is also needed by `scopyon.spot_detection`.
 
-Quick start
------------
+Installation
+------------
+
+```
+$ pip install scopyon
+```
+
+or
 
 ```
 $ python setup.py test install
 ```
+
+Quick start
+-----------
 
 ```
 $ python examples/twocolor_script.py
