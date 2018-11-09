@@ -114,13 +114,13 @@ def move_points(rng, points, D, dt, lengths=None):
         fluorophore_id = int(fluorophore_id)
         for dim in range(ndim):
             if D[fluorophore_id][dim] > 0:
-                ret[i, dim] += rng.normal(0.0, 2 * D[fluorophore_id][dim] * dt)
+                ret[i, dim] += rng.normal(0.0, numpy.sqrt(2 * D[fluorophore_id][dim] * dt))
 
     if lengths is not None:
         for dim in range(ndim):
             ret[: , dim][ret[: , dim] >= lengths[dim]] -= lengths[dim]
             ret[: , dim][ret[: , dim] < 0] += lengths[dim]
-        assert all((ret[: , dim] < lengths[dim]) & (ret[: , dim] >= 0))
+            assert all((ret[: , dim] < lengths[dim]) & (ret[: , dim] >= 0))
 
     return ret
 
