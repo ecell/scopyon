@@ -40,11 +40,13 @@ jobs:
             python setup.py test
 
       - run:
-          name: build wheels
+          name: build a source distribution and wheel
           command: |
             . venv/bin/activate
             pip install --progress-bar=off wheel
+            python setup.py sdist
             python setup.py bdist_wheel
+
 
       - store_artifacts:
           path: dist
@@ -99,10 +101,11 @@ jobs:
             python setup.py test
 
       - run:
-          name: build wheels
+          name: build a source distribution and wheel
           command: |
             . venv/bin/activate
             pip install --progress-bar=off wheel
+            python setup.py sdist
             python setup.py bdist_wheel
 
       - run:
