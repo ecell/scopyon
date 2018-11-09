@@ -49,7 +49,7 @@ def test_tirf() :
     config.set_effects_fluorescence(quantum_yield=0.61, abs_coefficient=83400)
     config.set_effects_photobleaching(tau0=2.27, alpha=0.73)
 
-    # config.write('tirf_script.ini')
+    config.write('defaults.ini')
 
     ## create image
     sim = EPIFMSimulator(config, rng=rng)
