@@ -4,7 +4,7 @@
 #
 version: 2
 jobs:
-  hoge:
+  build:
     working_directory: ~/workspace
     docker:
       - image: circleci/python:3.6
@@ -15,9 +15,9 @@ jobs:
           command: echo hello, world.
 workflows:
   version: 2
-  fuga:
+  build_and_deploy:
     jobs:
-      - hoge
+      - build
 
 # version: 2
 # jobs:
