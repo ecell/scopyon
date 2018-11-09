@@ -16,7 +16,7 @@ version = next(
     (line.split('=')[1].strip().replace("'", '')
      for line in open(os.path.join(here, 'scopyon', '__init__.py'))
      if line.startswith('__version__ = ')),
-    '0.0.dev0')  ## default
+    '0.0.0dev')  ## default
 
 def readme():
     with open('README.md') as f:
