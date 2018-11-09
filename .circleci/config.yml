@@ -76,6 +76,9 @@ workflows:
       - deploy:
           requires:
             - build
+          filters:
+            branches:
+              only: master
 # 
 #   workflows:
 #     version: 2
