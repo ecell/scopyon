@@ -29,8 +29,8 @@ def test_samples():
     dt = exposure_time
     N1 = 120
     N2 = 60
-    D1 = 0.1e-6
-    D2 = 0.01e-6
+    D1 = 0.1e-12
+    D2 = 0.01e-12
     k12 = k21 = -numpy.log(1.0 - 0.2) / dt
     kd = k21
     size = numpy.multiply.reduce(lengths[lengths != 0])
@@ -47,7 +47,7 @@ def test_samples():
         t += dt
         input_data.append((t, points))
 
-    # camera, true_data = sim.output_frame(input_data, 0, rng)
+    # camera, true_data = sim.output_frame(input_data, 0, rng=rng)
     # bytedata = convert_8bit(camera[: , : , 1], cmin, cmax, low, high)
     # # image_file_name = os.path.join(pathto, image_fmt % (frame_index))
     # save_image('samples_%07d.png' % (0), bytedata, low=low, high=high)
