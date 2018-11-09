@@ -10,14 +10,45 @@ jobs:
       - image: circleci/python:3.6
     steps:
       - checkout
-
-      # Download and cache dependencies
       - restore_cache:
           keys:
           - v1-dependencies-{{ checksum "requirements.txt" }}
-          # fallback to using the latest cache if no exact match is found
           - v1-dependencies-
-
+      - run:
+          name: Install dependencies
+          command: |
+            python3 -m venv venv
+            . venv/bin/activate
+            pip install --upgrade pip | cat && test ${PIPESTATUS} -eq 0
+            pip install --progress-bar=off -r requirements.txt
+      - save_cache:
+          paths:
+            - ./venv
+          key: v1-dependencies-{{ checksum "requirements.txt" }}
+      - run:
+          name: Run tests
+          command: |
+            . venv/bin/activate
+            python setup.py test
+      - run:
+          name: Build a source distribution and wheel
+          command: |
+            . venv/bin/activate
+            pip install --progress-bar=off wheel
+            python setup.py sdist
+            python setup.py bdist_wheel
+      - store_artifacts:
+          path: dist
+  deploy:
+    working_directory: ~/workspace
+    docker:
+      - image: circleci/python:3.6
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+          - v1-dependencies-{{ checksum "requirements.txt" }}
+          - v1-dependencies-
       - run:
           name: install dependencies
           command: |
@@ -25,18 +56,27 @@ jobs:
             . venv/bin/activate
             pip install --upgrade pip | cat && test ${PIPESTATUS} -eq 0
             pip install --progress-bar=off -r requirements.txt
-
       - save_cache:
           paths:
             - ./venv
           key: v1-dependencies-{{ checksum "requirements.txt" }}
-
+      - run:
+          name: verify git tag vs. version
+          command: |
+            python3 -m venv venv
+            . venv/bin/activate
+            python setup.py verify
+      - run:
+          name: init .pypirc
+          command: |
+            echo -e "[pypi]" >> ~/.pypirc
+            echo -e "username = $PYPI_USERNAME" >> ~/.pypirc
+            echo -e "password = $PYPI_PASSWORD" >> ~/.pypirc
       - run:
           name: run tests
           command: |
             . venv/bin/activate
             python setup.py test
-
       - run:
           name: build a source distribution and wheel
           command: |
@@ -44,7 +84,11 @@ jobs:
             pip install --progress-bar=off wheel
             python setup.py sdist
             python setup.py bdist_wheel
-
+      - run:
+          name: upload to pypi
+          command: |
+            . venv/bin/activate
+            # twine upload dist/*
       - store_artifacts:
           path: dist
 workflows:
