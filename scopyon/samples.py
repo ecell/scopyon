@@ -1,5 +1,4 @@
 import numpy
-import copy
 import numbers
 import collections
 
@@ -30,6 +29,9 @@ def generate_points(rng, N=None, conc=None, lower=None, upper=None, start=0, flu
     if N is None and conc is None:
         raise ValueError('Either one of N or conc must be given.')
 
+    _log.info('generate_points: N={}, conc={}, lower={}, upper={}, start={}, fluorophore_id={}.'.format(
+        N, conc, lower, upper, start, fluorophore_id))
+
     ndim = 3
 
     lower = (numpy.ones(ndim) * lower if isinstance(lower, numbers.Number)
@@ -39,11 +41,16 @@ def generate_points(rng, N=None, conc=None, lower=None, upper=None, start=0, flu
         else numpy.array(upper) if upper is not None
         else numpy.ones(ndim))
 
-    assert len(lower) >= ndim and len(upper) >= ndim
+    if len(lower) < ndim or len(upper) < ndim:
+        raise ValueError(
+            "The wrong size of limits was given [{},{} < {}].".format(len(lower), len(upper), ndim))
 
     for dim in range(ndim):
         if lower[dim] > upper[dim]:
             lower[dim], upper[dim] = upper[dim], lower[dim]
+
+    _log.debug('lower was set to {}.'.format(lower))
+    _log.debug('upper was set to {}.'.format(upper))
 
     if N is None:
         lengths = upper - lower
@@ -57,6 +64,7 @@ def generate_points(rng, N=None, conc=None, lower=None, upper=None, start=0, flu
     else:
         N_list = N
     N = sum(N_list)
+    _log.debug('{} points would be distributed {}.'.format(N, list(N_list)))
 
     if N <= 0:
         return numpy.array([]), start
@@ -74,7 +82,6 @@ def generate_points(rng, N=None, conc=None, lower=None, upper=None, start=0, flu
     for i, n in enumerate(N_list):
         ret[N_: N_ + n, ndim + 2] = fluorophore_id + i  # fluorophore ID serial
         N_ += n
-    assert N == N_
 
     ret[: , ndim + 3] = 1.0  # p_state
     ret[: , ndim + 4] = float('inf')  # cyc_id
@@ -98,6 +105,9 @@ def move_points(rng, points, D, dt, lengths=None):
         array: An array of points updated.
 
     """
+    _log.info('move_points: D={}, dt={}, lengths={}.'.format(D, dt, lengths))
+    _log.debug('{} points are given.'.format(len(points)))
+
     ndim = 3
 
     fluorophore_id_min = int(points[: , ndim + 2].min())
@@ -120,7 +130,8 @@ def move_points(rng, points, D, dt, lengths=None):
         for dim in range(ndim):
             ret[: , dim][ret[: , dim] >= lengths[dim]] -= lengths[dim]
             ret[: , dim][ret[: , dim] < 0] += lengths[dim]
-            assert all((ret[: , dim] < lengths[dim]) & (ret[: , dim] >= 0))
+            if not all((ret[: , dim] < lengths[dim]) & (ret[: , dim] >= 0)):
+                raise RuntimeError('Never get here. Some point is out of bounds.')
 
     return ret
 
@@ -146,6 +157,9 @@ def attempt_reactions(rng, points, dt, transitions=None, degradation=None, synth
         int: The sum of `start` and the number of points generated.
 
     """
+    _log.info('attempt_reactions: dt={}.'.format(dt))
+    _log.debug('{} points are given.'.format(len(points)))
+
     ndim = 3
 
     ret = points.copy()
@@ -161,12 +175,17 @@ def attempt_reactions(rng, points, dt, transitions=None, degradation=None, synth
         n, m = Pacc.shape
 
         rnd = rng.uniform(size=len(ret))
+        cnt = 0
         for i, fluorophore_id in enumerate(ret[: , ndim + 2]):
             fluorophore_id = int(fluorophore_id)
-            assert 0 <= fluorophore_id < n
+            if not (0 <= fluorophore_id < n):
+                raise ValueError(
+                    "The invalid fluorophore id '{}' was given.".format(fluorophore_id))
             j = numpy.searchsorted(Pacc[fluorophore_id], rnd[i])
             if j != m:
                 ret[i, ndim + 2] = j
+                cnt += 1
+        _log.debug('{} transitions occur.'.format(cnt))
 
     if degradation is not None:
         degradation = numpy.asarray(degradation)
@@ -176,18 +195,19 @@ def attempt_reactions(rng, points, dt, transitions=None, degradation=None, synth
         rnd = rng.uniform(size=len(ret))
         surv = numpy.array([rnd[i] > Pacc[int(fluorophore_id)] for i, fluorophore_id in enumerate(ret[: , ndim + 2])])
         ret = ret[surv]
+        _log.debug('{} points were degradated.'.format(len(ret) - len(points)))
 
     if synthesis is not None:
         synthesis = numpy.asarray(synthesis)
         ret_, start = generate_points(rng, conc=synthesis * dt, lower=lower, upper=upper, start=start)
         if len(ret_) > 0:
             ret = numpy.vstack((ret, ret_))
+            _log.debug('{} points were born.'.format(len(ret_)))
 
     return ret, start
 
 
 if __name__ == "__main__":
-    import numpy
     from .samples import generate_points, move_points, attempt_reactions
 
 

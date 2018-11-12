@@ -42,6 +42,19 @@ def convert_npy_to_8bit_image(filename, output=None, cmap=None, cmin=None, cmax=
     save_image(output, bytedata, cmap, low, high)
 
 def save_image_with_spots(filename, data, spots, cmap=None, low=None, high=None, dpi=100):
+    """Generate an image with spots.
+
+    Args:
+        filename (str): An output file name.
+        data (ndarray): An image data.
+        spots (list) A list of spots. spots are represented as a tuple consisting of
+            height, center_x, center_y, width_x, width_y, and background.
+        cmap (optinal): A color map.
+        low, high (float, optional): vmin and vmax define the range of the colormap.
+            By default, the colormap covers the complete value range of the data.
+        dpi (float, optional): Defaults to 100.
+
+    """
     data = numpy.asarray(data)
     low = data.min() if low is None else low
     high = data.max() if high is None else high
@@ -63,7 +76,7 @@ def save_image_with_spots(filename, data, spots, cmap=None, low=None, high=None,
     ax.imshow(data, interpolation='none', cmap=cmap, vmin=low, vmax=high)
 
     for spot in spots:
-        (height, center_x, center_y, width_x, width_y, bg) = spot
+        (_, center_x, center_y, width_x, width_y, _) = spot
         # radius = max(width_x, width_y)
         # c = plt.Circle((center_y, center_x), radius, color='red', linewidth=1, fill=False)
         c = patches.Ellipse((center_y, center_x), width_y, width_x, color='red', linewidth=1, fill=False)

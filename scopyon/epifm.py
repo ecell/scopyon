@@ -444,7 +444,8 @@ class _EPIFMConfigs:
         # self._set_data('fluorophore_psf', psf_fl)
         return psf_fl
 
-    def get_PSF_fluorophore(self, r, z, wave_length):
+    @staticmethod
+    def get_PSF_fluorophore(r, z, wave_length):
         # set Magnification of optical system
         # M = self.image_magnification
 
@@ -616,7 +617,7 @@ class EPIFMSimulator:
         # p_b = copy.copy(p_0)
 
         # Snell's law
-        amplitude0, penet_depth = self.__snells_law(p_0, p_0)
+        amplitude0, _ = self.__snells_law(p_0, p_0)
 
         # determine photon budgets
         time_array = numpy.array([t for t, _ in input_data])
@@ -874,10 +875,10 @@ class EPIFMSimulator:
             p_i = numpy.array([x, y, z]) / 1e-9
 
             # Snell's law
-            amplitude, penet_depth = self.__snells_law(p_i, p_0)
+            amplitude, _ = self.__snells_law(p_i, p_0)
 
             # particle coordinate in real(nm) scale
-            p_i, _, depth = _rotate_coordinate(p_i, p_0)
+            p_i, _, _ = _rotate_coordinate(p_i, p_0)
 
             state_j = 1  # particles given is always observable. already filtered when read
 
@@ -1043,6 +1044,13 @@ class EPIFMSimulator:
         return n_emit
 
     def __snells_law(self, p_i, p_0):
+        """Snell's law.
+
+        Returns:
+            float: Amplitude
+            float: Penetration depth
+
+        """
         # x_0, y_0, z_0 = p_0
         # x_i, y_i, z_i = p_i
 
@@ -1211,7 +1219,8 @@ class EPIFMSimulator:
         amplitude = (A2_Tp + A2_Ts)/2
         return amplitude, penetration_depth
 
-    def __overwrite_smeared(self, cell_pixel, photon_dist, i, j):
+    @staticmethod
+    def __overwrite_smeared(cell_pixel, photon_dist, i, j):
         # i-th pixel
         Ni_pixel = len(cell_pixel)
         Ni_pe    = len(photon_dist)
@@ -1309,7 +1318,7 @@ class EPIFMSimulator:
 
                     n_i, n_j = rng.normal(0, self.effects.crosstalk_width, int(photons), 2)
 
-                    smeared_photons, edge_i, edge_j = numpy.histogram2d(
+                    smeared_photons, _, _ = numpy.histogram2d(
                         n_i, n_j, bins=(24, 24), range=[[-12, 12], [-12, 12]])
 
                     # smeared photon distributions
@@ -1440,7 +1449,7 @@ class EPIFMSimulator:
                 # amplitude, penet_depth = self.__snells_law(p_i, p_0)
 
                 # Particle coordinte in real(nm) scale
-                p_i, radial, depth = _rotate_coordinate(p_i, p_0)
+                p_i, _, depth = _rotate_coordinate(p_i, p_0)
 
                 # fluorophore axial position
                 fluo_depth = int(depth) if depth < len(self.configs.depth) else -1
