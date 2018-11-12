@@ -110,8 +110,8 @@ def move_points(rng, points, D, dt, lengths=None):
 
     ndim = 3
 
-    fluorophore_id_min = int(points[: , ndim + 2].min())
-    fluorophore_id_max = int(points[: , ndim + 2].max())
+    # fluorophore_id_min = int(points[: , ndim + 2].min())
+    # fluorophore_id_max = int(points[: , ndim + 2].max())
 
     if not isinstance(D, collections.Iterable):
         raise TypeError("'D' must be a list of diffusion constants for each fluorophore.")

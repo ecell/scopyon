@@ -50,17 +50,17 @@ def test_tirf() :
     sim = EPIFMSimulator(config, rng=rng)
 
     ## bleaching
-    new_input_data1 = sim.apply_photophysics_effects(input_data1, rng=rng)
-    new_input_data2 = sim.apply_photophysics_effects(input_data2, rng=rng)
+    input_data1 = sim.apply_photophysics_effects(input_data1, rng=rng)
+    input_data2 = sim.apply_photophysics_effects(input_data2, rng=rng)
 
     low, high = 0, 255
     Nw_pixel, Nh_pixel = sim.configs.detector_image_size  # pixels
     for frame_index in range(sim.num_frames()):
         bytedata = numpy.zeros((Nw_pixel, Nh_pixel, 3), numpy.uint8)
 
-        camera, true_data = sim.output_frame(input_data1, frame_index, rng=rng)
+        camera, _ = sim.output_frame(input_data1, frame_index, rng=rng)
         bytedata[:, :, 0] = convert_8bit(camera[: , : , 1], cmin, cmax, low, high)
-        camera, true_data = sim.output_frame(input_data2, frame_index, rng=rng)
+        camera, _ = sim.output_frame(input_data2, frame_index, rng=rng)
         bytedata[:, :, 1] = convert_8bit(camera[: , : , 1], cmin, cmax, low, high)
 
         image_file_name = os.path.join(output_path, 'twocolor_%07d.png' % (frame_index))

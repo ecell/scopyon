@@ -1,7 +1,8 @@
 import os
 import numpy
 
-from scopyon.samples import generate_points, move_points, attempt_reactions
+from scopyon.samples import generate_points, move_points
+# from scopyon.samples import attempt_reactions
 
 from scopyon.config import Config
 from scopyon.epifm import EPIFMSimulator
@@ -15,7 +16,7 @@ def test_samples():
     exposure_time = 33e-3
     t0, t1 = 0.0, exposure_time * 2
     cmin, cmax = 1900, 2500
-    low, high = 0, 255
+    # low, high = 0, 255
 
     config = Config(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'defaults.ini'))
     config.set_epifm_shutter(start_time=0, end_time=t1)
@@ -31,12 +32,13 @@ def test_samples():
     N2 = 60
     D1 = 0.1e-12
     D2 = 0.01e-12
-    k12 = k21 = -numpy.log(1.0 - 0.2) / dt
-    kd = k21
-    size = numpy.multiply.reduce(lengths[lengths != 0])
-    ks = N2 / size * kd
+    # k12 = k21 = -numpy.log(1.0 - 0.2) / dt
+    # kd = k21
+    # size = numpy.multiply.reduce(lengths[lengths != 0])
+    # ks = N2 / size * kd
 
-    points, start = generate_points(rng, lower=lower, upper=upper, N=[N1, N2])
+    points, _ = generate_points(rng, lower=lower, upper=upper, N=[N1, N2])
+    # points, start = generate_points(rng, lower=lower, upper=upper, N=[N1, N2])
     t = t0
     input_data = [(t, points)]
 
