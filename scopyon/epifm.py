@@ -718,6 +718,10 @@ class EPIFMSimulator:
         low = 0 if low is None else low
         high = 255 if high is None else high
 
+        if rng is None:
+            _log.info('A random number generator was initialized.')
+            rng = numpy.random.RandomState()
+
         for frame_index in range(self.num_frames()):
             camera, true_data = self.output_frame(input_data, frame_index, rng=rng)
 
@@ -759,6 +763,10 @@ class EPIFMSimulator:
         start_time = start_time or self.configs.shutter_start_time
         # end_time = self.configs.shutter_end_time
         exposure_time = exposure_time or self.configs.detector_exposure_time
+
+        if rng is None:
+            _log.info('A random number generator was initialized.')
+            rng = numpy.random.RandomState()
 
         times = numpy.array([t for t, _ in input_data])
         t = start_time + exposure_time * frame_index
