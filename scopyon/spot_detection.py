@@ -7,7 +7,7 @@ _log = getLogger(__name__)
 
 
 def gaussian(height, center_x, center_y, width_x, width_y, bg):
-    """Returns a gaussian function with the given parameters
+    """Returns a Gaussian function with the given parameters
     http://scipy-cookbook.readthedocs.io/items/FittingData.html
 
     """
@@ -19,7 +19,7 @@ def gaussian(height, center_x, center_y, width_x, width_y, bg):
 
 def moments(data):
     """Returns `(height, x, y, width_x, width_y, bg)`.
-    the gaussian parameters of a 2D distribution by calculating its
+    the Gaussian parameters of a 2D distribution by calculating its
     moments
     http://scipy-cookbook.readthedocs.io/items/FittingData.html
 
@@ -54,9 +54,18 @@ def gaussian_pixelized(shape, *p, ndiv=5):
     return ret
 
 def fitgaussian(data, opt=1):
-    """Returns `.(height, x, y, width_x, width_y, bg)`.
-    the gaussian parameters of a 2D distribution found by a fit
+    """Returns `(height, x, y, width_x, width_y, bg)`.
+    the Gaussian parameters of a 2D distribution found by a fit
     http://scipy-cookbook.readthedocs.io/items/FittingData.html
+
+    Args:
+        data (ndarray): An image data.
+        opt (int, optional): The way of fitting. defaults to 1.
+            If 0, just return moments.
+
+    Returns:
+        tuple: A list of floats. height, center position x, y, width x, y, and background.
+            Return `None` if optimization fails.
 
     """
     params = moments(data)
@@ -89,6 +98,26 @@ def fitgaussian(data, opt=1):
         return (p[0], p[1], p[2], params[3], params[4], p[3])
 
 def blob_detection(data, min_sigma=1, max_sigma=50, num_sigma=10, threshold=0.2, overlap=0.5):
+    """Finds blobs in the given image.
+    See also http://scikit-image.org/docs/dev/api/skimage.feature.html#skimage.feature.blob_log
+
+    Args:
+        data (ndarray): An image data.
+        min_sigma (float, optional): The minimum standard deviation.
+            Keep this low to detect smaller blobs. Defaults to 1.
+        max_sigma (float, optional): The maximum standard deviation.
+            Keep this high to detect larger blobs. Defaults to 50.
+        num_sigma (int, optional): The number of intermediate values between `min_sigma` and `max_sigma`.
+            Defaults to 10.
+        threshold (float, optional): The absolute lower bound for scale space maxima.
+            Reduce this to detect blobs with less intensities.
+        overlap (float, optional): A value between 0 and 1.
+
+    Returns:
+        ndarray: Blobs detected.
+            Each row represents coordinates and the standard deviation, `(x, y, r)`.
+
+    """
     try:
         from skimage.feature import blob_log
     except ImportError:
@@ -102,6 +131,28 @@ def blob_detection(data, min_sigma=1, max_sigma=50, num_sigma=10, threshold=0.2,
     return blobs
 
 def spot_detection(data, min_sigma=1, max_sigma=50, num_sigma=10, threshold=0.2, overlap=0.5, blobs=None, opt=1):
+    """Finds spots in the given image.
+
+    Args:
+        data (ndarray): An image data.
+        min_sigma (float, optional): The minimum standard deviation.
+            Keep this low to detect smaller blobs. Defaults to 1.
+        max_sigma (float, optional): The maximum standard deviation.
+            Keep this high to detect larger blobs. Defaults to 50.
+        num_sigma (int, optional): The number of intermediate values between `min_sigma` and `max_sigma`.
+            Defaults to 10.
+        threshold (float, optional): The absolute lower bound for scale space maxima.
+            Reduce this to detect blobs with less intensities.
+        overlap (float, optional): A value between 0 and 1.
+        blobs (ndarray, optional): Blobs. Defaults to `None`. See also `blob_detection`.
+        opt (int, optional): The way of fitting. defaults to 1. See also `fitgaussian`.
+
+    Returns:
+        ndarray: Spots detected.
+            Each row represents height, center position x, y, width x, y, and background,
+            `(height, center_x, center_y, width_x, width_y, background)`.
+
+    """
     if blobs is None:
         blobs = blob_detection(
             data, min_sigma=min_sigma, max_sigma=max_sigma, num_sigma=num_sigma, threshold=threshold, overlap=overlap)
