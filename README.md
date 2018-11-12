@@ -16,20 +16,20 @@ For `scopyon`, Python 3 and its libraries, `numpy`, `scipy` and `matplotlib`, ar
 Installation
 ------------
 
-```
+```shell-session
 $ pip install scopyon
 ```
 
 or
 
-```
+```shell-session
 $ python setup.py test install
 ```
 
 Quick start
 -----------
 
-```
+```shell-session
 $ python examples/twocolor_script.py
 ```
 
