@@ -18,7 +18,7 @@ def gaussian(height, center_x, center_y, width_x, width_y, bg):
     # return lambda x, y: height * numpy.exp(-(((center_x - x) / width_x) ** 2 + ((center_y - y) / width_y) ** 2) / 2) + bg
 
 def moments(data):
-    """Returns (height, x, y, width_x, width_y, bg)
+    """Returns `(height, x, y, width_x, width_y, bg)`.
     the gaussian parameters of a 2D distribution by calculating its
     moments
     http://scipy-cookbook.readthedocs.io/items/FittingData.html
@@ -40,7 +40,7 @@ def moments(data):
 def gaussian_pixelized(shape, *p, ndiv=5):
     """
     Returns:
-        ndarray: Return an array with shape (m, n)
+        ndarray: Return an array with shape `(m, n)`.
 
     """
     (m, n) = shape
@@ -54,7 +54,7 @@ def gaussian_pixelized(shape, *p, ndiv=5):
     return ret
 
 def fitgaussian(data, opt=1):
-    """Returns (height, x, y, width_x, width_y, bg)
+    """Returns `.(height, x, y, width_x, width_y, bg)`.
     the gaussian parameters of a 2D distribution found by a fit
     http://scipy-cookbook.readthedocs.io/items/FittingData.html
 

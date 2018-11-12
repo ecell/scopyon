@@ -20,10 +20,13 @@ def generate_points(rng, N=None, conc=None, lower=None, upper=None, start=0, flu
         fluorophore_id (int, optional): The fluorophore id. Defaults to 0.
 
     Returns:
-        array: An array of points. Each point consists of a coordinate, an index,
-            a serial and lot of a molecule ID, a fluorophore ID,
-            p_state (defaults to 1) and cyc_id (defaults to `inf`).
-        int: The sum of `start` and the number of points generated.
+        A pair of an array and the last ID.
+
+        An array of points. Each point consists of a coordinate, an index,
+        a serial and lot of a molecule ID, a fluorophore ID,
+        p_state (defaults to 1) and cyc_id (defaults to `inf`).
+
+        The last ID. The sum of `start` and the number of points generated.
 
     """
     if N is None and conc is None:

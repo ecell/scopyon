@@ -599,8 +599,8 @@ class EPIFMSimulator:
             rng (numpy.RandomState, optional): A random number generator.
 
         Returns:
-            (list): A new data which the photophysics effects are applyed to. Given in the same
-                format with `input_data`.
+            list: A new data which the photophysics effects are applyed to.
+                Given in the same format with `input_data`.
 
         """
         end_time = self.configs.shutter_end_time
