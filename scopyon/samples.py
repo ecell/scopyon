@@ -120,7 +120,6 @@ def move_points(rng, points, D, dt, lengths=None):
         raise TypeError("'D' must be a list of diffusion constants for each fluorophore.")
 
     D = [numpy.ones(ndim) * D_ if isinstance(D_, numbers.Number) else numpy.array(D_) for D_ in D]
-    lengths = numpy.ones(ndim) * lengths if isinstance(lengths, numbers.Number) else numpy.array(lengths)
 
     ret = points.copy()
     for i, fluorophore_id in enumerate(ret[: , ndim + 2]):
@@ -130,6 +129,8 @@ def move_points(rng, points, D, dt, lengths=None):
                 ret[i, dim] += rng.normal(0.0, numpy.sqrt(2 * D[fluorophore_id][dim] * dt))
 
     if lengths is not None:
+        lengths = numpy.ones(ndim) * lengths if isinstance(lengths, numbers.Number) else numpy.array(lengths)
+
         for dim in range(ndim):
             ret[: , dim][ret[: , dim] >= lengths[dim]] -= lengths[dim]
             ret[: , dim][ret[: , dim] < 0] += lengths[dim]
