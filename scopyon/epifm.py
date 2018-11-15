@@ -24,6 +24,14 @@ class _EPIFMConfigs:
         pass
 
     def initialize(self, config, rng=None):
+        """Initialize based on the given config.
+
+        Args:
+            config (Config): A config object.
+            rng (numpy.RandomState, optional): A random number generator
+                for initializing this class. Defaults to `None`.
+
+        """
         if rng is None:
             warnings.warn('A random number generator [rng] is not given.')
             rng = numpy.random.RandomState()
