@@ -242,16 +242,59 @@ class CalculateDisplacement(luigi.Task):
         plt.legend(loc='best')
         plt.savefig(self.output().path)
 
-def simple_gaussian_mixture_model(x, n_components=3, max_iter=100, tol=1e-10):
+def simple_gaussian_mixture_model(x, n_components=3, max_iter=100, tol=1e-12):
     x = numpy.array(x)
-    var = (x ** 2).sum() / len(x)
+    xsq = x ** 2
+    var = xsq.sum() / len(x)
 
     # var = numpy.ones(n_components, dtype=numpy.float64) * var
     var = numpy.random.uniform(size=n_components) * var
     pi = numpy.random.uniform(size=n_components)
     pi /= pi.sum()
 
-    normal = lambda x, sigmasq: numpy.exp(-0.5 * x * x / sigmasq) / numpy.sqrt(2 * numpy.pi * sigmasq)
+    normal = lambda xsq, sigmasq: numpy.exp(-0.5 * xsq / sigmasq) / numpy.sqrt(2 * numpy.pi * sigmasq)
+
+    likelihood_old = 0.0
+    for _ in range(max_iter):
+        gamma = numpy.zeros((n_components, len(x)), dtype=numpy.float64)
+        N = numpy.zeros(n_components, dtype=numpy.float64)
+
+        print("[{}] var = {}, pi = {}".format(_, var, pi))
+        for k in range(n_components):
+            gamma[k] = pi[k] * normal(xsq, var[k])
+        gamma_tot = gamma.sum(axis=0)
+
+        assert numpy.all(gamma_tot > 0)
+        likelihood = numpy.log(gamma_tot).sum() / len(x)
+        print("[{}] log-likelihood = {}".format(_, likelihood))
+
+        assert likelihood != 0
+        # if likelihood >= likelihood_old and abs((likelihood - likelihood_old) / likelihood) < tol:
+        #     break
+        likelihood_old = likelihood
+
+        for k in range(n_components):
+            gamma[k] /= gamma_tot
+            N[k] = gamma[k].sum()
+
+        pi = N / N.sum()
+        for k in range(n_components):
+            var[k] = (gamma[k] * xsq).sum() / N[k]
+
+    bic = -2 * likelihood_old * len(x) + n_components * numpy.log(len(x))
+    print("BIC = {}".format(bic))
+    aic = -2 * likelihood_old * len(x) + 2 * n_components
+    print("AIC = {}".format(aic))
+    return (var, pi), likelihood_old, (bic, aic)
+
+def simple_gaussian_mixture_model2(x, n_components=3, max_iter=100, tol=1e-12):
+    x = numpy.array(x)
+
+    var = numpy.random.uniform(size=n_components) * (x.sum() / len(x))
+    pi = numpy.ones(n_components, dtype=numpy.float64)
+    pi /= pi.sum()
+
+    normal = lambda x, sigmasq: numpy.exp(-0.5 * x * x / sigmasq) * x / sigmasq
 
     likelihood_old = 0.0
     for _ in range(max_iter):
@@ -262,6 +305,10 @@ def simple_gaussian_mixture_model(x, n_components=3, max_iter=100, tol=1e-10):
         for k in range(n_components):
             gamma[k] = pi[k] * normal(x, var[k])
         gamma_tot = gamma.sum(axis=0)
+
+        if not numpy.all(gamma_tot > 0):
+            return simple_gaussian_mixture_model2(x[gamma_tot > 0], n_components, max_iter, tol)
+        assert numpy.all(gamma_tot > 0)
 
         likelihood = numpy.log(gamma_tot).sum() / len(x)
         print("[{}] log-likelihood = {}".format(_, likelihood))
@@ -277,7 +324,7 @@ def simple_gaussian_mixture_model(x, n_components=3, max_iter=100, tol=1e-10):
 
         pi = N / N.sum()
         for k in range(n_components):
-            var[k] = (gamma[k] * x * x).sum() / N[k]
+            var[k] = 0.5 * (gamma[k] * x * x).sum() / N[k]
 
     bic = -2 * likelihood_old * len(x) + n_components * numpy.log(len(x))
     print("BIC = {}".format(bic))
@@ -312,12 +359,14 @@ class CalculateDisplacementGMM(luigi.Task):
             displacements.extend(data.T[1])
             displacements.extend(data.T[2])
 
-        n_components = 3
-        (var, pi), score, (bic, aic) = simple_gaussian_mixture_model(displacements, n_components=n_components, max_iter=1000)
-        D_mean = (D1 * N1 + D2 * N2 + D3 * N3) / (N1 + N2 + N3)
         duration = self.frame_shift * dt
-
-        result = ((var * pi).sum() / (2 * duration), D_mean, tuple(var / (2 * duration)), tuple(pi), (D1, D2, D3), (N1 / (N1 + N2 + N3), N2 / (N1 + N2 + N3), N3 / (N1 + N2 + N3)))
+        result = {}
+        result['true'] = {'D': (D1, D2, D3), 'pi': (N1 / (N1 + N2 + N3), N2 / (N1 + N2 + N3), N3 / (N1 + N2 + N3)), 'D_mean': (D1 * N1 + D2 * N2 + D3 * N3) / (N1 + N2 + N3)}
+        result['estimated'] = []
+        for n_components in range(1, 6):
+            (var, pi), score, (bic, aic) = simple_gaussian_mixture_model(displacements, n_components=n_components, max_iter=1000)
+            D = var / (2 * duration)
+            result['estimated'].append({'D': tuple(D), 'pi': tuple(pi), 'D_mean': (D * pi).sum(), 'score': score, 'BIC': bic, 'AIC': aic, 'n_components': n_components})
 
         output_ = self.output()
         with output_.open('w') as f:
@@ -380,6 +429,190 @@ class ClosestSquareDisplacement(luigi.Task):
         plt.legend(loc='best')
         plt.savefig(self.output().path)
 
+class ClosestSquareDisplacementGMM(luigi.Task):
+
+    start = luigi.IntParameter(default=0)
+    stop = luigi.IntParameter()
+    frame_shift = luigi.IntParameter()
+
+    def output(self):
+        return luigi.LocalTarget(os.path.join(pathto, 'disp_{}_{}_{}.json'.format(self.start, self.stop, self.frame_shift)))
+
+    def requires(self):
+        return [SpotDetection(i=i) for i in range(self.start, self.stop)]
+
+    def run(self):
+        displacements = []
+        for i in range(self.start, self.stop - self.frame_shift):
+            spots1 = numpy.load(self.input()[i].path)
+            spots2 = numpy.load(self.input()[i + self.frame_shift].path)
+            for spot in spots1:
+                (height, center_x, center_y, width_x, width_y, bg) = spot
+                Lsq = (spots2.T[1] - center_x) ** 2 + (spots2.T[2] - center_y) ** 2
+                idx = Lsq.argmin()
+                displacements.append(spots2[idx][1] - center_x)
+                displacements.append(spots2[idx][2] - center_y)
+        image_magnification = 60 * 1.5 * 4
+        pixel_length = 16e-6 / image_magnification
+        duration = self.frame_shift * exposure_time
+
+        result = {}
+        result['true'] = {'D': (D1, D2, D3), 'pi': (N1 / (N1 + N2 + N3), N2 / (N1 + N2 + N3), N3 / (N1 + N2 + N3)), 'D_mean': (D1 * N1 + D2 * N2 + D3 * N3) / (N1 + N2 + N3)}
+        result['estimated'] = []
+        for n_components in [3]: # range(1, 6):
+            (var, pi), score, (bic, aic) = simple_gaussian_mixture_model(displacements, n_components=n_components, max_iter=10000)
+            D = var * pixel_length * pixel_length / (2 * duration)
+            result['estimated'].append({'D': tuple(D), 'pi': tuple(pi), 'D_mean': (D * pi).sum(), 'score': score, 'BIC': bic, 'AIC': aic, 'n_components': n_components})
+
+        output_ = self.output()
+        with output_.open('w') as f:
+            json.dump(result, f)
+
+class ClosestSquareDisplacementGMMPlot(luigi.Task):
+
+    start = luigi.IntParameter(default=0)
+    stop = luigi.IntParameter()
+    frame_shift = luigi.IntParameter()
+
+    def output(self):
+        return luigi.LocalTarget(os.path.join(pathto, 'gmm_{}_{}_{}.png'.format(self.start, self.stop, self.frame_shift)))
+
+    def requires(self):
+        return [ClosestSquareDisplacementGMM(self.start, self.stop, self.frame_shift)] + [SpotDetection(i=i) for i in range(self.start, self.stop)]
+
+    def run(self):
+        input_ = self.input()[0]
+        with input_.open() as f:
+            result = json.load(f)
+        result = result['estimated'][0]
+
+        displacements = []
+        for i in range(self.start, self.stop - self.frame_shift):
+            spots1 = numpy.load(self.input()[1 + i].path)
+            spots2 = numpy.load(self.input()[1 + i + self.frame_shift].path)
+            for spot in spots1:
+                (height, center_x, center_y, width_x, width_y, bg) = spot
+                Lsq = (spots2.T[1] - center_x) ** 2 + (spots2.T[2] - center_y) ** 2
+                idx = Lsq.argmin()
+                displacements.append(spots2[idx][1] - center_x)
+                displacements.append(spots2[idx][2] - center_y)
+
+        image_magnification = 60 * 1.5 * 4
+        pixel_length = 16e-6 / image_magnification
+        duration = self.frame_shift * exposure_time
+
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pylab as plt
+        fig, ax = plt.subplots(1, 1)
+        n, bins, patches = ax.hist(displacements, bins=101, density=True, alpha=0.5, label='Observed')
+        bins = numpy.array(bins)
+
+        normal = lambda xsq, sigmasq: numpy.exp(-0.5 * xsq / sigmasq) / numpy.sqrt(2 * numpy.pi * sigmasq)
+        x = (bins[:-1] + bins[1:]) * 0.5
+        y = numpy.array([result['pi'][k] * normal(x * x, result['D'][k] * 2.0 * duration / (pixel_length * pixel_length)) for k in range(result['n_components'])])
+        for k in range(len(y)):
+            ax.plot(x, y[k], 'r--')
+        ax.plot(x, y.sum(axis=0), 'k--')
+
+        # I = lambda r0, r1, sigma: (-numpy.exp(-r1**2/(2*sigma**2)))-(-numpy.exp(-r0**2/(2*sigma**2)))
+        # y = [I(bins[: -1], bins[1: ], numpy.sqrt(2 * D_ * duration) / pixel_length) for D_ in (D1, D2, D3)]
+        # y = (y[0] * N1 + y[1] * N2 + y[2] * N3) / (N1 + N2 + N3) / (bins[1] - bins[0])
+        plt.legend(loc='best')
+        plt.savefig(self.output().path)
+
+class ClosestSquareDisplacementGMM2(luigi.Task):
+
+    start = luigi.IntParameter(default=0)
+    stop = luigi.IntParameter()
+    frame_shift = luigi.IntParameter()
+
+    def output(self):
+        return luigi.LocalTarget(os.path.join(pathto, 'disp_{}_{}_{}.json'.format(self.start, self.stop, self.frame_shift)))
+
+    def requires(self):
+        return [SpotDetection(i=i) for i in range(self.start, self.stop)]
+
+    def run(self):
+        distances = []
+        for i in range(self.start, self.stop - self.frame_shift):
+            spots1 = numpy.load(self.input()[i].path)
+            spots2 = numpy.load(self.input()[i + self.frame_shift].path)
+            for spot in spots1:
+                (height, center_x, center_y, width_x, width_y, bg) = spot
+                Lsq = (spots2.T[1] - center_x) ** 2 + (spots2.T[2] - center_y) ** 2
+                distances.append(numpy.sqrt(Lsq.min()))
+        image_magnification = 60 * 1.5 * 4
+        pixel_length = 16e-6 / image_magnification
+        duration = self.frame_shift * exposure_time
+
+        result = {}
+        result['true'] = {'D': (D1, D2, D3), 'pi': (N1 / (N1 + N2 + N3), N2 / (N1 + N2 + N3), N3 / (N1 + N2 + N3)), 'D_mean': (D1 * N1 + D2 * N2 + D3 * N3) / (N1 + N2 + N3)}
+        result['estimated'] = []
+        for n_components in range(1, 6):
+            (var, pi), score, (bic, aic) = simple_gaussian_mixture_model2(distances, n_components=n_components, max_iter=10000)
+            D = var * pixel_length * pixel_length / (2 * duration)
+            result['estimated'].append({'D': tuple(D), 'pi': tuple(pi), 'D_mean': (D * pi).sum(), 'score': score, 'BIC': bic, 'AIC': aic, 'n_components': n_components})
+
+        output_ = self.output()
+        with output_.open('w') as f:
+            json.dump(result, f)
+
+class ClosestSquareDisplacementGMMPlot2(luigi.Task):
+
+    start = luigi.IntParameter(default=0)
+    stop = luigi.IntParameter()
+    frame_shift = luigi.IntParameter()
+
+    def output(self):
+        return luigi.LocalTarget(os.path.join(pathto, 'gmm_{}_{}_{}.png'.format(self.start, self.stop, self.frame_shift)))
+
+    def requires(self):
+        return [ClosestSquareDisplacementGMM2(self.start, self.stop, self.frame_shift)] + [SpotDetection(i=i) for i in range(self.start, self.stop)]
+
+    def run(self):
+        input_ = self.input()[0]
+        with input_.open() as f:
+            result = json.load(f)
+
+        distances = []
+        for i in range(self.start, self.stop - self.frame_shift):
+            spots1 = numpy.load(self.input()[1 + i].path)
+            spots2 = numpy.load(self.input()[1 + i + self.frame_shift].path)
+            for spot in spots1:
+                (height, center_x, center_y, width_x, width_y, bg) = spot
+                Lsq = (spots2.T[1] - center_x) ** 2 + (spots2.T[2] - center_y) ** 2
+                distances.append(numpy.sqrt(Lsq.min()))
+
+        image_magnification = 60 * 1.5 * 4
+        pixel_length = 16e-6 / image_magnification
+        duration = self.frame_shift * exposure_time
+
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pylab as plt
+        fig, ax = plt.subplots(1, 1)
+        n, bins, patches = ax.hist(distances, bins=101, density=True, alpha=0.5, label='Observed')
+        bins = numpy.array(bins)
+
+        normal = lambda x, sigmasq: numpy.exp(-0.5 * x * x / sigmasq) * x / sigmasq
+        x = (bins[:-1] + bins[1:]) * 0.5
+        r = result['estimated'][3 - 1]
+        y = numpy.array([r['pi'][k] * normal(x, r['D'][k] * 2.0 * duration / (pixel_length * pixel_length)) for k in range(r['n_components'])])
+        for k in range(len(y)):
+            label = "D={:.2e}, pi={:3f}".format(r['D'][k], r['pi'][k])
+            ax.plot(x, y[k], 'r--', label=label)
+        ax.plot(x, y.sum(axis=0), 'k--')
+        plt.legend(loc='best')
+
+        ax = plt.axes([.55, .3, .3, .3], facecolor='y')
+        y = numpy.array([r['BIC'] for r in result['estimated']])
+        ax.bar([r['n_components'] for r in result['estimated']], y, tick_label=[str(r['n_components']) for r in result['estimated']], align='center')
+        ax.set_ylim(ymin=y.min() - 0.2 * (y.max() - y.min()), ymax=y.max() + 0.2 * (y.max() - y.min()))
+        ax.set_title('n_components={}'.format(result['estimated'][y.argmin()]['n_components']))
+
+        plt.savefig(self.output().path)
+
 
 def main():
     import os
@@ -387,7 +620,13 @@ def main():
     if not os.path.isdir(pathto):
         os.makedirs(pathto)
 
-    luigi.build([GenerateAVI(stop=150)] + [ClosestSquareDisplacement(stop=150, frame_shift=fs) for fs in (1, 5, 10, 30)] + [CalculateDisplacement(stop=150 * ndiv, frame_shift=10 * ndiv)] + [CalculateDisplacementGMM(stop=150 * ndiv, frame_shift=10 * ndiv)], workers=1, local_scheduler=True)
+    luigi.build(
+        [GenerateAVI(stop=150)]
+        + [ClosestSquareDisplacement(stop=150, frame_shift=fs) for fs in (1, 5, 10, 30)]
+        + [ClosestSquareDisplacementGMMPlot2(stop=150, frame_shift=fs) for fs in (1, 5, 10, 30)]
+        + [CalculateDisplacement(stop=150 * ndiv, frame_shift=10 * ndiv)]
+        + [CalculateDisplacementGMM(stop=150 * ndiv, frame_shift=10 * ndiv)],
+        workers=1, local_scheduler=True)
 
 
 if __name__ == "__main__":
