@@ -3,6 +3,9 @@ import warnings
 import re
 import csv
 import glob
+import contextlib
+import io
+import pkgutil
 from ast import literal_eval
 from collections import defaultdict
 
@@ -166,12 +169,37 @@ def read_inputs(filenames, tstart, tend, observables=None, max_count=None):
 
     return data
 
-def read_catalog(filename):
-    if not os.path.exists(filename):
-        raise IOError('Catalog file [{}] was not found'.format(filename))
+# def read_catalog(filename):
+#     if not os.path.exists(filename):
+#         raise IOError('Catalog file [{}] was not found'.format(filename))
+# 
+#     catalog_data = defaultdict(list)
+#     with open(filename, 'r') as fin:
+#         for _ in range(5):
+#             line = fin.readline()
+#             line = line.rstrip()
+#             _log.debug('     {}'.format(line))
+# 
+#         reader = csv.reader(fin)
+# 
+#         row = next(reader)
+#         if len(row) != 1 or is_float(row[0]):
+#             raise RuntimeError('A catalog in invalid format was given [{}]'.format(filename))
+#         key = row[0]
+# 
+#         for row in reader:
+#             if len(row) == 1 and not is_float(row[0]):
+#                 key = row[0]
+#             elif len(row) != 0:
+#                 catalog_data[key].append(row)
+#     return catalog_data
+
+def read_catalog(data_path):
+    package_name = 'scopyon'
+    data = pkgutil.get_data(package_name, data_path).decode()
 
     catalog_data = defaultdict(list)
-    with open(filename, 'r') as fin:
+    with contextlib.closing(io.StringIO(data)) as fin:
         for _ in range(5):
             line = fin.readline()
             line = line.rstrip()
@@ -192,20 +220,15 @@ def read_catalog(filename):
     return catalog_data
 
 def read_fluorophore_catalog(fluorophore_type):
-    filename = os.path.join(
-        os.path.abspath(os.path.dirname(__file__)), 'catalog/fluorophore/', fluorophore_type + '.csv')
-    catalog_data = read_catalog(filename)
+    catalog_data = read_catalog('catalog/fluorophore/{}.csv'.format(fluorophore_type))
     return catalog_data['Excitation'], catalog_data['Emission']
 
 def read_dichroic_catalog(dm):
-    filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/dichroic/', dm + '.csv')
-    return read_catalog(filename)['wavedataset']
+    return read_catalog('catalog/dichroic/{}.csv'.format(dm))['wavedataset']
 
 def read_excitation_catalog(excitation):
-    filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/excitation/', excitation + '.csv')
-    return read_catalog(filename)['wavedataset']
+    return read_catalog('catalog/excitation/{}.csv'.format(excitation))['wavedataset']
 
 def read_emission_catalog(emission):
-    filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/emission/', emission + '.csv')
-    return read_catalog(filename)['wavedataset']
-
+    filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), )
+    return read_catalog('catalog/emission/{}.csv'.format(emission))['wavedataset']
