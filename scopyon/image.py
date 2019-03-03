@@ -85,13 +85,13 @@ def save_image_with_spots(filename, data, spots, cmap=None, low=None, high=None,
     plt.savefig(filename)
     plt.clf()
 
-def show_with_spots(data, spots, blobs=None, cmap=None, low=None, high=None, dpi=100):
+def show_with_spots(data, spots=None, blobs=None, cmap=None, low=None, high=None, dpi=100):
     data = numpy.asarray(data)
     low = data.min() if low is None else low
     high = data.max() if high is None else high
 
-    import matplotlib
-    matplotlib.use('TkAgg')
+    # import matplotlib
+    # matplotlib.use('TkAgg')
     import matplotlib.pyplot as plt
     from matplotlib import cm
     import matplotlib.patches as patches
@@ -120,13 +120,14 @@ def show_with_spots(data, spots, blobs=None, cmap=None, low=None, high=None, dpi
             c = patches.Rectangle((y0, x0), y1 - y0, x1 - x0, color='green', linewidth=1, fill=False)
             ax.add_patch(c)
 
-    snratio = spots.T[0] / spots.T[-1]
-    imin, imax = snratio.min(), snratio.max()
-    for spot in spots:
-        (height, center_x, center_y, width_x, width_y, bg) = spot
-        intensity = (height / bg - imin) / (imax - imin)
-        c = patches.Ellipse((center_y, center_x), width_y * 2, width_x * 2, color=cm.plasma(intensity), linewidth=1, fill=False)
-        ax.add_patch(c)
+    if spots is not None:
+        snratio = spots.T[0] / spots.T[-1]
+        imin, imax = snratio.min(), snratio.max()
+        for spot in spots:
+            (height, center_x, center_y, width_x, width_y, bg) = spot
+            intensity = (height / bg - imin) / (imax - imin)
+            c = patches.Ellipse((center_y, center_x), width_y * 2, width_x * 2, color=cm.plasma(intensity), linewidth=1, fill=False)
+            ax.add_patch(c)
 
     plt.show()
     plt.clf()
