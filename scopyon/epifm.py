@@ -37,9 +37,9 @@ class _EPIFMConfigs:
             warnings.warn('A random number generator [rng] is not given.')
             rng = numpy.random.RandomState()
 
-        self.radial = numpy.arange(config.psf_radial_cutoff, dtype=float)
+        # self.radial = numpy.arange(config.psf_radial_cutoff, dtype=float)
         # self.depth = numpy.arange(config.psf_depth_cutoff, dtype=float)
-        print(config.psf_depth_cutoff)
+        self.radial = numpy.arange(0.0, config.psf_radial_cutoff, 1e-9, dtype=float)
         self.depth = numpy.arange(0.0, config.psf_depth_cutoff, 1e-9, dtype=float)
 
         self.wave_length = numpy.arange(config.psf_min_wave_length, config.psf_max_wave_length, dtype=int)
@@ -438,8 +438,8 @@ class _EPIFMConfigs:
 
             # Ir = sum(list(map(lambda x: x * numpy.exp(-0.5 * (r / self.psf_width[0]) ** 2), norm)))
             # Iz = sum(list(map(lambda x: x * numpy.exp(-0.5 * (z / self.psf_width[1]) ** 2), norm)))
-            Ir = norm * numpy.exp(-0.5 * numpy.power(self.radial / self.psf_width[0], 2))
-            Iz = norm * numpy.exp(-0.5 * numpy.power(self.radial / self.psf_width[1], 2))
+            Ir = norm * numpy.exp(-0.5 * numpy.power(self.radial / 1e-9 / self.psf_width[0], 2))
+            Iz = norm * numpy.exp(-0.5 * numpy.power(self.radial / 1e-9 / self.psf_width[1], 2))
 
             psf_fl = numpy.sum(I) * numpy.array(list(map(lambda x: Ir * x, Iz)))
 
@@ -472,7 +472,7 @@ class _EPIFMConfigs:
         # rho = numpy.array([(i + 1) * drho for i in range(N)])
         rho = numpy.arange(1, N + 1) * drho
 
-        J0 = numpy.array(list(map(lambda x: j0(x * alpha * rho), r)))
+        J0 = numpy.array(list(map(lambda x: j0(x * alpha * rho), r / 1e-9)))
         Y  = numpy.array(list(map(lambda x: numpy.exp(-2 * 1.j * x * gamma * rho * rho) * rho * drho, z / 1e-9)))
         I  = numpy.array(list(map(lambda x: x * J0, Y)))
         I_sum = I.sum(axis=2)
@@ -1464,7 +1464,7 @@ class EPIFMSimulator:
 
         depths = list(set(depths))
 
-        r = self.configs.radial
+        r = self.configs.radial / 1e-9
 
         theta = numpy.linspace(0, 90, 91)
         z = numpy.linspace(0, +r[-1], len(r))
