@@ -67,7 +67,7 @@ def read_spatiocyte_input(filename):
 
     interval, lz, ly, lx, voxel_radius = [float(_) for _ in header[: 5]]
     species_info = header[5:  ]
-    lengths = numpy.array([lx, ly, lz], dtype=numpy.float64) * 2 * voxel_radius / 1e-9  # nanometers
+    lengths = numpy.array([lx, ly, lz], dtype=numpy.float64) * 2 * voxel_radius  # meter
 
     species_ids = {}
     for sp in species_info:

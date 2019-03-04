@@ -316,7 +316,7 @@ class _EPIFMConfigs:
 
     #     # beam center
     #     # b_0 = self.source_center
-    #     b_0 = self.detector_focal_point
+    #     b_0 = numpy.array(self.detector_focal_point) / 1e-9  # nano meter
     #     x_0, y_0, z_0 = numpy.array([Nx, Ny, Nz]) * b_0
 
     #     # Incident beam: 1st beam angle to basal region of the cell
@@ -392,7 +392,7 @@ class _EPIFMConfigs:
     #         f0_norm = numpy.array([1, 0, 0])
 
     #     # set focal position
-    #     self.detector_focal_point = f0
+    #     self.detector_focal_point = f0 * 1e-9  # meter
     #     self.detector_focal_norm  = f0_norm
 
     #     _log.info('Focal Center: {}'.format(self.detector_focal_point))
@@ -620,7 +620,7 @@ class EPIFMSimulator:
         N_particles = N_particles[0]
 
         # get focal point
-        p_0 = numpy.asarray(self.configs.detector_focal_point)
+        p_0 = numpy.asarray(self.configs.detector_focal_point) / 1e-9  # nano meter
 
         # beam position: Assuming beam position = focal point (for temporary)
         # p_b = copy.copy(p_0)
@@ -795,7 +795,7 @@ class EPIFMSimulator:
         _log.info('time: {} sec ({})'.format(t, frame_index))
 
         # focal point
-        p_0 = numpy.asarray(self.configs.detector_focal_point)
+        p_0 = numpy.asarray(self.configs.detector_focal_point) / 1e-9  # nano meter
 
         # beam position: Assuming beam position = focal point (for temporary)
         p_b = copy.copy(p_0)
@@ -1308,7 +1308,7 @@ class EPIFMSimulator:
         return prob
 
     def __detector_output(self, rng, camera_pixel, true_data):
-        focal_center = numpy.asarray(self.configs.detector_focal_point)
+        focal_center = numpy.asarray(self.configs.detector_focal_point) / 1e-9  # nano meter
 
         Nw_pixel, Nh_pixel = self.configs.detector_image_size  # pixels
         pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification / 1e-9  # nm
@@ -1443,7 +1443,7 @@ class EPIFMSimulator:
         _log.info("__get_fluo_psfs was called.")
 
         # get_focal_center
-        p_0 = numpy.asarray(self.configs.detector_focal_point)
+        p_0 = numpy.asarray(self.configs.detector_focal_point) / 1e-9  # nano meter
 
         depths = []
         for _, particles in data:

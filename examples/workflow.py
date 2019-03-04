@@ -89,7 +89,7 @@ class OutputFrame(luigi.Task):
         config.set_epifm_fluorophore(
             fluorophore_type='Tetramethylrhodamine(TRITC)', normalization=1.0, radius=20)
         config.set_epifm_dichroic_mirror('FF493_574-Di01-25x36')
-        focal_point = numpy.array([lengths[0] / 1e-9 * 0.0, lengths[1] / 1e-9 * 0.5, lengths[2] / 1e-9 * 0.5])
+        focal_point = numpy.array([lengths[0] * 0.0, lengths[1] * 0.5, lengths[2] * 0.5])
         config.set_epifm_magnification(magnification=60 * 1.5 * 4)
         config.set_epifm_detector(
             detector='EMCCD', image_size=(512, 512), pixel_length=16e-6, exposure_time=exposure_time,
