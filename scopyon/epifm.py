@@ -1467,8 +1467,10 @@ class EPIFMSimulator:
         r = self.configs.radial / 1e-9
 
         theta = numpy.linspace(0, 90, 91)
-        z = numpy.linspace(0, +r[-1], len(r))
-        y = numpy.linspace(0, +r[-1], len(r))
+        # z = numpy.linspace(0, +r[-1], len(r))
+        # y = numpy.linspace(0, +r[-1], len(r))
+        z = numpy.arange(0, r[-1] + 1.0, 1.0)
+        y = numpy.arange(0, r[-1] + 1.0, 1.0)
 
         coordinates = _polar2cartesian_coordinates(r, theta, z, y)
         psf_t = numpy.ones_like(theta)
@@ -1477,6 +1479,6 @@ class EPIFMSimulator:
         for depth in depths:
             psf_r = self.configs.fluorophore_psf[depth]
             psf_polar = numpy.array(list(map(lambda x: psf_t * x, psf_r)))
-            fluo_psfs[depth] = _polar2cartesian(psf_polar, coordinates, (len(r), len(r)))
+            fluo_psfs[depth] = _polar2cartesian(psf_polar, coordinates, (len(z), len(y)))
 
         return fluo_psfs
