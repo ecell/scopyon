@@ -38,7 +38,10 @@ class _EPIFMConfigs:
             rng = numpy.random.RandomState()
 
         self.radial = numpy.arange(config.psf_radial_cutoff, dtype=float)
-        self.depth = numpy.arange(config.psf_depth_cutoff, dtype=float)
+        # self.depth = numpy.arange(config.psf_depth_cutoff, dtype=float)
+        print(config.psf_depth_cutoff)
+        self.depth = numpy.arange(0.0, config.psf_depth_cutoff, 1e-9, dtype=float)
+
         self.wave_length = numpy.arange(config.psf_min_wave_length, config.psf_max_wave_length, dtype=int)
         N = len(self.wave_length)
         self.wave_number = 2 * numpy.pi / self.wave_length
@@ -414,9 +417,6 @@ class _EPIFMConfigs:
     #     self.set_PSF_detector()
 
     def get_PSF_detector(self):
-        r = self.radial
-        z = self.depth
-
         wave_length = self.psf_wavelength
 
         # Fluorophores Emission Intensity (wave_length)
@@ -438,14 +438,14 @@ class _EPIFMConfigs:
 
             # Ir = sum(list(map(lambda x: x * numpy.exp(-0.5 * (r / self.psf_width[0]) ** 2), norm)))
             # Iz = sum(list(map(lambda x: x * numpy.exp(-0.5 * (z / self.psf_width[1]) ** 2), norm)))
-            Ir = norm * numpy.exp(-0.5 * numpy.power(r / self.psf_width[0], 2))
-            Iz = norm * numpy.exp(-0.5 * numpy.power(r / self.psf_width[1], 2))
+            Ir = norm * numpy.exp(-0.5 * numpy.power(self.radial / self.psf_width[0], 2))
+            Iz = norm * numpy.exp(-0.5 * numpy.power(self.radial / self.psf_width[1], 2))
 
             psf_fl = numpy.sum(I) * numpy.array(list(map(lambda x: Ir * x, Iz)))
 
         else:
             # make the norm and wave_length array shorter
-            psf_fl = numpy.sum(I) * self.get_PSF_fluorophore(r, z, wave_length)
+            psf_fl = numpy.sum(I) * self.get_PSF_fluorophore(self.radial, self.depth, wave_length)
 
         psf_fl *= self.psf_normalization
 
@@ -473,7 +473,7 @@ class _EPIFMConfigs:
         rho = numpy.arange(1, N + 1) * drho
 
         J0 = numpy.array(list(map(lambda x: j0(x * alpha * rho), r)))
-        Y  = numpy.array(list(map(lambda x: numpy.exp(-2 * 1.j * x * gamma * rho * rho) * rho * drho, z)))
+        Y  = numpy.array(list(map(lambda x: numpy.exp(-2 * 1.j * x * gamma * rho * rho) * rho * drho, z / 1e-9)))
         I  = numpy.array(list(map(lambda x: x * J0, Y)))
         I_sum = I.sum(axis=2)
 
@@ -1011,7 +1011,7 @@ class EPIFMSimulator:
 
     def __get_signal(self, amplitude, radial, depth, p_state, unit_time, fluo_psfs=None):
         # fluorophore axial position
-        fluo_depth = depth if depth < len(self.configs.depth) else -1
+        fluo_depth = depth if depth < (self.configs.depth[-1] / 1e-9 + 1.0) else -1
 
         # get fluorophore PSF
         psf_depth = (fluo_psfs or self.fluo_psf)[int(fluo_depth)]
@@ -1458,7 +1458,7 @@ class EPIFMSimulator:
                 p_i, _, depth = _rotate_coordinate(p_i, p_0)
 
                 # fluorophore axial position
-                fluo_depth = int(depth) if depth < len(self.configs.depth) else -1
+                fluo_depth = int(depth) if depth < (self.configs.depth[-1] / 1e-9 + 1.0) else -1
 
                 depths.append(fluo_depth)
 
