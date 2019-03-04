@@ -79,7 +79,7 @@ class _EPIFMConfigs:
         _log.info('--- Fluorophore: {} PSF'.format(self.fluorophore_type))
         _log.info('    Wave Length   =  {} m'.format(self.psf_wavelength))
         _log.info('    Normalization =  {}'.format(self.psf_normalization))
-        _log.info('    Fluorophore radius =  {} nm'.format(self.fluorophore_radius))
+        _log.info('    Fluorophore radius =  {} m'.format(self.fluorophore_radius))
         if hasattr(self, 'psf_width'):
             _log.info('    Lateral Width =  {} m'.format(self.psf_width[0]))
             _log.info('    Axial Width =  {} m'.format(self.psf_width[1]))
@@ -1039,7 +1039,7 @@ class EPIFMSimulator:
         n_abs = amplitude * x_sec * unit_time
 
         # Beer-Lamberts law: A = log(I0 / I) = abs coef. * concentration * path length ([m2]*[#/m3]*[m])
-        fluorophore_radius = self.configs.fluorophore_radius * 1e-9
+        fluorophore_radius = self.configs.fluorophore_radius
         fluorophore_volume = (4.0 / 3.0) * numpy.pi * numpy.power(fluorophore_radius, 3)
         fluorophore_depth  = 2.0 * fluorophore_radius
 

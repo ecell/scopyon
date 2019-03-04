@@ -30,9 +30,9 @@ def test_tirf() :
 
     ## set epifm configurations
     config.set_epifm_shutter(start_time=t0, end_time=t1)
-    config.set_epifm_light_source(source_type='LASER', wave_length=532, flux_density=40, angle=72)
+    config.set_epifm_light_source(source_type='LASER', wave_length=532e-9, flux_density=40, angle=72)
     config.set_epifm_fluorophore(
-        fluorophore_type='Tetramethylrhodamine(TRITC)', normalization=1.0, radius=20)
+        fluorophore_type='Tetramethylrhodamine(TRITC)', normalization=1.0, radius=20e-9)
     config.set_epifm_dichroic_mirror('FF562-Di03-25x36')
     focal_point = numpy.array([lengths[0] * 0.0, lengths[1] * 0.5, lengths[2] * 0.5])
     config.set_epifm_magnification(magnification=241)
