@@ -438,8 +438,8 @@ class _EPIFMConfigs:
 
             # Ir = sum(list(map(lambda x: x * numpy.exp(-0.5 * (r / self.psf_width[0]) ** 2), norm)))
             # Iz = sum(list(map(lambda x: x * numpy.exp(-0.5 * (z / self.psf_width[1]) ** 2), norm)))
-            Ir = norm * numpy.exp(-0.5 * numpy.power(self.radial / 1e-9 / self.psf_width[0], 2))
-            Iz = norm * numpy.exp(-0.5 * numpy.power(self.radial / 1e-9 / self.psf_width[1], 2))
+            Ir = norm * numpy.exp(-0.5 * numpy.power(self.radial / self.psf_width[0], 2))
+            Iz = norm * numpy.exp(-0.5 * numpy.power(self.radial / self.psf_width[1], 2))
 
             psf_fl = numpy.sum(I) * numpy.array(list(map(lambda x: Ir * x, Iz)))
 
