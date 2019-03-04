@@ -42,9 +42,10 @@ class _EPIFMConfigs:
         self.radial = numpy.arange(0.0, config.psf_radial_cutoff, 1e-9, dtype=float)
         self.depth = numpy.arange(0.0, config.psf_depth_cutoff, 1e-9, dtype=float)
 
-        self.wave_length = numpy.arange(config.psf_min_wave_length, config.psf_max_wave_length, dtype=int)
+        # self.wave_length = numpy.arange(config.psf_min_wave_length, config.psf_max_wave_length, dtype=int)
+        self.wave_length = numpy.arange(config.psf_min_wave_length, config.psf_max_wave_length, 1e-9, dtype=float)
         N = len(self.wave_length)
-        self.wave_number = 2 * numpy.pi / self.wave_length
+        self.wave_number = 2 * numpy.pi / (self.wave_length / 1e-9)  # 1/nm
         self.excitation_eff = numpy.zeros(N, dtype=float)
         self.dichroic_eff = numpy.zeros(N, dtype=float)
         self.emission_eff = numpy.zeros(N, dtype=float)
@@ -66,7 +67,7 @@ class _EPIFMConfigs:
             config.source_radius, config.source_angle, config.source_switch)
 
         _log.info('--- Light Source:{}'.format(self.source_type))
-        _log.info('    Wave Length = {} nm'.format(self.source_wavelength))
+        _log.info('    Wave Length = {} m'.format(self.source_wavelength))
         _log.info('    Beam Flux Density = {} W/cm2'.format(self.source_flux_density))
         _log.info('    1/e2 Radius = {} m'.format(self.source_radius))
         _log.info('    Angle = {} degree'.format(self.source_angle))
@@ -76,14 +77,14 @@ class _EPIFMConfigs:
             config.fluorophore_radius, config.psf_width)
 
         _log.info('--- Fluorophore: {} PSF'.format(self.fluorophore_type))
-        _log.info('    Wave Length   =  {} nm'.format(self.psf_wavelength))
+        _log.info('    Wave Length   =  {} m'.format(self.psf_wavelength))
         _log.info('    Normalization =  {}'.format(self.psf_normalization))
         _log.info('    Fluorophore radius =  {} nm'.format(self.fluorophore_radius))
         if hasattr(self, 'psf_width'):
             _log.info('    Lateral Width =  {} m'.format(self.psf_width[0]))
             _log.info('    Axial Width =  {} m'.format(self.psf_width[1]))
         _log.info('    PSF Normalization Factor =  {}'.format(self.psf_normalization))
-        _log.info('    Emission  : Wave Length =  {} nm'.format(self.psf_wavelength))
+        _log.info('    Emission  : Wave Length =  {} m'.format(self.psf_wavelength))
 
         self.set_dichroic_mirror(config.dichroic_mirror, config.dichroic_switch)
         _log.info('--- Dichroic Mirror:')
@@ -142,8 +143,10 @@ class _EPIFMConfigs:
         data = data[data[: , 0] % 1 == 0, :]
 
         efficiency = numpy.zeros(len(self.wave_length))
-        idx1 = numpy.in1d(numpy.array(self.wave_length), data[:, 0])
-        idx2 = numpy.in1d(numpy.array(data[:, 0]), self.wave_length)
+
+        wave_length = numpy.round(self.wave_length / 1e-9).astype(int)  #XXX: numpy.array(dtype=int)
+        idx1 = numpy.in1d(wave_length, data[:, 0])
+        idx2 = numpy.in1d(numpy.array(data[:, 0]), wave_length)
 
         efficiency[idx1] = data[idx2, 1]
 
@@ -175,7 +178,7 @@ class _EPIFMConfigs:
             N = len(self.wave_length)
             fluorophore_excitation = numpy.zeros(N, dtype=float)
             fluorophore_emission = numpy.zeros(N, dtype=float)
-            index = (numpy.abs(self.wave_length - self.psf_wavelength)).argmin()
+            index = (numpy.abs(self.wave_length / 1e-9 - self.psf_wavelength / 1e-9)).argmin()
             fluorophore_excitation[index] = 100
             fluorophore_emission[index] = 100
             self._set_data('fluoex_eff', fluorophore_excitation)
@@ -212,7 +215,7 @@ class _EPIFMConfigs:
             if wave_length is not None:
                 warnings.warn('The given wave length [{}] was ignored'.format(wave_length))
 
-            # _log.info('    Excitation: Wave Length =  {} nm'.format(self.wave_length[index_ex]))
+            # _log.info('    Excitation: Wave Length =  {} m'.format(self.wave_length[index_ex]))
             self._set_data('psf_wavelength', self.wave_length[index_em])
 
     def set_magnification(self, magnification=None):
@@ -417,8 +420,6 @@ class _EPIFMConfigs:
     #     self.set_PSF_detector()
 
     def get_PSF_detector(self):
-        wave_length = self.psf_wavelength
-
         # Fluorophores Emission Intensity (wave_length)
         I = self.fluoem_norm
 
@@ -445,7 +446,7 @@ class _EPIFMConfigs:
 
         else:
             # make the norm and wave_length array shorter
-            psf_fl = numpy.sum(I) * self.get_PSF_fluorophore(self.radial, self.depth, wave_length)
+            psf_fl = numpy.sum(I) * self.get_PSF_fluorophore(self.radial, self.depth, self.psf_wavelength)
 
         psf_fl *= self.psf_normalization
 
@@ -462,7 +463,7 @@ class _EPIFMConfigs:
         NA = 1.4  # self.objective_NA
 
         # set alpha and gamma consts
-        k = 2.0 * numpy.pi / wave_length
+        k = 2.0 * numpy.pi / (wave_length / 1e-9)
         alpha = k * NA
         gamma = k * numpy.power(NA / 2, 2)
 
@@ -1068,7 +1069,7 @@ class EPIFMSimulator:
         P_0 = self.configs.source_flux_density*1e+4
 
         # single photon energy
-        wave_length = self.configs.source_wavelength*1e-9
+        wave_length = self.configs.source_wavelength  # m
         E_wl = hc/wave_length
 
         # photon flux density [photons/sec/m2]
@@ -1352,7 +1353,7 @@ class EPIFMSimulator:
         for i in range(Nw_pixel):
             for j in range(Nh_pixel):
                 ## Detector: Quantum Efficiency
-                # index = int(self.configs.psf_wavelength) - int(self.configs.wave_length[0])
+                # index = int(self.configs.psf_wavelength / 1e-9) - int(self.configs.wave_length[0] / 1e-9)
                 # QE = self.configs.detector_qeff[index]
                 QE = self.configs.detector_qeff
 
