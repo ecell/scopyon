@@ -80,8 +80,8 @@ class _EPIFMConfigs:
         _log.info('    Normalization =  {}'.format(self.psf_normalization))
         _log.info('    Fluorophore radius =  {} nm'.format(self.fluorophore_radius))
         if hasattr(self, 'psf_width'):
-            _log.info('    Lateral Width =  {} nm'.format(self.psf_width[0]))
-            _log.info('    Axial Width =  {} nm'.format(self.psf_width[1]))
+            _log.info('    Lateral Width =  {} m'.format(self.psf_width[0]))
+            _log.info('    Axial Width =  {} m'.format(self.psf_width[1]))
         _log.info('    PSF Normalization Factor =  {}'.format(self.psf_normalization))
         _log.info('    Emission  : Wave Length =  {} nm'.format(self.psf_wavelength))
 
