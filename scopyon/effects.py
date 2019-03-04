@@ -2,6 +2,8 @@ import functools
 
 import numpy
 
+from . import constants
+
 from logging import getLogger
 _log = getLogger(__name__)
 
@@ -27,8 +29,6 @@ class PhysicalEffects:
         self.fluorescence_budget = []
         self.fluorescence_state  = []
 
-        self._set_data('avogadoros_number', config.avogadoros_number)
-
         self.set_background(mean=config.background_mean, switch=config.background_switch)
 
         _log.info('--- Background: ')
@@ -44,7 +44,7 @@ class PhysicalEffects:
         _log.info('--- Fluorescence: ')
         _log.info('    Quantum Yield =  {}'.format(self.quantum_yield))
         _log.info('    Abs. Coefficient =  {} 1/(M cm)'.format(self.abs_coefficient))
-        _log.info('    Abs. Cross-section =  {} cm^2'.format((numpy.log(10) * self.abs_coefficient * 0.1 / config.avogadoros_number) * 1e+4))
+        _log.info('    Abs. Cross-section =  {} cm^2'.format((numpy.log(10) * self.abs_coefficient * 0.1 / constants.N_A) * 1e+4))
 
         self.set_photobleaching(tau0=config.photobleaching_tau0, alpha=config.photobleaching_alpha, switch=config.photobleaching_switch)
 

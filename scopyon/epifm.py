@@ -13,6 +13,7 @@ from .effects import PhysicalEffects
 from . import io
 from .config import Config
 from .image import save_image, convert_8bit
+from . import constants
 
 from logging import getLogger
 _log = getLogger(__name__)
@@ -1030,11 +1031,8 @@ class EPIFMSimulator:
         # Quantum yield
         QY = self.effects.quantum_yield
 
-        # Abogadoro's number
-        Na = self.effects.avogadoros_number
-
         # Cross-section [m2]
-        x_sec = numpy.log(10) * abs_coeff * 0.1 / Na
+        x_sec = numpy.log(10) * abs_coeff * 0.1 / constants.N_A
 
         # get the number of absorption photons: [#/(m2 sec)]*[m2]*[sec]
         n_abs = amplitude * x_sec * unit_time
@@ -1044,7 +1042,7 @@ class EPIFMSimulator:
         fluorophore_volume = (4.0 / 3.0) * numpy.pi * numpy.power(fluorophore_radius, 3)
         fluorophore_depth  = 2.0 * fluorophore_radius
 
-        A = (abs_coeff * 0.1 / Na) * (1.0 / fluorophore_volume) * fluorophore_depth
+        A = (abs_coeff * 0.1 / constants.N_A) * (1.0 / fluorophore_volume) * fluorophore_depth
 
         # get the number of photons emitted
         n_emit = QY * n_abs * (1.0 - numpy.power(10.0, -A))
