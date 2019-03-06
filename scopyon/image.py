@@ -41,7 +41,7 @@ def convert_npy_to_8bit_image(filename, output=None, cmap=None, cmin=None, cmax=
     bytedata = convert_8bit(data, cmin, cmax, low, high)
     save_image(output, bytedata, cmap, low, high)
 
-def save_image_with_spots(filename, data, spots, cmap=None, low=None, high=None, dpi=100):
+def save_image_with_spots(filename, data, spots, cmap=None, low=None, high=None, dpi=100, linecolor=None):
     """Generate an image with spots.
 
     Args:
@@ -53,6 +53,7 @@ def save_image_with_spots(filename, data, spots, cmap=None, low=None, high=None,
         low, high (float, optional): vmin and vmax define the range of the colormap.
             By default, the colormap covers the complete value range of the data.
         dpi (float, optional): Defaults to 100.
+        linecolor (optional): Line matplotlib color.
 
     """
     data = numpy.asarray(data)
@@ -75,17 +76,21 @@ def save_image_with_spots(filename, data, spots, cmap=None, low=None, high=None,
 
     ax.imshow(data, interpolation='none', cmap=cmap, vmin=low, vmax=high)
 
-    for spot in spots:
-        (_, center_x, center_y, width_x, width_y, _) = spot
-        # radius = max(width_x, width_y)
-        # c = plt.Circle((center_y, center_x), radius, color='red', linewidth=1, fill=False)
-        c = patches.Ellipse((center_y, center_x), width_y, width_x, color='red', linewidth=1, fill=False)
-        ax.add_patch(c)
+    if spots is not None:
+        snratio = spots.T[0] / spots.T[-1]
+        imin, imax = snratio.min(), snratio.max()
+        for spot in spots:
+            (height, center_x, center_y, width_x, width_y, bg) = spot
+            intensity = (height / bg - imin) / (imax - imin)
+            # radius = max(width_x, width_y)
+            # c = plt.Circle((center_y, center_x), radius, color='red', linewidth=1, fill=False)
+            c = patches.Ellipse((center_y, center_x), width_y * 2, width_x * 2, color=(cm.plasma(intensity) if linecolor is None else linecolor), linewidth=1, fill=False)
+            ax.add_patch(c)
 
     plt.savefig(filename)
     plt.clf()
 
-def show_with_spots(data, spots=None, blobs=None, cmap=None, low=None, high=None, dpi=100):
+def show_with_spots(data, spots=None, blobs=None, cmap=None, low=None, high=None, dpi=100, linecolor=None):
     data = numpy.asarray(data)
     low = data.min() if low is None else low
     high = data.max() if high is None else high
@@ -126,8 +131,7 @@ def show_with_spots(data, spots=None, blobs=None, cmap=None, low=None, high=None
         for spot in spots:
             (height, center_x, center_y, width_x, width_y, bg) = spot
             intensity = (height / bg - imin) / (imax - imin)
-            c = patches.Ellipse((center_y, center_x), width_y * 2, width_x * 2, color=cm.plasma(intensity), linewidth=1, fill=False)
+            c = patches.Ellipse((center_y, center_x), width_y * 2, width_x * 2, color=(cm.plasma(intensity) if linecolor is None else linecolor), linewidth=1, fill=False)
             ax.add_patch(c)
 
     plt.show()
-    plt.clf()
