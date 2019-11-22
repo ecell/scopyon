@@ -1,4 +1,5 @@
 import os.path
+import os
 import numpy
 
 
@@ -40,6 +41,40 @@ def convert_npy_to_8bit_image(filename, output=None, cmap=None, cmin=None, cmax=
 
     bytedata = convert_8bit(data, cmin, cmax, low, high)
     save_image(output, bytedata, cmap, low, high)
+
+def extract_avi_frames(video_path, dir_path, basename, ext='png'):
+    import cv2
+
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        return
+
+    os.makedirs(dir_path, exist_ok=True)
+    base_path = os.path.join(dir_path, basename)
+
+    digit = len(str(int(cap.get(cv2.CAP_PROP_FRAME_COUNT))))
+
+    n = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        cv2.imwrite('{}_{}.{}'.format(base_path, str(n).zfill(digit), ext), frame)
+        n += 1
+
+def extract_multipage_tiff_frames(tiff_path, dir_path, basename, ext='png'):
+    import PIL.Image
+
+    os.makedirs(dir_path, exist_ok=True)
+    base_path = os.path.join(dir_path, basename)
+
+    img = PIL.Image.open(filename)
+    digit = len(str(int(img.n_frames)))
+    for i in range(img.n_frames):
+        img.seek(i)
+        data = numpy.asarray(img)
+        numpy.save('{}_{}.npy'.format(base_path, str(i).zfill(digit)), data)
+        save_image('{}_{}.{}'.format(base_path, str(i).zfill(digit), ext), data, data)
 
 def save_image_with_spots(filename, data, spots, cmap=None, low=None, high=None, dpi=100, linecolor=None):
     """Generate an image with spots.
