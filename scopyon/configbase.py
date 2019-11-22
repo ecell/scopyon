@@ -3,6 +3,7 @@ import re
 import configparser
 import collections
 import ast
+import pkgutil
 
 import numpy
 
@@ -38,8 +39,7 @@ class _Config:
             else:
                 raise ValueError("Argument [conf] must be either 'str' or 'dict'.")
         else:
-            filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'defaults.ini')
-            self.read(filename)
+            self.read()
 
     def read_string(self, config):
         parser = configparser.SafeConfigParser()
@@ -49,7 +49,10 @@ class _Config:
             for opt, val in parser[sec].items():
                 self.__update(opt, ast.literal_eval(val))  #XXX: None is accepted here for compatibility
 
-    def read(self, filename):
+    def read(self, filename=None):
+        if filename is None:
+            filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'defaults.ini')
+
         if not os.path.isfile(filename):
             raise IOError('No such file [{}].'.format(filename))
 
