@@ -170,11 +170,13 @@ def spot_detection(data, min_sigma=1, max_sigma=50, num_sigma=10, threshold=0.2,
 
         roi = data[x0: x1, y0: y1]
         if roi.sum() <= 0:
+            _log.debug("spot_detection skip a blob due to the low signal.")
             continue
 
         ## Gaussian-fit to i-th spot
         ret = fitgaussian(roi, opt)
         if ret is None:
+            _log.debug("spot_detection skip a blob because fitgaussian returns nothing.")
             continue
 
         (height, center_x, center_y, width_x, width_y, bg) = ret
@@ -188,6 +190,7 @@ def spot_detection(data, min_sigma=1, max_sigma=50, num_sigma=10, threshold=0.2,
             and 0 <= center_x < roi.shape[0]
             and 0 <= center_y < roi.shape[1]
             and bg > 0):
+            _log.debug(f"spot_detection skip a blob due to the invalid result [height={height}, center_x={center_x}, center_y={center_y}, bg={bg}].")
             continue
 
         center_x += x0
