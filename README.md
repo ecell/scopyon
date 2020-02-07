@@ -1,6 +1,7 @@
 scopyon
 =======
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ecell/scopyon/master)
 [![PyPI version](https://badge.fury.io/py/scopyon.svg)](https://badge.fury.io/py/scopyon)
 [![CircleCI](https://circleci.com/gh/ecell/scopyon.svg?style=svg)](https://circleci.com/gh/ecell/scopyon)
 [![Readthedocs](https://readthedocs.org/projects/scopyon/badge/)](http://scopyon.readthedocs.io/)
