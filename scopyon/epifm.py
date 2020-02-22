@@ -1381,8 +1381,6 @@ class EPIFMSimulator:
             return 0
         s, p_signal = self.__probability_emccd_cupy(expected, emgain)
         ## get signal (photoelectrons)
-        if p_signal.sum() != 1.0:
-            print(expected, len(s), p_signal.sum())
         signal = cupy.random.choice(s, 1, p=p_signal)[0]  # size=None is not supported
         return signal
 
@@ -1466,6 +1464,7 @@ class EPIFMSimulator:
 
             ## conversion: photon --> photoelectron --> ADC count
             for i in range(Nw_pixel):
+                print(f"> {i}")
                 for j in range(Nh_pixel):
                     ## get signal (expectation)
                     expected = camera_pixel[i, j, 0]
