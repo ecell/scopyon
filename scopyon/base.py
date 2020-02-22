@@ -849,74 +849,12 @@ class EPIFMSimulator(object):
             raise TypeError("Configuration or str must be given [{}].".format(type(config)))
 
         self.__config = config
-        # # Config
-        # self.__config = scopyon.config.Config()
-        # self.__config.update('hc_const', config["epifm"]["hc_const"]
-        # self.__config.update('shutter_switch', config["epifm"]["shutter"]["switch"])
-        # self.__config.update('shutter_start_time', config["epifm"]["shutter"]["start_time"])
-        # self.__config.update('shutter_end_time', config["epifm"]["shutter"]["end_time"])
-        # self.__config.update('shutter_time_open', config["epifm"]["shutter"]["time_open"])
-        # self.__config.update('shutter_time_lapse', config["epifm"]["shutter"]["time_lapse"])
-        # self.__config.update('source_switch', config["epifm"]["light_source"]["switch"])
-        # self.__config.update('source_type', config["epifm"]["light_source"]["type"])
-        # self.__config.update('source_wavelength', config["epifm"]["light_source"]["wave_length"])
-        # self.__config.update('source_flux_density', config["epifm"]["light_source"]["flux_density"])
-        # self.__config.update('source_radius', config["epifm"]["light_source"]["radius"])
-        # self.__config.update('source_angle', config["epifm"]["light_source"]["angle"])
-        # self.__config.update('fluorophore_type', config["epifm"]["fluorophore"]["type"])
-        # self.__config.update('fluorophore_radius', config["epifm"]["fluorophore"]["radius"])
-        # self.__config.update('psf_wavelength', config["epifm"]["fluorophore"]["wave_length"])
-        # self.__config.update('psf_min_wave_length', config["epifm"]["fluorophore"]["min_wave_length"])
-        # self.__config.update('psf_max_wave_length', config["epifm"]["fluorophore"]["min_wave_length"])
-        # self.__config.update('psf_normalization', config["epifm"]["fluorophore"]["normalization"])
-        # self.__config.update('psf_width', config["epifm"]["fluorophore"]["width"])
-        # # self.__config.update('psf_cutoff', config["epifm"]["fluorophore"]["cutoff"])  # deprecated
-        # self.__config.update('psf_radial_cutoff', config["epifm"]["fluorophore"]["radial_cutoff"])
-        # self.__config.update('psf_depth_cutoff', config["epifm"]["fluorophore"]["depth_cutoff"])
-        # self.__config.update('psf_file_name_format', config["epifm"]["fluorophore"]["file_name_format"])
-        # self.__config.update('dichroic_switch', config["epifm"]["dichroic_mirror"]["switch"])
-        # self.__config.update('dichroic_mirror', config["epifm"]["dichroic_mirror"]["type"])
-        # self.__config.update('image_magnification', config["epifm"]["magnification"])
-        # self.__config.update('detector_switch', config["epifm"]["detector"]["switch"])
-        # self.__config.update('detector_type', config["epifm"]["detector"]["type"])
-        # self.__config.update('detector_image_size', config["epifm"]["detector"]["image_size"])
-        # self.__config.update('detector_pixel_length', config["epifm"]["detector"]["pixel_length"])
-        # self.__config.update('detector_exposure_time', config["epifm"]["detector"]["exposure_time"])
-        # self.__config.update('detector_focal_point', numpy.array(config["epifm"]["detector"]["focal_point"]))  #XXX
-        # self.__config.update('detector_qeff', config["epifm"]["detector"]["QE"])
-        # self.__config.update('detector_readout_noise', config["epifm"]["detector"]["readout_noise"])
-        # self.__config.update('detector_dark_count', config["epifm"]["detector"]["dark_count"])
-        # self.__config.update('detector_emgain', config["epifm"]["detector"]["emgain"])
-        # self.__config.update('ADConverter_bit', config["epifm"]["analog_to_digital_converter"]["bit"])
-        # self.__config.update('ADConverter_offset', config["epifm"]["analog_to_digital_converter"]["offset"])
-        # self.__config.update('ADConverter_fullwell', config["epifm"]["analog_to_digital_converter"]["fullwell"])
-        # self.__config.update('ADConverter_fpn_type', config["epifm"]["analog_to_digital_converter"]["type"])
-        # self.__config.update('ADConverter_fpn_count', config["epifm"]["analog_to_digital_converter"]["count"])
-        # # self.__config.update('detector_focal_point', config["epifm"]["illumination_path"]["focal_point"])
-        # self.__config.update('detector_focal_norm', config["epifm"]["illumination_path"]["focal_norm"])
-        # self.__config.update('excitation_switch', config["epifm"]["excitation_filter"]["switch"])
-        # self.__config.update('excitation_filter', config["epifm"]["excitation_filter"]["type"])
-        # self.__config.update('emission_switch', config["epifm"]["emission_filter"]["switch"])
-        # self.__config.update('emission_filter', config["epifm"]["emission_filter"]["type"])
 
-        # self.__config.update('background_switch', config["effects"]["background"]["switch"])
-        # self.__config.update('background_mean', config["effects"]["background"]["mean"])
-        # self.__config.update('crosstalk_switch', config["effects"]["crosstalk"]["switch"])
-        # self.__config.update('crosstalk_width', config["effects"]["crosstalk"]["width"])
-        # self.__config.update('quantum_yield', config["effects"]["fluorescence"]["quantum_yield"])
-        # self.__config.update('abs_coefficient', config["effects"]["fluorescence"]["abs_coefficient"])
-        # self.__config.update('photobleaching_switch', config["effects"]["photo_bleaching"]["switch"])
-        # self.__config.update('photobleaching_tau0', config["effects"]["photo_bleaching"]["tau0"])
-        # self.__config.update('photobleaching_alpha', config["effects"]["photo_bleaching"]["alpha"])
-        # self.__config.update('photoactivation_switch', config["effects"]["photo_activation"]["switch"])
-        # self.__config.update('photoactivation_turn_on_ratio', config["effects"]["photo_activation"]["turn_on_ratio"])
-        # self.__config.update('photoactivation_activation_yield', config["effects"]["photo_activation"]["activation_yield"])
-        # self.__config.update('photoactivation_frac_preactivation', config["effects"]["photo_activation"]["frac_preactivation"])
-        # self.__config.update('photoblinking_switch', config["effects"]["photo_blinking"]["switch"])
-        # self.__config.update('photoblinking_t0_on', config["effects"]["photo_blinking"]["t0_on"])
-        # self.__config.update('photoblinking_t0_off', config["effects"]["photo_blinking"]["t0_off"])
-        # self.__config.update('photoblinking_a_on', config["effects"]["photo_blinking"]["a_on"])
-        # self.__config.update('photoblinking_a_off', config["effects"]["photo_blinking"]["a_off"])
+    def base(self, rng=None):
+        # return scopyon.epifm.EPIFMSimulator(self.__config, rng=rng)
+        return scopyon.epifm.EPIFMSimulator(
+                configs=_EPIFMConfigs(self.__config.default.epifm, rng=rng),
+                effects=PhysicalEffects(self.__config.default.effects))
 
     def form_image(self, inputs, rng=None, debug=False):
         """Form image.
@@ -961,11 +899,7 @@ class EPIFMSimulator(object):
                     "Invalid argument was given [{}]."
                     " A ndarray is expected.".format(type(inputs)))
 
-        # base = scopyon.epifm.EPIFMSimulator(self.__config, rng=rng)
-        base = scopyon.epifm.EPIFMSimulator(
-                configs=_EPIFMConfigs(self.__config.default.epifm, rng=rng),
-                effects=PhysicalEffects(self.__config.default.effects))
-
+        base = self.base(rng)
         camera, true_data = base.output_frame(data, rng=rng)
         # camera[:, :, 0] => expected
         # camera[:, :, 1] => ADC
