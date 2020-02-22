@@ -1381,6 +1381,7 @@ class EPIFMSimulator:
             return 0
         s, p_signal = self.__probability_emccd_cupy(expected, emgain)
         ## get signal (photoelectrons)
+        print(expected, len(s), p_signal.sum())
         signal = cupy.random.choice(s, 1, p=p_signal)[0]  # size=None is not supported
         return signal
 
