@@ -819,9 +819,9 @@ class Image(object):
         img = PIL.Image.fromarray(data)
         img.save(filename)
 
-    def plot(self):
+    def plot(self, figsize=None):
         import matplotlib.pylab as plt
-        _ = plt.figure(figsize=(7, 7))
+        _ = plt.figure(figsize=figsize)
         plt.imshow(self.__data, interpolation='none', cmap="gray")
         plt.show()
 

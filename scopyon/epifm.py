@@ -1309,19 +1309,31 @@ class EPIFMSimulator:
 
         return cell_pixel
 
-    def __probability_emccd(self, S, E):
-        # get EM gain
-        M = self.configs.detector_emgain
-        a = 1.00/M
+    @staticmethod
+    def prob_emccd(S, E, a):
+        try:
+            import cupy
+            S = cupy.array(S)
+            return (
+                cupy.sqrt(a * E / S)
+                * cupy.exp(-a * S - E)
+                * i1(2 * cupy.sqrt(a * E * S))
+        except ImportError:
+            pass
+        return (
+            numpy.sqrt(a * E / S)
+            * numpy.exp(-a * S - E + 2 * numpy.sqrt(aES))
+            * i1e(2 * numpy.sqrt(a * E * S))
 
-        prob = numpy.zeros(shape=(len(S)))
+    def __probability_emccd(self, S, E):
+        a = 1.0 / self.configs.detector_emgain
 
         if (S[0] > 0):
-            prob = numpy.sqrt(a*E/S)*numpy.exp(-a*S-E+2*numpy.sqrt(a*E*S))*i1e(2*numpy.sqrt(a*E*S))
+            prob = self.prob_emccd(S, E, a)
         else:
+            prob = numpy.zeros(shape=(len(S)))
             prob[0] = numpy.exp(-E)
-            prob[1:] = numpy.sqrt(a*E/S[1:])*numpy.exp(-a*S[1:]-E+2*numpy.sqrt(a*E*S[1:]))*i1e(2*numpy.sqrt(a*E*S[1:]))
-
+            prob[1: ] = self.prob_emccd(S[1: ], E, a)
         return prob
 
     def __detector_output(self, rng, camera_pixel, true_data):
