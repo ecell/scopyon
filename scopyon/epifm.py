@@ -1347,7 +1347,7 @@ class EPIFMSimulator:
             return 0
         s, p_signal = self.__probability_emccd(expected, emgain)
         ## get signal (photoelectrons)
-        signal = rng.choice(s, None, p=p_signal)
+        signal = rng.choice(s, 1, p=p_signal)[0]  # size=None is not supported
         return signal
 
     @staticmethod
