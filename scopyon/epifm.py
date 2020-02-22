@@ -1314,8 +1314,8 @@ class EPIFMSimulator:
         try:
             import cupy
             import cupyx.scipy.special
-            S = cupy.array(S)
-            return (
+            S = cupy.asarray(S)
+            return cupy.asnumpy(
                 cupy.sqrt(a * E / S)
                 * cupy.exp(-a * S - E)
                 * cupyx.scipy.special.i1(2 * cupy.sqrt(a * E * S)))
