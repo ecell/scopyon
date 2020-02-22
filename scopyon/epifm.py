@@ -1309,11 +1309,12 @@ class EPIFMSimulator:
 
         return cell_pixel
 
-    @staticmethod
-    def prob_emccd(S, E, a):
+    # @staticmethod
+    def prob_emccd(self, S, E, a):
         try:
             import cupy
             import cupyx.scipy.special
+            print(dir(cupyx.scipy.special))
             S = cupy.array(S)
             return (
                 cupy.sqrt(a * E / S)
