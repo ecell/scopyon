@@ -1313,12 +1313,12 @@ class EPIFMSimulator:
     def prob_emccd(S, E, a):
         try:
             import cupy
-            import cupy.special
+            import cupyx.scipy.special
             S = cupy.array(S)
             return (
                 cupy.sqrt(a * E / S)
                 * cupy.exp(-a * S - E)
-                * cupy.special.i1(2 * cupy.sqrt(a * E * S)))
+                * cupyx.scipy.special.i1(2 * cupy.sqrt(a * E * S)))
         except ImportError:
             pass
         return (
