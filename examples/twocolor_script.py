@@ -26,6 +26,8 @@ def test_tirf() :
     (input_data1, lengths) = read_spatiocyte(t0, t1, pathto=input_path, observable='S1', max_count=max_count)
     (input_data2, _) = read_spatiocyte(t0, t1, pathto=input_path, observable='S2', max_count=max_count)
 
+    print(lengths)
+
     config = Config()
 
     ## set epifm configurations

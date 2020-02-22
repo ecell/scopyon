@@ -23,12 +23,14 @@ def save_image(filename, data, cmap=None, low=None, high=None, dpi=100):
     high = data.max() if high is None else high
 
     import matplotlib
+    backend = matplotlib.rcParams['backend']
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     from matplotlib import cm
     cmap = cmap or cm.gray
     plt.imsave(filename, data, cmap=cmap, vmin=low, vmax=high, dpi=dpi)
     plt.clf()
+    matplotlib.use(backend)
 
 def convert_npy_to_8bit_image(filename, output=None, cmap=None, cmin=None, cmax=None, low=None, high=None):
     low = 0 if low is None else low

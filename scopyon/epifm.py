@@ -278,7 +278,7 @@ class _EPIFMConfigs:
             temporal = numpy.tile(column, (1, Nw_pixel))
             offset = numpy.rint(temporal.reshape(Nh_pixel * Nw_pixel))
         else:
-            raise ValueError("FPN type [{}] is invalid ['pixel', 'column' or None]".format(FPN_type))
+            raise ValueError("FPN type [{}] is invalid ['pixel', 'column' or 'none']".format(FPN_type))
 
         # set ADC gain
         # gain = numpy.array(map(lambda x: (fullwell - 0.0) / (pow(2.0, bit) - x), offset))
@@ -483,44 +483,52 @@ class _EPIFMConfigs:
         return psf
 
 def _rotate_coordinate(p_i, p_0):
-    _, y_0, z_0 = p_0
+    p_i = numpy.array(p_i)  # Make a copy
+    p_0 = numpy.asarray(p_0)
 
-    # Rotation of focal plane
-    cos_th0 = 1
-    sin_th0 = numpy.sqrt(1 - cos_th0 * cos_th0)
+    displacement = p_i - p_0
+    radial = numpy.sqrt(displacement[1] ** 2 + displacement[2] ** 2)
+    depth = displacement[0]
+    return p_i, radial, depth
 
-    # Rotational matrix along z-axis
-    #Rot = numpy.matrix([[cos_th, -sin_th, 0], [sin_th, cos_th, 0], [0, 0, 1]])
-    Rot = numpy.matrix([[cos_th0, -sin_th0, 0], [sin_th0, cos_th0, 0], [0, 0, 1]])
+    # _, y_0, z_0 = p_0
 
-    # Vector of focal point to particle position
-    vec = p_i - p_0
-    len_vec = numpy.sqrt(numpy.sum(vec * vec))
+    # # Rotation of focal plane
+    # cos_th0 = 1
+    # sin_th0 = numpy.sqrt(1 - cos_th0 * cos_th0)
 
-    # Rotated particle position
-    v_rot = Rot * vec.reshape((3, 1))
-    # p_i = numpy.array(v_rot).ravel() + p_0
-    newp_i = numpy.array(v_rot).ravel() + p_0
+    # # Rotational matrix along z-axis
+    # #Rot = numpy.matrix([[cos_th, -sin_th, 0], [sin_th, cos_th, 0], [0, 0, 1]])
+    # Rot = numpy.matrix([[cos_th0, -sin_th0, 0], [sin_th0, cos_th0, 0], [0, 0, 1]])
 
-    # Normal vector of the focal plane
-    q_0 = numpy.array([0.0, y_0, 0.0])
-    q_1 = numpy.array([0.0, 0.0, z_0])
-    R_q0 = numpy.sqrt(numpy.sum(q_0 * q_0))
-    R_q1 = numpy.sqrt(numpy.sum(q_1 * q_1))
+    # # Vector of focal point to particle position
+    # vec = p_i - p_0
+    # len_vec = numpy.sqrt(numpy.sum(vec * vec))
 
-    q0_rot = Rot * q_0.reshape((3, 1))
-    q1_rot = Rot * q_1.reshape((3, 1))
+    # # Rotated particle position
+    # v_rot = Rot * vec.reshape((3, 1))
+    # # p_i = numpy.array(v_rot).ravel() + p_0
+    # newp_i = numpy.array(v_rot).ravel() + p_0
 
-    norm_v = numpy.cross(q0_rot.ravel(), q1_rot.ravel()) / (R_q0 * R_q1)
+    # # Normal vector of the focal plane
+    # q_0 = numpy.array([0.0, y_0, 0.0])
+    # q_1 = numpy.array([0.0, 0.0, z_0])
+    # R_q0 = numpy.sqrt(numpy.sum(q_0 * q_0))
+    # R_q1 = numpy.sqrt(numpy.sum(q_1 * q_1))
 
-    # Radial distance and depth to focal plane
-    cos_0i = numpy.sum(norm_v * vec) / (1.0 * len_vec)
-    sin_0i = numpy.sqrt(1 - cos_0i * cos_0i)
+    # q0_rot = Rot * q_0.reshape((3, 1))
+    # q1_rot = Rot * q_1.reshape((3, 1))
 
-    focal_depth  = abs(len_vec * cos_0i)
-    focal_radial = abs(len_vec * sin_0i)
+    # norm_v = numpy.cross(q0_rot.ravel(), q1_rot.ravel()) / (R_q0 * R_q1)
 
-    return newp_i, focal_radial, focal_depth
+    # # Radial distance and depth to focal plane
+    # cos_0i = numpy.sum(norm_v * vec) / (1.0 * len_vec)
+    # sin_0i = numpy.sqrt(1 - cos_0i * cos_0i)
+
+    # focal_depth  = abs(len_vec * cos_0i)
+    # focal_radial = abs(len_vec * sin_0i)
+
+    # return newp_i, focal_radial, focal_depth
 
 def _polar2cartesian_coordinates(r, t, x, y):
     X, Y = numpy.meshgrid(x, y)
@@ -550,7 +558,7 @@ class EPIFMSimulator:
     A class of the simulator for Epifluorescence microscopy (EPI).
     '''
 
-    def __init__(self, config=None, rng=None):
+    def __init__(self, config=None, rng=None, *, configs=None, effects=None):
         """A constructor of EPIFMSimulator.
 
         Args:
@@ -559,7 +567,15 @@ class EPIFMSimulator:
                 for initializing this class.
 
         """
-        self.initialize(config, rng)
+        if configs is not None and effects is not None:
+            assert config is None and rng is None
+            self.configs = configs
+            self.effects = effects
+        elif config is not None:
+            assert configs is None and effects is None
+            self.initialize(config, rng)
+        else:
+            raise RuntimeError()
 
     def initialize(self, config=None, rng=None):
         """Initialize EPIFMSimulator.
@@ -1391,6 +1407,7 @@ class EPIFMSimulator:
 
                         ## get signal (photoelectrons)
                         signal = rng.choice(s, None, p=p_signal / p_ssum)
+                        print(expected, signal)
 
                     else:
                         signal = 0
