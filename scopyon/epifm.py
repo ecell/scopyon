@@ -1323,7 +1323,7 @@ class EPIFMSimulator:
         return (
             numpy.sqrt(a * E / S)
             * numpy.exp(-a * S - E + 2 * numpy.sqrt(aES))
-            * i1e(2 * numpy.sqrt(a * E * S))
+            * i1e(2 * numpy.sqrt(a * E * S)))
 
     def __probability_emccd(self, S, E):
         a = 1.0 / self.configs.detector_emgain
