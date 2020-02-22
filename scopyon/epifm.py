@@ -15,6 +15,13 @@ from .config import Config
 from .image import save_image, convert_8bit
 from . import constants
 
+try:
+    import cupy
+    import cupyx.scipy.special
+    HAS_CUPY = True
+except ImportError:
+    HAS_CUPY = False
+
 from logging import getLogger
 _log = getLogger(__name__)
 
@@ -1311,26 +1318,15 @@ class EPIFMSimulator:
 
     @staticmethod
     def prob_emccd(S, E, a):
-        # try:
-        #     import cupy
-        #     import cupyx.scipy.special
-        #     S = cupy.asarray(S)
-        #     return cupy.asnumpy(
-        #         cupy.sqrt(a * E / S)
-        #         * cupy.exp(-a * S - E)
-        #         * cupyx.scipy.special.i1(2 * cupy.sqrt(a * E * S)))
-        # except ImportError:
-        #     pass
-        # X = numpy.sqrt(a * E * S)
-        # return ((a * E) / X * numpy.exp(-a * S - E + 2 * X) * i1e(2 * X))
         X = a * S
         Y = 2 * numpy.sqrt(E * X)
-        return (1.0 / Y * numpy.exp(-X + Y) * i1e(Y))
+        return (1.0 / Y * numpy.exp(-X + Y) * i1e(Y))  # * a * E / numpy.exp(E)
 
     def __probability_emccd(self, expected, emgain):
         ## set probability distributions
-        s_min = max(0, emgain * int(expected - 5.0 * numpy.sqrt(expected) - 10))
-        s_max = emgain * int(expected + 5.0 * numpy.sqrt(expected) + 10)
+        sigma = numpy.sqrt(expected) * 5 + 10
+        s_min = max(0, emgain * int(expected - sigma))
+        s_max = emgain * int(expected + sigma)
         # s = numpy.array([k for k in range(s_min, s_max)])
         S = numpy.arange(s_min, s_max)
 
@@ -1338,6 +1334,7 @@ class EPIFMSimulator:
         if S[0] > 0:
             p_signal = self.prob_emccd(S, expected, a)
         else:
+            # assert S[1] > 0
             p_signal = numpy.zeros(shape=(len(S)))
             p_signal[0] = numpy.exp(-expected)
             p_signal[1: ] = self.prob_emccd(S[1: ], expected, a)
@@ -1351,6 +1348,40 @@ class EPIFMSimulator:
         s, p_signal = self.__probability_emccd(expected, emgain)
         ## get signal (photoelectrons)
         signal = rng.choice(s, None, p=p_signal)
+        return signal
+
+    @staticmethod
+    def prob_emccd_cupy(S, E, a):
+        X = a * S
+        Y = 2 * cupy.sqrt(E * X)
+        return (1.0 / Y * cupy.exp(-X) * cupyx.scipy.special.i1(Y))  # * a * E / numpy.exp(E)
+
+    def __probability_emccd_cupy(self, expected, emgain):
+        ## set probability distributions
+        sigma = cupy.sqrt(expected) * 5 + 10
+        s_min = max(0, emgain * int(expected - sigma))
+        s_max = emgain * int(expected + sigma)
+        # s = cupy.array([k for k in range(s_min, s_max)])
+        S = cupy.arange(s_min, s_max)
+
+        a = 1.0 / emgain
+        if S[0] > 0:
+            p_signal = self.prob_emccd_cupy(S, expected, a)
+        else:
+            # assert S[1] > 0
+            p_signal = cupy.zeros(shape=(len(S)))
+            p_signal[0] = cupy.exp(-expected)
+            p_signal[1: ] = self.prob_emccd_cupy(S[1: ], expected, a)
+
+        p_signal /= p_signal.sum()
+        return S, p_signal
+
+    def __rng_emccd_cupy(self, expected, emgain):
+        if expected <= 0:
+            return 0
+        s, p_signal = self.__probability_emccd_cupy(expected, emgain)
+        ## get signal (photoelectrons)
+        signal = cupy.random.choice(s, None, p=p_signal)
         return signal
 
     def __detector_output(self, rng, camera_pixel, true_data):
@@ -1417,7 +1448,7 @@ class EPIFMSimulator:
 
                     ## get detector noise (photoelectrons)
                     noise  = rng.choice(Nr_cmos, None, p=p_noise / p_nsum)
-                    Nr = 1.3
+                    Nr = 1.3  #???
 
                     ## A/D converter: Photoelectrons --> ADC counts
                     PE = signal + noise
@@ -1438,7 +1469,10 @@ class EPIFMSimulator:
                     expected = camera_pixel[i, j, 0]
 
                     ## get signal (photoelectrons)
-                    signal = self.__rng_emccd(rng, expected, self.configs.detector_emgain)
+                    if HAS_CUPY:
+                        signal = self.__rng_emccd_cupy(expected, self.configs.detector_emgain)
+                    else:
+                        signal = self.__rng_emccd(rng, expected, self.configs.detector_emgain)
 
                     ## A/D converter: Photoelectrons --> ADC counts
                     PE = signal + noise[i, j]
