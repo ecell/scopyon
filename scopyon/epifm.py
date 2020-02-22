@@ -1347,7 +1347,7 @@ class EPIFMSimulator:
             return 0
         s, p_signal = self.__probability_emccd(expected, emgain)
         ## get signal (photoelectrons)
-        signal = rng.choice(s, 1, p=p_signal)[0]  # size=None is not supported
+        signal = rng.choice(s, None, p=p_signal)
         return signal
 
     @staticmethod
@@ -1381,7 +1381,7 @@ class EPIFMSimulator:
             return 0
         s, p_signal = self.__probability_emccd_cupy(expected, emgain)
         ## get signal (photoelectrons)
-        signal = cupy.random.choice(s, None, p=p_signal)
+        signal = cupy.random.choice(s, 1, p=p_signal)[0]  # size=None is not supported
         return signal
 
     def __detector_output(self, rng, camera_pixel, true_data):
