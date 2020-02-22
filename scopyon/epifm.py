@@ -1309,33 +1309,49 @@ class EPIFMSimulator:
 
         return cell_pixel
 
-    # @staticmethod
-    def prob_emccd(self, S, E, a):
-        try:
-            import cupy
-            import cupyx.scipy.special
-            S = cupy.asarray(S)
-            return cupy.asnumpy(
-                cupy.sqrt(a * E / S)
-                * cupy.exp(-a * S - E)
-                * cupyx.scipy.special.i1(2 * cupy.sqrt(a * E * S)))
-        except ImportError:
-            pass
-        return (
-            numpy.sqrt(a * E / S)
-            * numpy.exp(-a * S - E + 2 * numpy.sqrt(aES))
-            * i1e(2 * numpy.sqrt(a * E * S)))
+    @staticmethod
+    def prob_emccd(S, E, a):
+        # try:
+        #     import cupy
+        #     import cupyx.scipy.special
+        #     S = cupy.asarray(S)
+        #     return cupy.asnumpy(
+        #         cupy.sqrt(a * E / S)
+        #         * cupy.exp(-a * S - E)
+        #         * cupyx.scipy.special.i1(2 * cupy.sqrt(a * E * S)))
+        # except ImportError:
+        #     pass
+        # X = numpy.sqrt(a * E * S)
+        # return ((a * E) / X * numpy.exp(-a * S - E + 2 * X) * i1e(2 * X))
+        X = a * S
+        Y = 2 * numpy.sqrt(E * X)
+        return (1.0 / Y * numpy.exp(-X + Y) * i1e(Y))
 
-    def __probability_emccd(self, S, E):
-        a = 1.0 / self.configs.detector_emgain
+    def __probability_emccd(self, expected, emgain):
+        ## set probability distributions
+        s_min = max(0, emgain * int(expected - 5.0 * numpy.sqrt(expected) - 10))
+        s_max = emgain * int(expected + 5.0 * numpy.sqrt(expected) + 10)
+        # s = numpy.array([k for k in range(s_min, s_max)])
+        S = numpy.arange(s_min, s_max)
 
-        if (S[0] > 0):
-            prob = self.prob_emccd(S, E, a)
+        a = 1.0 / emgain
+        if S[0] > 0:
+            p_signal = self.prob_emccd(S, expected, a)
         else:
-            prob = numpy.zeros(shape=(len(S)))
-            prob[0] = numpy.exp(-E)
-            prob[1: ] = self.prob_emccd(S[1: ], E, a)
-        return prob
+            p_signal = numpy.zeros(shape=(len(S)))
+            p_signal[0] = numpy.exp(-expected)
+            p_signal[1: ] = self.prob_emccd(S[1: ], expected, a)
+
+        p_signal /= p_signal.sum()
+        return S, p_signal
+
+    def __rng_emccd(self, rng, expected, emgain):
+        if expected <= 0:
+            return 0
+        s, p_signal = self.__probability_emccd(expected, emgain)
+        ## get signal (photoelectrons)
+        signal = rng.choice(s, None, p=p_signal)
+        return signal
 
     def __detector_output(self, rng, camera_pixel, true_data):
         focal_center = numpy.asarray(self.configs.detector_focal_point) / 1e-9  # nano meter
@@ -1369,7 +1385,19 @@ class EPIFMSimulator:
         # true_data[: , 5] = numpy.floor(
         #     (numpy.floor(true_data[: , 5] ) - math.floor(y0 - Nh_pixel * pixel_length / 2)) / pixel_length)
 
-        ## CMOS (readout noise probability ditributions)
+        # <=== BEGIN
+        ## Detector: Quantum Efficiency
+        # index = int(self.configs.psf_wavelength / 1e-9) - int(self.configs.wave_length[0] / 1e-9)
+        # QE = self.configs.detector_qeff[index]
+        QE = self.configs.detector_qeff
+        ## get signal (photons)
+        photons = camera_pixel[:, :, 0]
+        ## get constant background (photoelectrons)
+        photons += self.effects.background_mean
+        ## get signal (expectation)
+        camera_pixel[:, :, 0] = QE * photons
+
+        ## select Camera type
         if self.configs.detector_type == "CMOS":
             noise_data = numpy.loadtxt(
                 os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/detector/RNDist_F40.csv'),
@@ -1378,25 +1406,12 @@ class EPIFMSimulator:
             p_noise = noise_data[: , 1]
             p_nsum  = p_noise.sum()
 
-        ## conversion: photon --> photoelectron --> ADC count
-        for i in range(Nw_pixel):
-            for j in range(Nh_pixel):
-                ## Detector: Quantum Efficiency
-                # index = int(self.configs.psf_wavelength / 1e-9) - int(self.configs.wave_length[0] / 1e-9)
-                # QE = self.configs.detector_qeff[index]
-                QE = self.configs.detector_qeff
+            ## conversion: photon --> photoelectron --> ADC count
+            for i in range(Nw_pixel):
+                for j in range(Nh_pixel):
+                    ## get signal (expectation)
+                    expected = camera_pixel[i, j, 0]
 
-                ## get signal (photons)
-                photons = camera_pixel[i, j, 0]
-
-                ## get constant background (photoelectrons)
-                photons += self.effects.background_mean
-
-                ## get signal (expectation)
-                expected = QE * photons
-
-                ## select Camera type
-                if self.configs.detector_type == "CMOS":
                     ## get signal (poisson distributions)
                     signal = rng.poisson(expected, None)
 
@@ -1404,31 +1419,41 @@ class EPIFMSimulator:
                     noise  = rng.choice(Nr_cmos, None, p=p_noise / p_nsum)
                     Nr = 1.3
 
-                elif self.configs.detector_type == "EMCCD":
+                    ## A/D converter: Photoelectrons --> ADC counts
+                    PE = signal + noise
+                    ADC = self.__get_analog_to_digital_converter_value(rng, (i, j), PE)
+
+                    # set data in image array
+                    camera_pixel[i, j, 1] = ADC
+
+        elif self.configs.detector_type == "EMCCD":
+            # get detector noise (photoelectrons)
+            Nr = self.configs.detector_readout_noise
+            noise = rng.normal(0, Nr, (Nw_pixel, Nh_pixel)) if Nr > 0 else numpy.zeros((Nw_pixel, Nh_pixel))
+
+            ## conversion: photon --> photoelectron --> ADC count
+            for i in range(Nw_pixel):
+                for j in range(Nh_pixel):
+                    ## get signal (expectation)
+                    expected = camera_pixel[i, j, 0]
+
                     ## get signal (photoelectrons)
-                    if expected > 0:
-                        ## get EM gain
-                        M = self.configs.detector_emgain
+                    signal = self.__rng_emccd(rng, expected, self.configs.detector_emgain)
 
-                        ## set probability distributions
-                        s_min = max(0, M * int(expected - 5.0 * numpy.sqrt(expected) - 10))
-                        s_max = M * int(expected + 5.0 * numpy.sqrt(expected) + 10)
-                        # s = numpy.array([k for k in range(s_min, s_max)])
-                        s = numpy.arange(s_min, s_max)
-                        p_signal = self.__probability_emccd(s, expected)
-                        p_ssum = p_signal.sum()
+                    ## A/D converter: Photoelectrons --> ADC counts
+                    PE = signal + noise[i, j]
+                    ADC = self.__get_analog_to_digital_converter_value(rng, (i, j), PE)
 
-                        ## get signal (photoelectrons)
-                        signal = rng.choice(s, None, p=p_signal / p_ssum)
+                    # set data in image array
+                    camera_pixel[i, j, 1] = ADC
 
-                    else:
-                        signal = 0
+        elif self.configs.detector_type == "CCD":
+            ## conversion: photon --> photoelectron --> ADC count
+            for i in range(Nw_pixel):
+                for j in range(Nh_pixel):
+                    ## get signal (expectation)
+                    expected = camera_pixel[i, j, 0]
 
-                    # get detector noise (photoelectrons)
-                    Nr = self.configs.detector_readout_noise
-                    noise = rng.normal(0, Nr, None) if Nr > 0 else 0
-
-                elif self.configs.detector_type == "CCD":
                     ## get signal (poisson distributions)
                     signal = rng.poisson(expected, None)
 
@@ -1436,13 +1461,91 @@ class EPIFMSimulator:
                     Nr = self.configs.detector_readout_noise
                     noise = rng.normal(0, Nr, None) if Nr > 0 else 0
 
-                ## A/D converter: Photoelectrons --> ADC counts
-                PE = signal + noise
-                ADC = self.__get_analog_to_digital_converter_value(rng, (i, j), PE)
+                    ## A/D converter: Photoelectrons --> ADC counts
+                    PE = signal + noise
+                    ADC = self.__get_analog_to_digital_converter_value(rng, (i, j), PE)
 
-                # set data in image array
-                camera_pixel[i, j, 0] = expected
-                camera_pixel[i, j, 1] = ADC
+                    # set data in image array
+                    camera_pixel[i, j, 1] = ADC
+
+        else:
+            raise RuntimeError()
+        # ===> END
+
+        # ## CMOS (readout noise probability ditributions)
+        # if self.configs.detector_type == "CMOS":
+        #     noise_data = numpy.loadtxt(
+        #         os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/detector/RNDist_F40.csv'),
+        #         delimiter=',')
+        #     Nr_cmos = noise_data[: , 0]
+        #     p_noise = noise_data[: , 1]
+        #     p_nsum  = p_noise.sum()
+
+        # ## conversion: photon --> photoelectron --> ADC count
+        # for i in range(Nw_pixel):
+        #     for j in range(Nh_pixel):
+        #         ## Detector: Quantum Efficiency
+        #         # index = int(self.configs.psf_wavelength / 1e-9) - int(self.configs.wave_length[0] / 1e-9)
+        #         # QE = self.configs.detector_qeff[index]
+        #         QE = self.configs.detector_qeff
+
+        #         ## get signal (photons)
+        #         photons = camera_pixel[i, j, 0]
+
+        #         ## get constant background (photoelectrons)
+        #         photons += self.effects.background_mean
+
+        #         ## get signal (expectation)
+        #         expected = QE * photons
+
+        #         ## select Camera type
+        #         if self.configs.detector_type == "CMOS":
+        #             ## get signal (poisson distributions)
+        #             signal = rng.poisson(expected, None)
+
+        #             ## get detector noise (photoelectrons)
+        #             noise  = rng.choice(Nr_cmos, None, p=p_noise / p_nsum)
+        #             Nr = 1.3
+
+        #         elif self.configs.detector_type == "EMCCD":
+        #             ## get signal (photoelectrons)
+        #             if expected > 0:
+        #                 ## get EM gain
+        #                 M = self.configs.detector_emgain
+
+        #                 ## set probability distributions
+        #                 s_min = max(0, M * int(expected - 5.0 * numpy.sqrt(expected) - 10))
+        #                 s_max = M * int(expected + 5.0 * numpy.sqrt(expected) + 10)
+        #                 # s = numpy.array([k for k in range(s_min, s_max)])
+        #                 s = numpy.arange(s_min, s_max)
+        #                 p_signal = self.__probability_emccd(s, expected)
+        #                 p_ssum = p_signal.sum()
+
+        #                 ## get signal (photoelectrons)
+        #                 signal = rng.choice(s, None, p=p_signal / p_ssum)
+
+        #             else:
+        #                 signal = 0
+
+        #             # get detector noise (photoelectrons)
+        #             Nr = self.configs.detector_readout_noise
+        #             noise = rng.normal(0, Nr, None) if Nr > 0 else 0
+
+        #         elif self.configs.detector_type == "CCD":
+        #             ## get signal (poisson distributions)
+        #             signal = rng.poisson(expected, None)
+
+        #             ## get detector noise (photoelectrons)
+        #             Nr = self.configs.detector_readout_noise
+        #             noise = rng.normal(0, Nr, None) if Nr > 0 else 0
+
+        #         ## A/D converter: Photoelectrons --> ADC counts
+        #         PE = signal + noise
+        #         ADC = self.__get_analog_to_digital_converter_value(rng, (i, j), PE)
+
+        #         # set data in image array
+        #         camera_pixel[i, j, 0] = expected
+        #         camera_pixel[i, j, 1] = ADC
 
         return camera_pixel, true_data
 
