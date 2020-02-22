@@ -1318,7 +1318,7 @@ class EPIFMSimulator:
             return (
                 cupy.sqrt(a * E / S)
                 * cupy.exp(-a * S - E)
-                * i1(2 * cupy.special.sqrt(a * E * S)))
+                * special.i1(2 * cupy.sqrt(a * E * S)))
         except ImportError:
             pass
         return (
