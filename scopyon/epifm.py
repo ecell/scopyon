@@ -1407,7 +1407,6 @@ class EPIFMSimulator:
 
                         ## get signal (photoelectrons)
                         signal = rng.choice(s, None, p=p_signal / p_ssum)
-                        print(expected, signal)
 
                     else:
                         signal = 0
