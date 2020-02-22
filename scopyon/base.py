@@ -821,7 +821,7 @@ class Image(object):
 
     def plot(self):
         import matplotlib.pylab as plt
-        fig, ax = plt.subplots()
+        _ = plt.figure(figsize=(7, 7))
         plt.imshow(self.__data, interpolation='none', cmap="gray")
         plt.show()
 
