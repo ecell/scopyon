@@ -1462,9 +1462,27 @@ class EPIFMSimulator:
             Nr = self.configs.detector_readout_noise
             noise = rng.normal(0, Nr, (Nw_pixel, Nh_pixel)) if Nr > 0 else numpy.zeros((Nw_pixel, Nh_pixel))
 
+            if HAS_CUPY:
+                expected = cupy.asarray(camera_pixel[:, :, 0].flatten())
+                sigma = cupy.sqrt(expected) * 5 + 10
+                s_min = emgain * (expected - sigma)
+                s_min[s_min <= 0] = 0
+                s_max = emgain * (expected + sigma)
+                s_min = s_min.astype(cupy.int64)
+                s_max = s_max.astype(cupy.int64)
+                N = (s_max - s_min).max()
+                S = cupy.tile(cupy.arange(N), (len(expected), 1))
+                S += s_min.reshape(-1, 1)
+                print(S.shape)
+                a = 1.0 / self.configs.detector_emgain
+                X = a * S
+                Y = 2 * cupy.sqrt(expected.reshape(-1, 1) * X)
+                print(Y.shape)
+                P = (1.0 / Y * cupy.exp(-X) * cupyx.scipy.special.i1(Y))  # * a * E / numpy.exp(E)
+                print(P.shape)
+
             ## conversion: photon --> photoelectron --> ADC count
             for i in range(Nw_pixel):
-                print(f"> {i}")
                 for j in range(Nh_pixel):
                     ## get signal (expectation)
                     expected = camera_pixel[i, j, 0]
