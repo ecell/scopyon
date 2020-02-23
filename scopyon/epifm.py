@@ -1462,7 +1462,9 @@ class EPIFMSimulator:
             Nr = self.configs.detector_readout_noise
             noise = rng.normal(0, Nr, (Nw_pixel, Nh_pixel)) if Nr > 0 else numpy.zeros((Nw_pixel, Nh_pixel))
 
+            print("EMCCD")
             if HAS_CUPY:
+                print("HAS_CUPY")
                 expected = cupy.asarray(camera_pixel[:, :, 0].flatten())
                 sigma = cupy.sqrt(expected) * 5 + 10
                 s_min = emgain * (expected - sigma)
