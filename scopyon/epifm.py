@@ -5,6 +5,8 @@ import os
 
 import numpy
 
+import scipy.special
+
 from scipy.special import j0, i1e
 from scipy.interpolate import interp1d
 from scipy.ndimage import map_coordinates
@@ -1318,9 +1320,10 @@ class EPIFMSimulator:
 
     @staticmethod
     def prob_emccd(S, E, a):
+        # numpy.sqrt(a*E/S)*numpy.exp(-a*S-E+2*numpy.sqrt(a*E*S))*i1e(2*numpy.sqrt(a*E*S))
         X = a * S
         Y = 2 * numpy.sqrt(E * X)
-        return (1.0 / Y * numpy.exp(-X + Y) * i1e(Y))  # * a * E / numpy.exp(E)
+        return (1.0 / Y * numpy.exp(-X + Y) * i1e(Y)) # * (2 * a * E * numpy.exp(-E))
 
     def __probability_emccd(self, expected, emgain):
         ## set probability distributions
@@ -1336,7 +1339,8 @@ class EPIFMSimulator:
         else:
             # assert S[1] > 0
             p_signal = numpy.zeros(shape=(len(S)))
-            p_signal[0] = numpy.exp(-expected)
+            # p_signal[0] = numpy.exp(-expected)
+            p_signal[0] = 1.0 / (2 * a * expected)
             p_signal[1: ] = self.prob_emccd(S[1: ], expected, a)
 
         p_signal /= p_signal.sum()
@@ -1370,7 +1374,8 @@ class EPIFMSimulator:
         else:
             # assert S[1] > 0
             p_signal = cupy.zeros(shape=(len(S)))
-            p_signal[0] = cupy.exp(-expected)
+            # p_signal[0] = cupy.exp(-expected)
+            p_signal[0] = 1.0 / (2 * a * expected)
             p_signal[1: ] = self.prob_emccd_cupy(S[1: ], expected, a)
 
         p_signal /= p_signal.sum()
@@ -1462,45 +1467,70 @@ class EPIFMSimulator:
             Nr = self.configs.detector_readout_noise
             noise = rng.normal(0, Nr, (Nw_pixel, Nh_pixel)) if Nr > 0 else numpy.zeros((Nw_pixel, Nh_pixel))
 
-            print("EMCCD")
             if HAS_CUPY:
                 print("HAS_CUPY")
+                emgain = self.configs.detector_emgain
                 expected = cupy.asarray(camera_pixel[:, :, 0].flatten())
+                # print(f"expected.shape={expected.shape}")
                 sigma = cupy.sqrt(expected) * 5 + 10
                 s_min = emgain * (expected - sigma)
-                s_min[s_min <= 0] = 0
+                s_zero = (s_min <= 0)
+                s_min[s_zero] = 0
                 s_max = emgain * (expected + sigma)
                 s_min = s_min.astype(cupy.int64)
                 s_max = s_max.astype(cupy.int64)
                 N = (s_max - s_min).max()
+                # print(f"N={N}")
                 S = cupy.tile(cupy.arange(N), (len(expected), 1))
                 S += s_min.reshape(-1, 1)
-                print(S.shape)
-                a = 1.0 / self.configs.detector_emgain
+                # print(f"S.shape={S.shape}")
+                a = 1.0 / emgain
                 X = a * S
                 Y = 2 * cupy.sqrt(expected.reshape(-1, 1) * X)
-                print(Y.shape)
-                P = (1.0 / Y * cupy.exp(-X) * cupyx.scipy.special.i1(Y))  # * a * E / numpy.exp(E)
-                print(P.shape)
+                # print(f"Y.shape={Y.shape}")
+                P = (1.0 / Y * cupy.exp(-X) * cupyx.scipy.special.i1(Y))
+                # print(f"P.shape={P.shape}")
+                P[s_zero, 0] = 0.5 * emgain / expected[s_zero]
+                P = P  / P.sum(axis=1).reshape((-1, 1))
+                S = S.reshape((Nw_pixel, Nh_pixel, -1))
+                P = P.reshape((Nw_pixel, Nh_pixel, -1))
 
-            ## conversion: photon --> photoelectron --> ADC count
-            for i in range(Nw_pixel):
-                for j in range(Nh_pixel):
-                    ## get signal (expectation)
-                    expected = camera_pixel[i, j, 0]
+                ## conversion: photon --> photoelectron --> ADC count
+                for i in range(Nw_pixel):
+                    for j in range(Nh_pixel):
+                        ## get signal (expectation)
+                        expected = camera_pixel[i, j, 0]
 
-                    ## get signal (photoelectrons)
-                    if HAS_CUPY:
-                        signal = self.__rng_emccd_cupy(expected, self.configs.detector_emgain)
-                    else:
+                        ## get signal (photoelectrons)
+                        if expected <= 0:
+                            signal = 0
+                        else:
+                            signal = cupy.random.choice(S[i, j, :], 1, p=P[i, j, :])[0]
+
+                        ## A/D converter: Photoelectrons --> ADC counts
+                        PE = signal + noise[i, j]
+                        ADC = self.__get_analog_to_digital_converter_value(rng, (i, j), PE)
+
+                        # set data in image array
+                        camera_pixel[i, j, 1] = ADC
+            else:
+                print("NO_CUPY")
+
+                ## conversion: photon --> photoelectron --> ADC count
+                for i in range(Nw_pixel):
+                    for j in range(Nh_pixel):
+                        ## get signal (expectation)
+                        expected = camera_pixel[i, j, 0]
+
+                        ## get signal (photoelectrons)
                         signal = self.__rng_emccd(rng, expected, self.configs.detector_emgain)
 
-                    ## A/D converter: Photoelectrons --> ADC counts
-                    PE = signal + noise[i, j]
-                    ADC = self.__get_analog_to_digital_converter_value(rng, (i, j), PE)
+                        ## A/D converter: Photoelectrons --> ADC counts
+                        PE = signal + noise[i, j]
+                        ADC = self.__get_analog_to_digital_converter_value(rng, (i, j), PE)
 
-                    # set data in image array
-                    camera_pixel[i, j, 1] = ADC
+                        # set data in image array
+                        camera_pixel[i, j, 1] = ADC
 
         elif self.configs.detector_type == "CCD":
             ## conversion: photon --> photoelectron --> ADC count
