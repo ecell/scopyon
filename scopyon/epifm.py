@@ -3,6 +3,9 @@ import math
 import warnings
 import os
 
+from multiprocessing import Pool
+import functools
+
 import numpy
 
 import scipy.special
@@ -16,13 +19,6 @@ from . import io
 from .config import Config
 from .image import save_image, convert_8bit
 from . import constants
-
-try:
-    import cupy
-    import cupyx.scipy.special
-    HAS_CUPY = True
-except ImportError:
-    HAS_CUPY = False
 
 from logging import getLogger
 _log = getLogger(__name__)
@@ -562,12 +558,100 @@ def _polar2cartesian(grid, coordinates, shape):
     psf_cart[: r, : ] = psf_cart[: r: -1, : ]
     return psf_cart
 
+class EMCCD:
+
+    @staticmethod
+    def prob_emccd(S, E, a):
+        # numpy.sqrt(a*E/S)*numpy.exp(-a*S-E+2*numpy.sqrt(a*E*S))*i1e(2*numpy.sqrt(a*E*S))
+        X = a * S
+        Y = 2 * numpy.sqrt(E * X)
+        return (1.0 / Y * numpy.exp(-X + Y) * i1e(Y)) # * (2 * a * E * numpy.exp(-E))
+
+    @staticmethod
+    def probability_emccd(expected, emgain):
+        ## set probability distributions
+        sigma = numpy.sqrt(expected) * 5 + 10
+        s_min = max(0, emgain * int(expected - sigma))
+        s_max = emgain * int(expected + sigma)
+        # s = numpy.array([k for k in range(s_min, s_max)])
+        S = numpy.arange(s_min, s_max)
+
+        a = 1.0 / emgain
+        if S[0] > 0:
+            p_signal = EMCCD.prob_emccd(S, expected, a)
+        else:
+            # assert S[1] > 0
+            p_signal = numpy.zeros(shape=(len(S)))
+            # p_signal[0] = numpy.exp(-expected)
+            p_signal[0] = 1.0 / (2 * a * expected)
+            p_signal[1: ] = EMCCD.prob_emccd(S[1: ], expected, a)
+
+        p_signal /= p_signal.sum()
+        return S, p_signal
+
+    @staticmethod
+    def rng_emccd(expected, emgain, rng=None):
+        if expected <= 0:
+            return 0
+        s, p_signal = EMCCD.probability_emccd(expected, emgain)
+        ## get signal (photoelectrons)
+        signal = (rng or numpy.random).choice(s, None, p=p_signal)
+        return signal
+
+    @staticmethod
+    def signal_emccd(expected, emgain, rng=None, processes=None):
+        if processes is not None and processes > 1:
+            with Pool(processes) as pool:
+                signals = pool.map(functools.partial(EMCCD.rng_emccd, rng=None, emgain=emgain), expected.flatten())
+            signals = numpy.array(signals).reshape(expected.shape)
+        else:
+            signals = numpy.zeros(expected.shape, dtype=expected.dtype)
+            for i in range(expected.shape[0]):
+                for j in range(expected.shape[1]):
+                    signals[i, j] = EMCCD.rng_emccd(expected[i, j], emgain, rng)
+        return signals
+
+    # @staticmethod
+    # def prob_emccd_cupy(S, E, a):
+    #     X = a * S
+    #     Y = 2 * cupy.sqrt(E * X)
+    #     return (1.0 / Y * cupy.exp(-X) * cupyx.scipy.special.i1(Y))  # * a * E / numpy.exp(E)
+
+    # def __probability_emccd_cupy(self, expected, emgain):
+    #     ## set probability distributions
+    #     sigma = cupy.sqrt(expected) * 5 + 10
+    #     s_min = max(0, emgain * int(expected - sigma))
+    #     s_max = emgain * int(expected + sigma)
+    #     # s = cupy.array([k for k in range(s_min, s_max)])
+    #     S = cupy.arange(s_min, s_max)
+
+    #     a = 1.0 / emgain
+    #     if S[0] > 0:
+    #         p_signal = self.prob_emccd_cupy(S, expected, a)
+    #     else:
+    #         # assert S[1] > 0
+    #         p_signal = cupy.zeros(shape=(len(S)))
+    #         # p_signal[0] = cupy.exp(-expected)
+    #         p_signal[0] = 1.0 / (2 * a * expected)
+    #         p_signal[1: ] = self.prob_emccd_cupy(S[1: ], expected, a)
+
+    #     p_signal /= p_signal.sum()
+    #     return S, p_signal
+
+    # def __rng_emccd_cupy(self, expected, emgain):
+    #     if expected <= 0:
+    #         return 0
+    #     s, p_signal = self.__probability_emccd_cupy(expected, emgain)
+    #     ## get signal (photoelectrons)
+    #     signal = cupy.random.choice(s, 1, p=p_signal)[0]  # size=None is not supported
+    #     return signal
+
 class EPIFMSimulator:
     '''
     A class of the simulator for Epifluorescence microscopy (EPI).
     '''
 
-    def __init__(self, config=None, rng=None, *, configs=None, effects=None):
+    def __init__(self, config=None, rng=None, *, configs=None, effects=None, environ=None):
         """A constructor of EPIFMSimulator.
 
         Args:
@@ -585,6 +669,9 @@ class EPIFMSimulator:
             self.initialize(config, rng)
         else:
             raise RuntimeError()
+
+        if environ is not None:
+            self.environ = environ
 
     def initialize(self, config=None, rng=None):
         """Initialize EPIFMSimulator.
@@ -1318,77 +1405,6 @@ class EPIFMSimulator:
 
         return cell_pixel
 
-    @staticmethod
-    def prob_emccd(S, E, a):
-        # numpy.sqrt(a*E/S)*numpy.exp(-a*S-E+2*numpy.sqrt(a*E*S))*i1e(2*numpy.sqrt(a*E*S))
-        X = a * S
-        Y = 2 * numpy.sqrt(E * X)
-        return (1.0 / Y * numpy.exp(-X + Y) * i1e(Y)) # * (2 * a * E * numpy.exp(-E))
-
-    def __probability_emccd(self, expected, emgain):
-        ## set probability distributions
-        sigma = numpy.sqrt(expected) * 5 + 10
-        s_min = max(0, emgain * int(expected - sigma))
-        s_max = emgain * int(expected + sigma)
-        # s = numpy.array([k for k in range(s_min, s_max)])
-        S = numpy.arange(s_min, s_max)
-
-        a = 1.0 / emgain
-        if S[0] > 0:
-            p_signal = self.prob_emccd(S, expected, a)
-        else:
-            # assert S[1] > 0
-            p_signal = numpy.zeros(shape=(len(S)))
-            # p_signal[0] = numpy.exp(-expected)
-            p_signal[0] = 1.0 / (2 * a * expected)
-            p_signal[1: ] = self.prob_emccd(S[1: ], expected, a)
-
-        p_signal /= p_signal.sum()
-        return S, p_signal
-
-    def __rng_emccd(self, rng, expected, emgain):
-        if expected <= 0:
-            return 0
-        s, p_signal = self.__probability_emccd(expected, emgain)
-        ## get signal (photoelectrons)
-        signal = rng.choice(s, None, p=p_signal)
-        return signal
-
-    @staticmethod
-    def prob_emccd_cupy(S, E, a):
-        X = a * S
-        Y = 2 * cupy.sqrt(E * X)
-        return (1.0 / Y * cupy.exp(-X) * cupyx.scipy.special.i1(Y))  # * a * E / numpy.exp(E)
-
-    def __probability_emccd_cupy(self, expected, emgain):
-        ## set probability distributions
-        sigma = cupy.sqrt(expected) * 5 + 10
-        s_min = max(0, emgain * int(expected - sigma))
-        s_max = emgain * int(expected + sigma)
-        # s = cupy.array([k for k in range(s_min, s_max)])
-        S = cupy.arange(s_min, s_max)
-
-        a = 1.0 / emgain
-        if S[0] > 0:
-            p_signal = self.prob_emccd_cupy(S, expected, a)
-        else:
-            # assert S[1] > 0
-            p_signal = cupy.zeros(shape=(len(S)))
-            # p_signal[0] = cupy.exp(-expected)
-            p_signal[0] = 1.0 / (2 * a * expected)
-            p_signal[1: ] = self.prob_emccd_cupy(S[1: ], expected, a)
-
-        p_signal /= p_signal.sum()
-        return S, p_signal
-
-    def __rng_emccd_cupy(self, expected, emgain):
-        if expected <= 0:
-            return 0
-        s, p_signal = self.__probability_emccd_cupy(expected, emgain)
-        ## get signal (photoelectrons)
-        signal = cupy.random.choice(s, 1, p=p_signal)[0]  # size=None is not supported
-        return signal
-
     def __detector_output(self, rng, camera_pixel, true_data):
         focal_center = numpy.asarray(self.configs.detector_focal_point) / 1e-9  # nano meter
 
@@ -1464,73 +1480,20 @@ class EPIFMSimulator:
 
         elif self.configs.detector_type == "EMCCD":
             # get detector noise (photoelectrons)
+            expected = camera_pixel[:, :, 0]
             Nr = self.configs.detector_readout_noise
-            noise = rng.normal(0, Nr, (Nw_pixel, Nh_pixel)) if Nr > 0 else numpy.zeros((Nw_pixel, Nh_pixel))
-
-            if HAS_CUPY:
-                print("HAS_CUPY")
-                emgain = self.configs.detector_emgain
-                expected = cupy.asarray(camera_pixel[:, :, 0].flatten())
-                # print(f"expected.shape={expected.shape}")
-                sigma = cupy.sqrt(expected) * 5 + 10
-                s_min = emgain * (expected - sigma)
-                s_zero = (s_min <= 0)
-                s_min[s_zero] = 0
-                s_max = emgain * (expected + sigma)
-                s_min = s_min.astype(cupy.int64)
-                s_max = s_max.astype(cupy.int64)
-                N = (s_max - s_min).max()
-                # print(f"N={N}")
-                S = cupy.tile(cupy.arange(N), (len(expected), 1))
-                S += s_min.reshape(-1, 1)
-                # print(f"S.shape={S.shape}")
-                a = 1.0 / emgain
-                X = a * S
-                Y = 2 * cupy.sqrt(expected.reshape(-1, 1) * X)
-                # print(f"Y.shape={Y.shape}")
-                P = (1.0 / Y * cupy.exp(-X) * cupyx.scipy.special.i1(Y))
-                # print(f"P.shape={P.shape}")
-                P[s_zero, 0] = 0.5 * emgain / expected[s_zero]
-                P = P  / P.sum(axis=1).reshape((-1, 1))
-                S = S.reshape((Nw_pixel, Nh_pixel, -1))
-                P = P.reshape((Nw_pixel, Nh_pixel, -1))
-
-                ## conversion: photon --> photoelectron --> ADC count
-                for i in range(Nw_pixel):
-                    for j in range(Nh_pixel):
-                        ## get signal (expectation)
-                        expected = camera_pixel[i, j, 0]
-
-                        ## get signal (photoelectrons)
-                        if expected <= 0:
-                            signal = 0
-                        else:
-                            signal = cupy.random.choice(S[i, j, :], 1, p=P[i, j, :])[0]
-
-                        ## A/D converter: Photoelectrons --> ADC counts
-                        PE = signal + noise[i, j]
-                        ADC = self.__get_analog_to_digital_converter_value(rng, (i, j), PE)
-
-                        # set data in image array
-                        camera_pixel[i, j, 1] = ADC
-            else:
-                print("NO_CUPY")
-
-                ## conversion: photon --> photoelectron --> ADC count
-                for i in range(Nw_pixel):
-                    for j in range(Nh_pixel):
-                        ## get signal (expectation)
-                        expected = camera_pixel[i, j, 0]
-
-                        ## get signal (photoelectrons)
-                        signal = self.__rng_emccd(rng, expected, self.configs.detector_emgain)
-
-                        ## A/D converter: Photoelectrons --> ADC counts
-                        PE = signal + noise[i, j]
-                        ADC = self.__get_analog_to_digital_converter_value(rng, (i, j), PE)
-
-                        # set data in image array
-                        camera_pixel[i, j, 1] = ADC
+            noise = rng.normal(0, Nr, expected.shape) if Nr > 0 else numpy.zeros(expected.shape)
+            signal = EMCCD.signal_emccd(
+                    expected,
+                    emgain=self.configs.detector_emgain,
+                    rng=rng,
+                    processes=(1 if self.environ is None else self.environ.processes))
+            camera_pixel[:, :, 1] = self.__get_analog_to_digital_converter_counts(
+                    signal + noise,
+                    fullwell=self.configs.ADConverter_fullwell,
+                    gain=self.configs.ADConverter_gain,
+                    offset=self.configs.ADConverter_offset,
+                    bit=self.configs.ADConverter_bit)
 
         elif self.configs.detector_type == "CCD":
             ## conversion: photon --> photoelectron --> ADC count
@@ -1655,6 +1618,20 @@ class EPIFMSimulator:
         if (ADC < 0): ADC = 0
 
         #return int(ADC)
+        return ADC
+
+    @staticmethod
+    def __get_analog_to_digital_converter_counts(photoelectron, fullwell, gain, offset, bit):
+        # check non-linearity
+        ADC = photoelectron.copy()
+        ADC[ADC > fullwell] = fullwell
+
+        # convert photoelectron to ADC counts
+        ADC_max = 2 ** bit - 1
+        ADC /= gain
+        ADC += offset
+        ADC[ADC > ADC_max] = ADC_max
+        ADC[ADC < 0] = 0
         return ADC
 
     def __get_fluo_psfs(self, data):

@@ -854,7 +854,8 @@ class EPIFMSimulator(object):
         # return scopyon.epifm.EPIFMSimulator(self.__config, rng=rng)
         return scopyon.epifm.EPIFMSimulator(
                 configs=_EPIFMConfigs(self.__config.default.epifm, rng=rng),
-                effects=PhysicalEffects(self.__config.default.effects))
+                effects=PhysicalEffects(self.__config.default.effects),
+                environ=self.__config.environ)
 
     def form_image(self, inputs, rng=None, debug=False):
         """Form image.

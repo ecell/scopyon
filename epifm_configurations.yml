@@ -1,4 +1,6 @@
 method: epifm
+environ:
+    processes: !!int 1
 preprocessing:
     origin: [0.0, 0.0, 0.0]
     unit_x: [1.0, 0.0, 0.0]
