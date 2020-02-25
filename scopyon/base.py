@@ -428,7 +428,9 @@ class _EPIFMConfigs:
         self.set_excitation_filter(**config.excitation_filter)
         self.set_emission_filter(**config.emission_filter)
 
-        self.fluorophore_psf = self.get_PSF_detector()
+        # self.fluorophore_psf = self.get_PSF_detector()
+        self.fluorophore_psf = scopyon.epifm.PointSpreadingFunction(
+            self.radial, self.psf_width, self.depth, self.fluoem_norm, self.dichroic_switch, self.dichroic_eff, self.emission_switch, self.emission_eff, self.fluorophore_type, self.psf_wavelength, self.psf_normalization)
 
     def set_shutter(self, start_time=None, end_time=None, time_open=None, time_lapse=None, switch=True):
         self.shutter_switch = switch
