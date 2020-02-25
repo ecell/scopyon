@@ -1062,10 +1062,9 @@ class EPIFMSimulator:
         amplitude = amplitude * numpy.exp(-depth / penet_depth)
 
         # get signal matrix
-        signal = self.__get_signal(amplitude, radial, depth, p_state, unit_time, fluo_psfs)
-
+        signal, normalization = self.__get_signal(amplitude, radial, depth, p_state, unit_time, fluo_psfs)
         # add signal matrix to image plane
-        self.__overlay_signal(camera, signal, p_i, p_0)
+        self.__overlay_signal(camera, signal, p_i, p_0, normalization)
 
         # set true-dataset
         true_data_i[1] = m_id # molecule-ID
@@ -1075,10 +1074,29 @@ class EPIFMSimulator:
         true_data_i[5] += unit_time * p_i[1] # X-coordinate in the image-plane
         true_data_i[6] += unit_time * depth  # Depth from focal-plane
 
-    def __overlay_signal(self, camera, signal, p_i, p_0):
+    def __get_signal(self, amplitude, radial, depth, p_state, unit_time, fluo_psfs=None):
+        # fluorophore axial position
+        fluo_depth = depth if depth < (self.configs.depth[-1] / 1e-9 + 1.0) else -1
+
+        # get fluorophore PSF
+        psf_depth = (fluo_psfs or self.fluo_psf)[int(fluo_depth)]
+
+        # get the number of photons emitted
+        N_emit = self.__get_emit_photons(amplitude, unit_time)
+
+        # # get signal
+        #XXX: This line could be the bottle-neck, due to the huge size of psf_depth
+        # signal = p_state * N_emit / (4.0 * numpy.pi) * psf_depth
+        # return signal
+        return (psf_depth, p_state * N_emit / (4.0 * numpy.pi))
+
+    @staticmethod
+    def __overlay_signal(camera, signal, p_i, p_0, normalization, pixel_length):
         # camera pixel
-        Nw_pixel, Nh_pixel = self.configs.detector_image_size  # pixels
-        pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification / 1e-9  # nm
+        # Nw_pixel, Nh_pixel = self.configs.detector_image_size  # pixels
+        # pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification / 1e-9  # nm
+        Nw_pixel, Nh_pixel = camera.shape
+        pixel_length = pixel_length / 1e-9  # nm
 
         signal_resolution = 1.0  # nm
 
@@ -1103,47 +1121,25 @@ class EPIFMSimulator:
         ibottom = numpy.maximum(numpy.floor(ibottom).astype(int), 0)
         itop = (iarray[1: ] * pixel_length - dz) / signal_resolution
         itop = numpy.minimum(numpy.floor(itop).astype(int), signal.shape[0])
+        irange = numpy.vstack((iarray[: -1], ibottom, itop)).T
+        irange = irange[irange[:, 2] > irange[:, 1]]
+
         jarray = numpy.arange(jmin, jmax)
         jbottom = (jarray[: -1] * pixel_length - dy) / signal_resolution
         jbottom = numpy.maximum(numpy.floor(jbottom).astype(int), 0)
         jtop = (jarray[1: ] * pixel_length - dy) / signal_resolution
         jtop = numpy.minimum(numpy.floor(jtop).astype(int), signal.shape[1])
+        jrange = numpy.vstack((jarray[: -1], jbottom, jtop)).T
+        jrange = jrange[jrange[:, 2] > jrange[:, 1]]
 
-        for i, i0, i1 in zip(iarray[: -1], ibottom, itop):
-            if i0 >= i1:
-                continue
-            for j, j0, j1 in zip(jarray[: -1], jbottom, jtop):
-                if j0 >= j1:
-                    continue
-
+        for i, i0, i1 in irange:
+            for j, j0, j1 in jrange:
                 photons = signal[i0: i1, j0: j1].sum()
-                if photons <= 0:
-                    continue
+                if photons > 0:
+                    camera[i, j] += photons * normalization
 
-                camera[i, j] += photons
-
-    def __get_signal(self, amplitude, radial, depth, p_state, unit_time, fluo_psfs=None):
-        # fluorophore axial position
-        fluo_depth = depth if depth < (self.configs.depth[-1] / 1e-9 + 1.0) else -1
-
-        # get fluorophore PSF
-        psf_depth = (fluo_psfs or self.fluo_psf)[int(fluo_depth)]
-
-        # get the number of photons emitted
-        N_emit = self.__get_emit_photons(amplitude, unit_time)
-
-        # get signal
-        signal = p_state * N_emit / (4.0 * numpy.pi) * psf_depth
-
-        return signal
-
-    def __get_emit_photons(self, amplitude, unit_time):
-        # Absorption coeff [1/(cm M)]
-        abs_coeff = self.effects.abs_coefficient
-
-        # Quantum yield
-        QY = self.effects.quantum_yield
-
+    @staticmethod
+    def get_emit_photons(amplitude, unit_time, abs_coeff, QY, fluorophore_radius):
         # Cross-section [m2]
         x_sec = numpy.log(10) * abs_coeff * 0.1 / constants.N_A
 
@@ -1151,7 +1147,6 @@ class EPIFMSimulator:
         n_abs = amplitude * x_sec * unit_time
 
         # Beer-Lamberts law: A = log(I0 / I) = abs coef. * concentration * path length ([m2]*[#/m3]*[m])
-        fluorophore_radius = self.configs.fluorophore_radius
         fluorophore_volume = (4.0 / 3.0) * numpy.pi * numpy.power(fluorophore_radius, 3)
         fluorophore_depth  = 2.0 * fluorophore_radius
 
@@ -1161,6 +1156,14 @@ class EPIFMSimulator:
         n_emit = QY * n_abs * (1.0 - numpy.power(10.0, -A))
 
         return n_emit
+
+    def __get_emit_photons(self, amplitude, unit_time):
+        # Absorption coeff [1/(cm M)]
+        abs_coeff = self.effects.abs_coefficient
+        # Quantum yield
+        QY = self.effects.quantum_yield
+        fluorophore_radius = self.configs.fluorophore_radius
+        return self.get_emit_photons(amplitude, unit_time, abs_coeff, QY, fluorophore_radius)
 
     def __snells_law(self, p_i, p_0):
         """Snell's law.
