@@ -430,7 +430,7 @@ class _EPIFMConfigs:
 
         # self.fluorophore_psf = self.get_PSF_detector()
         self.fluorophore_psf = scopyon.epifm.PointSpreadingFunction(
-            self.radial, self.psf_width, self.depth, self.fluoem_norm, self.dichroic_switch, self.dichroic_eff, self.emission_switch, self.emission_eff, self.fluorophore_type, self.psf_wavelength, self.psf_normalization)
+            config.fluorophore.radial_cutoff, self.psf_width, config.fluorophore.depth_cutoff, self.fluoem_norm, self.dichroic_switch, self.dichroic_eff, self.emission_switch, self.emission_eff, self.fluorophore_type, self.psf_wavelength, self.psf_normalization)
 
     def set_shutter(self, start_time=None, end_time=None, time_open=None, time_lapse=None, switch=True):
         self.shutter_switch = switch
@@ -462,8 +462,6 @@ class _EPIFMConfigs:
     def set_fluorophore(
             self, type=None, wave_length=None, normalization=None, radius=None, width=None,
             min_wave_length=None, max_wave_length=None, radial_cutoff=None, depth_cutoff=None):
-        self.radial = numpy.arange(0.0, radial_cutoff, 1e-9, dtype=float)
-        self.depth = numpy.arange(0.0, depth_cutoff, 1e-9, dtype=float)
         self.wave_length = numpy.arange(min_wave_length, max_wave_length, 1e-9, dtype=float)
         self.wave_number = 2 * numpy.pi / (self.wave_length / 1e-9)  # 1/nm
 
@@ -635,65 +633,6 @@ class _EPIFMConfigs:
         else:
             self.emission_eff = numpy.zeros(len(self.wave_length), dtype=float)
         _log.info('--- Emission Filter:')
-
-    def get_PSF_detector(self):
-        # Fluorophores Emission Intensity (wave_length)
-        I = self.fluoem_norm
-
-        # Photon Transmission Efficiency
-        if self.dichroic_switch:
-            I = I * 0.01 * self.dichroic_eff
-
-        if self.emission_switch:
-            I = I * 0.01 * self.emission_eff
-
-        # PSF: Fluorophore
-        if self.fluorophore_type == 'Gaussian':
-            # For normalization
-            # norm = list(map(lambda x: True if x > 1e-4 else False, I))
-            norm = (I > 1e-4)
-
-            # Ir = sum(list(map(lambda x: x * numpy.exp(-0.5 * (r / self.psf_width[0]) ** 2), norm)))
-            # Iz = sum(list(map(lambda x: x * numpy.exp(-0.5 * (z / self.psf_width[1]) ** 2), norm)))
-            Ir = norm * numpy.exp(-0.5 * numpy.power(self.radial / self.psf_width[0], 2))
-            Iz = norm * numpy.exp(-0.5 * numpy.power(self.radial / self.psf_width[1], 2))
-
-            psf_fl = numpy.sum(I) * numpy.array(list(map(lambda x: Ir * x, Iz)))
-
-        else:
-            # make the norm and wave_length array shorter
-            psf_fl = numpy.sum(I) * self.get_PSF_fluorophore(self.radial, self.depth, self.psf_wavelength)
-
-        psf_fl *= self.psf_normalization
-        return psf_fl
-
-    @staticmethod
-    def get_PSF_fluorophore(r, z, wave_length):
-        # set Magnification of optical system
-        # M = self.image_magnification
-
-        # set Numerical Appature
-        NA = 1.4  # self.objective_NA
-
-        # set alpha and gamma consts
-        k = 2.0 * numpy.pi / (wave_length / 1e-9)
-        alpha = k * NA
-        gamma = k * numpy.power(NA / 2, 2)
-
-        # set rho parameters
-        N = 100
-        drho = 1.0 / N
-        # rho = numpy.array([(i + 1) * drho for i in range(N)])
-        rho = numpy.arange(1, N + 1) * drho
-
-        J0 = numpy.array(list(map(lambda x: j0(x * alpha * rho), r / 1e-9)))
-        Y  = numpy.array(list(map(lambda x: numpy.exp(-2 * 1.j * x * gamma * rho * rho) * rho * drho, z / 1e-9)))
-        I  = numpy.array(list(map(lambda x: x * J0, Y)))
-        I_sum = I.sum(axis=2)
-
-        # set PSF
-        psf = numpy.array(list(map(lambda x: abs(x) ** 2, I_sum)))
-        return psf
 
     @staticmethod
     def calculate_efficiency(data, wave_length):

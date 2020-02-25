@@ -26,7 +26,7 @@ _log = getLogger(__name__)
 
 class PointSpreadingFunction:
 
-    def __init__(self, radial, psf_width, depth, fluoem_norm, dichroic_switch, dichroic_eff, emission_switch, emission_eff, fluorophore_type, psf_wavelength, psf_normalization):
+    def __init__(self, psf_radial_cutoff, psf_width, psf_depth_cutoff, fluoem_norm, dichroic_switch, dichroic_eff, emission_switch, emission_eff, fluorophore_type, psf_wavelength, psf_normalization):
         self.fluoem_norm = fluoem_norm
         self.dichroic_switch = dichroic_switch
         self.dichroic_eff = dichroic_eff
@@ -36,14 +36,14 @@ class PointSpreadingFunction:
         self.psf_wavelength = psf_wavelength
         self.psf_normalization = psf_normalization
 
-        self.radial = radial
+        self.psf_radial_cutoff = psf_radial_cutoff
         self.psf_width = psf_width
-        self.depth = depth
+        self.psf_depth_cutoff = psf_depth_cutoff
 
-        # self.fluorophore_psf_radial = self.__get_detector_distribution()
-        self.fluorophore_psf = {}
+        self.__normalization = self.__get_normalization()
+        self.__fluorophore_psf = {}
 
-    def __get_detector_distribution(self):
+    def __get_normalization(self):
         # Fluorophores Emission Intensity (wave_length)
         I = self.fluoem_norm
 
@@ -54,32 +54,24 @@ class PointSpreadingFunction:
         if self.emission_switch:
             I = I * 0.01 * self.emission_eff
 
-        # PSF: Fluorophore
-        if self.fluorophore_type == 'Gaussian':
-            psf_fl = self.get_gaussian_distribution(self.radial, self.psf_width, I)
-        else:
-            # make the norm and wave_length array shorter
-            psf_fl = self.get_distribution(self.radial, self.depth, self.psf_wavelength)
-
-        psf_fl = numpy.sum(I) * psf_fl
-        psf_fl *= self.psf_normalization
-        return psf_fl
+        return numpy.sum(I) * self.psf_normalization
 
     def get(self, depth, resolution=1e-9):
-        depth_cutoff = self.depth[-1]
-        if depth < depth_cutoff + resolution:
+        if depth < self.psf_depth_cutoff + resolution:
             assert depth >= 0
             key = int(depth / resolution)
         else:
             key = -1
+            depth = self.psf_depth_cutoff
 
-        if key not in self.fluorophore_psf:
-            self.fluorophore_psf[key] = self.__get(key, resolution)
-        return self.fluorophore_psf[key]
+        if key not in self.__fluorophore_psf:
+            self.__fluorophore_psf[key] = self.__get(depth, resolution)
+        return self.__fluorophore_psf[key]
 
-    def __get(self, key, resolution=1e-9):
-        r = self.radial / resolution
-        radial_cutoff = self.radial[-1] / resolution
+    def __get(self, depth, resolution=1e-9):
+        radial = numpy.arange(0.0, self.psf_radial_cutoff, 1e-9, dtype=float)
+        r = radial / resolution
+        radial_cutoff = self.psf_radial_cutoff / resolution
 
         theta = numpy.linspace(0, 90, 91)
         z = numpy.linspace(0, radial_cutoff, len(r))
@@ -88,32 +80,12 @@ class PointSpreadingFunction:
         coordinates = _polar2cartesian_coordinates(r, theta, z, y)
         psf_t = numpy.ones_like(theta)
 
-        psf_r = self.__get_detector_distribution_single_z(key * resolution)
-        # psf_r = self.fluorophore_psf_radial[key]
+        psf_r = self.get_distribution(radial, depth)
         psf_polar = numpy.array(list(map(lambda x: psf_t * x, psf_r)))
         return _polar2cartesian(psf_polar, coordinates, (len(z), len(y)))
 
-    # def get_with_depths(self, depths, resolution=1e-9):
-    #     """
-    #     depths : array_like int
-    #     """
-    #     r = self.radial / resolution
-    #     radial_cutoff = self.radial[-1] / resolution
-
-    #     theta = numpy.linspace(0, 90, 91)
-    #     z = numpy.linspace(0, radial_cutoff, len(r))
-    #     y = numpy.linspace(0, radial_cutoff, len(r))
-
-    #     coordinates = _polar2cartesian_coordinates(r, theta, z, y)
-    #     psf_t = numpy.ones_like(theta)
-
-    #     fluo_psfs = {}
-    #     for depth in depths:
-    #         psf_r = self.fluorophore_psf_radial[depth]
-    #         psf_polar = numpy.array(list(map(lambda x: psf_t * x, psf_r)))
-    #         fluo_psfs[depth] = _polar2cartesian(psf_polar, coordinates, (len(z), len(y)))
-
-    #     return fluo_psfs
+    def get_distribution(self, radial, depth):
+        return self.__normalization * self.get_born_wolf_distribution(radial, depth, self.psf_wavelength)
 
     @staticmethod
     def get_gaussian_distribution(r, width, normalization):
@@ -129,7 +101,7 @@ class PointSpreadingFunction:
         return numpy.array(list(map(lambda x: Ir * x, Iz)))
 
     @staticmethod
-    def get_distribution(r, z, wave_length):
+    def get_born_wolf_distribution(r, z, wave_length):
         # set Magnification of optical system
         # M = self.image_magnification
 
@@ -147,80 +119,31 @@ class PointSpreadingFunction:
         # rho = numpy.array([(i + 1) * drho for i in range(N)])
         rho = numpy.arange(1, N + 1) * drho
 
-        print(f'r.shape = {r.shape}')
-        print(f'z.shape = {z.shape}')
-        print(f'rho.shape = {rho.shape}')
+        # print(f'r.shape = {r.shape}')
+        # print(f'rho.shape = {rho.shape}')
 
         J0 = numpy.array(list(map(lambda x: j0(x * alpha * rho), r / 1e-9)))
-        print(f'J0.shape = {J0.shape}')
-        Y  = numpy.array(list(map(lambda x: numpy.exp(-2 * 1.j * x * gamma * rho * rho) * rho * drho, z / 1e-9)))
-        print(f'Y.shape = {Y.shape}')
-        I  = numpy.array(list(map(lambda x: x * J0, Y)))
-        print(f'I.shape = {I.shape}')
-        I_sum = I.sum(axis=2)
-        print(f'I_sum.shape = {I_sum.shape}')
-
-        # set PSF
-        psf = numpy.array(list(map(lambda x: abs(x) ** 2, I_sum)))
-        print(f'psf.shape = {psf.shape}')
-        return psf
-
-    def __get_detector_distribution_single_z(self, depth):
-        # Fluorophores Emission Intensity (wave_length)
-        I = self.fluoem_norm
-
-        # Photon Transmission Efficiency
-        if self.dichroic_switch:
-            I = I * 0.01 * self.dichroic_eff
-
-        if self.emission_switch:
-            I = I * 0.01 * self.emission_eff
-
-        # PSF: Fluorophore
-        # if self.fluorophore_type == 'Gaussian':
-        #     psf_fl = self.get_gaussian_distribution(self.radial, self.psf_width, I)
-        # else:
-        #     # make the norm and wave_length array shorter
-        psf_fl = self.get_distribution_single_z(self.radial, depth, self.psf_wavelength)
-
-        psf_fl = numpy.sum(I) * psf_fl
-        psf_fl *= self.psf_normalization
-        return psf_fl
-
-    @staticmethod
-    def get_distribution_single_z(r, z, wave_length):
-        # set Magnification of optical system
-        # M = self.image_magnification
-
-        # set Numerical Appature
-        NA = 1.4  # self.objective_NA
-
-        # set alpha and gamma consts
-        k = 2.0 * numpy.pi / (wave_length / 1e-9)
-        alpha = k * NA
-        gamma = k * numpy.power(NA / 2, 2)
-
-        # set rho parameters
-        N = 100
-        drho = 1.0 / N
-        # rho = numpy.array([(i + 1) * drho for i in range(N)])
-        rho = numpy.arange(1, N + 1) * drho
-
-        print(f'r.shape = {r.shape}')
-        print(f'rho.shape = {rho.shape}')
-
-        J0 = numpy.array(list(map(lambda x: j0(x * alpha * rho), r / 1e-9)))
-        print(f'J0.shape = {J0.shape}')
+        # print(f'J0.shape = {J0.shape}')
         Y  = numpy.exp(-2 * 1.j * (z / 1e-9) * gamma * rho * rho) * rho * drho
-        print(f'Y.shape = {Y.shape}')
+        # print(f'Y.shape = {Y.shape}')
         I  = Y * J0
-        print(f'I.shape = {I.shape}')
+        # print(f'I.shape = {I.shape}')
         I_sum = I.sum(axis=1)
-        print(f'I_sum.shape = {I_sum.shape}')
+        # print(f'I_sum.shape = {I_sum.shape}')
+
+        #XXX: z : 1d array_like
+        # J0 = numpy.array(list(map(lambda x: j0(x * alpha * rho), r / 1e-9)))
+        # print(f'J0.shape = {J0.shape}')
+        # Y  = numpy.array(list(map(lambda x: numpy.exp(-2 * 1.j * x * gamma * rho * rho) * rho * drho, z / 1e-9)))
+        # print(f'Y.shape = {Y.shape}')
+        # I  = numpy.array(list(map(lambda x: x * J0, Y)))
+        # print(f'I.shape = {I.shape}')
+        # I_sum = I.sum(axis=2)
+        # print(f'I_sum.shape = {I_sum.shape}')
 
         # set PSF
         psf = numpy.array(list(map(lambda x: abs(x) ** 2, I_sum)))
-        print(f'psf.shape = {psf.shape}')
+        # print(f'psf.shape = {psf.shape}')
         return psf
 
 class _EPIFMConfigs:
@@ -240,11 +163,6 @@ class _EPIFMConfigs:
         if rng is None:
             warnings.warn('A random number generator [rng] is not given.')
             rng = numpy.random.RandomState()
-
-        # self.radial = numpy.arange(config.psf_radial_cutoff, dtype=float)
-        # self.depth = numpy.arange(config.psf_depth_cutoff, dtype=float)
-        self.radial = numpy.arange(0.0, config.psf_radial_cutoff, 1e-9, dtype=float)
-        self.depth = numpy.arange(0.0, config.psf_depth_cutoff, 1e-9, dtype=float)
 
         # self.wave_length = numpy.arange(config.psf_min_wave_length, config.psf_max_wave_length, dtype=int)
         self.wave_length = numpy.arange(config.psf_min_wave_length, config.psf_max_wave_length, 1e-9, dtype=float)
@@ -339,7 +257,7 @@ class _EPIFMConfigs:
         self._set_data(
                 'fluorophore_psf',
                 PointSpreadingFunction(
-                    self.radial, self.psf_width, self.depth, self.fluoem_norm, self.dichroic_switch, self.dichroic_eff, self.emission_switch, self.emission_eff, self.fluorophore_type, self.psf_wavelength, self.psf_normalization))
+                    config.psf_radial_cutoff, self.psf_width, config.psf_depth_cutoff, self.fluoem_norm, self.dichroic_switch, self.dichroic_eff, self.emission_switch, self.emission_eff, self.fluorophore_type, self.psf_wavelength, self.psf_normalization))
 
     def _set_data(self, key, val):
         if val is not None:
