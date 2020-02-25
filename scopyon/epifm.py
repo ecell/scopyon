@@ -24,6 +24,85 @@ from logging import getLogger
 _log = getLogger(__name__)
 
 
+class PointSpreadingFunction:
+
+    def __init__(self, radial, psf_width, depth, fluoem_norm, dichroic_switch, dichroic_eff, emission_switch, emission_eff, fluorophore_type, psf_wavelength, psf_normalization):
+        self.fluoem_norm = fluoem_norm
+        self.dichroic_switch = dichroic_switch
+        self.dichroic_eff = dichroic_eff
+        self.emission_switch = emission_switch
+        self.emission_eff = emission_eff
+        self.fluorophore_type = fluorophore_type
+        self.psf_wavelength = psf_wavelength
+        self.psf_normalization = psf_normalization
+
+        self.radial = radial
+        self.psf_width = psf_width
+        self.depth = depth
+
+    def get(self):
+        # Fluorophores Emission Intensity (wave_length)
+        I = self.fluoem_norm
+
+        # Photon Transmission Efficiency
+        if self.dichroic_switch:
+            I = I * 0.01 * self.dichroic_eff
+
+        if self.emission_switch:
+            I = I * 0.01 * self.emission_eff
+
+        # PSF: Fluorophore
+        if self.fluorophore_type == 'Gaussian':
+            psf_fl = self.get_gaussian_distribution(self.radial, self.psf_width, I)
+        else:
+            # make the norm and wave_length array shorter
+            psf_fl = self.get_distribution(self.radial, self.depth, self.psf_wavelength)
+
+        psf_fl = numpy.sum(I) * psf_fl
+        psf_fl *= self.psf_normalization
+        return psf_fl
+
+    @staticmethod
+    def get_gaussian_distribution(r, width, normalization):
+        # For normalization
+        # norm = list(map(lambda x: True if x > 1e-4 else False, I))
+        norm = (normalization > 1e-4)
+
+        # Ir = sum(list(map(lambda x: x * numpy.exp(-0.5 * (r / self.psf_width[0]) ** 2), norm)))
+        # Iz = sum(list(map(lambda x: x * numpy.exp(-0.5 * (z / self.psf_width[1]) ** 2), norm)))
+        Ir = norm * numpy.exp(-0.5 * numpy.power(r / width[0], 2))
+        Iz = norm * numpy.exp(-0.5 * numpy.power(r / width[1], 2))
+
+        return numpy.array(list(map(lambda x: Ir * x, Iz)))
+
+    @staticmethod
+    def get_distribution(r, z, wave_length):
+        # set Magnification of optical system
+        # M = self.image_magnification
+
+        # set Numerical Appature
+        NA = 1.4  # self.objective_NA
+
+        # set alpha and gamma consts
+        k = 2.0 * numpy.pi / (wave_length / 1e-9)
+        alpha = k * NA
+        gamma = k * numpy.power(NA / 2, 2)
+
+        # set rho parameters
+        N = 100
+        drho = 1.0 / N
+        # rho = numpy.array([(i + 1) * drho for i in range(N)])
+        rho = numpy.arange(1, N + 1) * drho
+
+        J0 = numpy.array(list(map(lambda x: j0(x * alpha * rho), r / 1e-9)))
+        Y  = numpy.array(list(map(lambda x: numpy.exp(-2 * 1.j * x * gamma * rho * rho) * rho * drho, z / 1e-9)))
+        I  = numpy.array(list(map(lambda x: x * J0, Y)))
+        I_sum = I.sum(axis=2)
+
+        # set PSF
+        psf = numpy.array(list(map(lambda x: abs(x) ** 2, I_sum)))
+        return psf
+
 class _EPIFMConfigs:
 
     def __init__(self):
@@ -137,7 +216,11 @@ class _EPIFMConfigs:
 
         # self.set_illumination_path(focal_point=config.detector_focal_point, focal_norm=config.detector_focal_norm)
 
-        self._set_data('fluorophore_psf', self.get_PSF_detector())
+        # self._set_data('fluorophore_psf', self.get_PSF_detector())
+        psf = PointSpreadingFunction(
+                self.radial, self.psf_width, self.depth, self.fluoem_norm, self.dichroic_switch, self.dichroic_eff, self.emission_switch, self.emission_eff, self.fluorophore_type, self.psf_wavelength, self.psf_normalization)
+        self._set_data('fluorophore_psf', psf.get())
+
 
     def _set_data(self, key, val):
         if val is not None:
@@ -424,70 +507,7 @@ class _EPIFMConfigs:
     #     # Detector PSF
     #     self.set_PSF_detector()
 
-    def get_PSF_detector(self):
-        # Fluorophores Emission Intensity (wave_length)
-        I = self.fluoem_norm
-
-        # Photon Transmission Efficiency
-        if self.dichroic_switch:
-            I = I * 0.01 * self.dichroic_eff
-
-        if self.emission_switch:
-            I = I * 0.01 * self.emission_eff
-
-        # PSF: Fluorophore
-
-        if self.fluorophore_type == 'Gaussian':
-            # For normalization
-            # norm = list(map(lambda x: True if x > 1e-4 else False, I))
-            norm = (I > 1e-4)
-
-            # Ir = sum(list(map(lambda x: x * numpy.exp(-0.5 * (r / self.psf_width[0]) ** 2), norm)))
-            # Iz = sum(list(map(lambda x: x * numpy.exp(-0.5 * (z / self.psf_width[1]) ** 2), norm)))
-            Ir = norm * numpy.exp(-0.5 * numpy.power(self.radial / self.psf_width[0], 2))
-            Iz = norm * numpy.exp(-0.5 * numpy.power(self.radial / self.psf_width[1], 2))
-
-            psf_fl = numpy.sum(I) * numpy.array(list(map(lambda x: Ir * x, Iz)))
-
-        else:
-            # make the norm and wave_length array shorter
-            psf_fl = numpy.sum(I) * self.get_PSF_fluorophore(self.radial, self.depth, self.psf_wavelength)
-
-        psf_fl *= self.psf_normalization
-
-        # self.fluorophore_psf = psf_fl
-        # self._set_data('fluorophore_psf', psf_fl)
-        return psf_fl
-
-    @staticmethod
-    def get_PSF_fluorophore(r, z, wave_length):
-        # set Magnification of optical system
-        # M = self.image_magnification
-
-        # set Numerical Appature
-        NA = 1.4  # self.objective_NA
-
-        # set alpha and gamma consts
-        k = 2.0 * numpy.pi / (wave_length / 1e-9)
-        alpha = k * NA
-        gamma = k * numpy.power(NA / 2, 2)
-
-        # set rho parameters
-        N = 100
-        drho = 1.0 / N
-        # rho = numpy.array([(i + 1) * drho for i in range(N)])
-        rho = numpy.arange(1, N + 1) * drho
-
-        J0 = numpy.array(list(map(lambda x: j0(x * alpha * rho), r / 1e-9)))
-        Y  = numpy.array(list(map(lambda x: numpy.exp(-2 * 1.j * x * gamma * rho * rho) * rho * drho, z / 1e-9)))
-        I  = numpy.array(list(map(lambda x: x * J0, Y)))
-        I_sum = I.sum(axis=2)
-
-        # set PSF
-        psf = numpy.array(list(map(lambda x: abs(x) ** 2, I_sum)))
-        return psf
-
-def _rotate_coordinate(p_i, p_0):
+def cylindrical_coordinate(p_i, p_0):
     p_i = numpy.array(p_i)  # Make a copy
     p_0 = numpy.asarray(p_0)
 
@@ -495,45 +515,6 @@ def _rotate_coordinate(p_i, p_0):
     radial = numpy.sqrt(displacement[1] ** 2 + displacement[2] ** 2)
     depth = displacement[0]
     return p_i, radial, depth
-
-    # _, y_0, z_0 = p_0
-
-    # # Rotation of focal plane
-    # cos_th0 = 1
-    # sin_th0 = numpy.sqrt(1 - cos_th0 * cos_th0)
-
-    # # Rotational matrix along z-axis
-    # #Rot = numpy.matrix([[cos_th, -sin_th, 0], [sin_th, cos_th, 0], [0, 0, 1]])
-    # Rot = numpy.matrix([[cos_th0, -sin_th0, 0], [sin_th0, cos_th0, 0], [0, 0, 1]])
-
-    # # Vector of focal point to particle position
-    # vec = p_i - p_0
-    # len_vec = numpy.sqrt(numpy.sum(vec * vec))
-
-    # # Rotated particle position
-    # v_rot = Rot * vec.reshape((3, 1))
-    # # p_i = numpy.array(v_rot).ravel() + p_0
-    # newp_i = numpy.array(v_rot).ravel() + p_0
-
-    # # Normal vector of the focal plane
-    # q_0 = numpy.array([0.0, y_0, 0.0])
-    # q_1 = numpy.array([0.0, 0.0, z_0])
-    # R_q0 = numpy.sqrt(numpy.sum(q_0 * q_0))
-    # R_q1 = numpy.sqrt(numpy.sum(q_1 * q_1))
-
-    # q0_rot = Rot * q_0.reshape((3, 1))
-    # q1_rot = Rot * q_1.reshape((3, 1))
-
-    # norm_v = numpy.cross(q0_rot.ravel(), q1_rot.ravel()) / (R_q0 * R_q1)
-
-    # # Radial distance and depth to focal plane
-    # cos_0i = numpy.sum(norm_v * vec) / (1.0 * len_vec)
-    # sin_0i = numpy.sqrt(1 - cos_0i * cos_0i)
-
-    # focal_depth  = abs(len_vec * cos_0i)
-    # focal_radial = abs(len_vec * sin_0i)
-
-    # return newp_i, focal_radial, focal_depth
 
 def _polar2cartesian_coordinates(r, t, x, y):
     X, Y = numpy.meshgrid(x, y)
@@ -1000,7 +981,7 @@ class EPIFMSimulator:
             amplitude, _ = self.__snells_law(p_i, p_0)
 
             # particle coordinate in real(nm) scale
-            p_i, _, _ = _rotate_coordinate(p_i, p_0)
+            p_i = p_i.copy()
 
             state_j = 1  # particles given is always observable. already filtered when read
 
@@ -1056,7 +1037,7 @@ class EPIFMSimulator:
         amplitude, penet_depth = self.__snells_law(p_i, p_0)
 
         # particles coordinate in real(nm) scale
-        p_i, radial, depth = _rotate_coordinate(p_i, p_0)
+        p_i, radial, depth = cylindrical_coordinate(p_i, p_0)
 
         # get exponential amplitude (only for TIRFM-configuration)
         amplitude = amplitude * numpy.exp(-depth / penet_depth)
@@ -1064,7 +1045,8 @@ class EPIFMSimulator:
         # get signal matrix
         signal, normalization = self.__get_signal(amplitude, radial, depth, p_state, unit_time, fluo_psfs)
         # add signal matrix to image plane
-        self.__overlay_signal(camera, signal, p_i, p_0, normalization)
+        pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification
+        self.__overlay_signal(camera, signal, p_i, p_0, normalization, pixel_length)
 
         # set true-dataset
         true_data_i[1] = m_id # molecule-ID
@@ -1521,82 +1503,6 @@ class EPIFMSimulator:
 
         else:
             raise RuntimeError()
-        # ===> END
-
-        # ## CMOS (readout noise probability ditributions)
-        # if self.configs.detector_type == "CMOS":
-        #     noise_data = numpy.loadtxt(
-        #         os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/detector/RNDist_F40.csv'),
-        #         delimiter=',')
-        #     Nr_cmos = noise_data[: , 0]
-        #     p_noise = noise_data[: , 1]
-        #     p_nsum  = p_noise.sum()
-
-        # ## conversion: photon --> photoelectron --> ADC count
-        # for i in range(Nw_pixel):
-        #     for j in range(Nh_pixel):
-        #         ## Detector: Quantum Efficiency
-        #         # index = int(self.configs.psf_wavelength / 1e-9) - int(self.configs.wave_length[0] / 1e-9)
-        #         # QE = self.configs.detector_qeff[index]
-        #         QE = self.configs.detector_qeff
-
-        #         ## get signal (photons)
-        #         photons = camera_pixel[i, j, 0]
-
-        #         ## get constant background (photoelectrons)
-        #         photons += self.effects.background_mean
-
-        #         ## get signal (expectation)
-        #         expected = QE * photons
-
-        #         ## select Camera type
-        #         if self.configs.detector_type == "CMOS":
-        #             ## get signal (poisson distributions)
-        #             signal = rng.poisson(expected, None)
-
-        #             ## get detector noise (photoelectrons)
-        #             noise  = rng.choice(Nr_cmos, None, p=p_noise / p_nsum)
-        #             Nr = 1.3
-
-        #         elif self.configs.detector_type == "EMCCD":
-        #             ## get signal (photoelectrons)
-        #             if expected > 0:
-        #                 ## get EM gain
-        #                 M = self.configs.detector_emgain
-
-        #                 ## set probability distributions
-        #                 s_min = max(0, M * int(expected - 5.0 * numpy.sqrt(expected) - 10))
-        #                 s_max = M * int(expected + 5.0 * numpy.sqrt(expected) + 10)
-        #                 # s = numpy.array([k for k in range(s_min, s_max)])
-        #                 s = numpy.arange(s_min, s_max)
-        #                 p_signal = self.__probability_emccd(s, expected)
-        #                 p_ssum = p_signal.sum()
-
-        #                 ## get signal (photoelectrons)
-        #                 signal = rng.choice(s, None, p=p_signal / p_ssum)
-
-        #             else:
-        #                 signal = 0
-
-        #             # get detector noise (photoelectrons)
-        #             Nr = self.configs.detector_readout_noise
-        #             noise = rng.normal(0, Nr, None) if Nr > 0 else 0
-
-        #         elif self.configs.detector_type == "CCD":
-        #             ## get signal (poisson distributions)
-        #             signal = rng.poisson(expected, None)
-
-        #             ## get detector noise (photoelectrons)
-        #             Nr = self.configs.detector_readout_noise
-        #             noise = rng.normal(0, Nr, None) if Nr > 0 else 0
-
-        #         ## A/D converter: Photoelectrons --> ADC counts
-        #         PE = signal + noise
-        #         ADC = self.__get_analog_to_digital_converter_value(rng, (i, j), PE)
-
-        #         # set data in image array
-        #         camera_pixel[i, j, 0] = expected
-        #         camera_pixel[i, j, 1] = ADC
 
         return camera_pixel, true_data
 
@@ -1637,38 +1543,40 @@ class EPIFMSimulator:
         ADC[ADC < 0] = 0
         return ADC
 
-    def __get_fluo_psfs(self, data):
+    def __get_fluo_psfs(self, data, resolution=1e-9):
         _log.info("__get_fluo_psfs was called.")
 
         # get_focal_center
-        p_0 = numpy.asarray(self.configs.detector_focal_point) / 1e-9  # nano meter
+        p_0 = numpy.asarray(self.configs.detector_focal_point)
 
+        depth_cutoff = self.configs.depth[-1]
         depths = []
         for _, particles in data:
             for particle in particles:
-                coordinate = particle[0]
-                p_i = numpy.array(coordinate) / 1e-9
+                p_i = numpy.array(particle[0])
+                # p_i = numpy.array(coordinate) / resolution
 
                 # Snell's law
                 # amplitude, penet_depth = self.__snells_law(p_i, p_0)
 
                 # Particle coordinte in real(nm) scale
-                p_i, _, depth = _rotate_coordinate(p_i, p_0)
+                _, _, depth = cylindrical_coordinate(p_i, p_0)
 
                 # fluorophore axial position
-                fluo_depth = int(depth) if depth < (self.configs.depth[-1] / 1e-9 + 1.0) else -1
+                fluo_depth = int(depth / resolution) if depth < depth_cutoff + resolution else -1
 
                 depths.append(fluo_depth)
 
         depths = list(set(depths))
 
-        r = self.configs.radial / 1e-9
+        r = self.configs.radial / resolution
+        radial_cutoff = self.configs.radial[-1] / resolution
 
         theta = numpy.linspace(0, 90, 91)
-        # z = numpy.linspace(0, +r[-1], len(r))
-        # y = numpy.linspace(0, +r[-1], len(r))
-        z = numpy.arange(0, r[-1] + 1.0, 1.0)
-        y = numpy.arange(0, r[-1] + 1.0, 1.0)
+        z = numpy.linspace(0, radial_cutoff, len(r))
+        y = numpy.linspace(0, radial_cutoff, len(r))
+        # z = numpy.arange(0, r[-1] + 1.0, 1.0)
+        # y = numpy.arange(0, r[-1] + 1.0, 1.0)
 
         coordinates = _polar2cartesian_coordinates(r, theta, z, y)
         psf_t = numpy.ones_like(theta)
