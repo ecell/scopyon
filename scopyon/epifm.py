@@ -152,6 +152,58 @@ class PointSpreadingFunction:
         # print(f'psf.shape = {psf.shape}')
         return psf
 
+    def overlay_signal(camera, p_i, pixel_length, normalization=1.0):
+        depth = p_i[0]
+
+        # fluorophore axial position
+        signal = self.configs.fluorophore_psf.get(depth)
+
+        self.__overlay_signal(camera, signal, p_i, pixel_length, normalization)
+
+    @staticmethod
+    def __overlay_signal(camera, signal, p_i, pixel_length, normalization):
+        # m-scale
+        # camera pixel
+        Nw_pixel, Nh_pixel = camera.shape
+
+        signal_resolution = 1.0e-9  # m
+
+        # particle position
+        _, yi, zi = p_i
+        dz = (zi - signal_resolution * signal.shape[0] / 2 + pixel_length * Nw_pixel / 2)
+        dy = (yi - signal_resolution * signal.shape[1] / 2 + pixel_length * Nh_pixel / 2)
+
+        imin = math.ceil(dz / pixel_length)
+        imax = math.ceil((signal.shape[0] * signal_resolution + dz) / pixel_length) - 1
+        jmin = math.ceil(dy / pixel_length)
+        jmax = math.ceil((signal.shape[1] * signal_resolution + dy) / pixel_length) - 1
+        imin = max(imin, 0)
+        imax = min(imax, Nw_pixel)
+        jmin = max(jmin, 0)
+        jmax = min(jmax, Nh_pixel)
+
+        iarray = numpy.arange(imin, imax + 1)
+        ibottom = (iarray[: -1] * pixel_length - dz) / signal_resolution
+        ibottom = numpy.maximum(numpy.floor(ibottom).astype(int), 0)
+        itop = (iarray[1: ] * pixel_length - dz) / signal_resolution
+        itop = numpy.minimum(numpy.floor(itop).astype(int), signal.shape[0])
+        irange = numpy.vstack((iarray[: -1], ibottom, itop)).T
+        irange = irange[irange[:, 2] > irange[:, 1]]
+
+        jarray = numpy.arange(jmin, jmax)
+        jbottom = (jarray[: -1] * pixel_length - dy) / signal_resolution
+        jbottom = numpy.maximum(numpy.floor(jbottom).astype(int), 0)
+        jtop = (jarray[1: ] * pixel_length - dy) / signal_resolution
+        jtop = numpy.minimum(numpy.floor(jtop).astype(int), signal.shape[1])
+        jrange = numpy.vstack((jarray[: -1], jbottom, jtop)).T
+        jrange = jrange[jrange[:, 2] > jrange[:, 1]]
+
+        for i, i0, i1 in irange:
+            for j, j0, j1 in jrange:
+                photons = signal[i0: i1, j0: j1].sum()
+                if photons > 0:
+                    camera[i, j] += photons * normalization
+
 class _EPIFMConfigs:
 
     def __init__(self):
@@ -729,102 +781,6 @@ class EPIFMSimulator:
             (self.configs.shutter_end_time - self.configs.shutter_start_time)
             / self.configs.detector_exposure_time)
 
-    def apply_photophysics_effects(self, input_data, rng=None):
-        """Apply the effect of photophysics, i.e. photo bleaching, to the given data.
-
-        This function processes the given data, and returns the new data which includes
-        the state of fluorescent and its photon budget.
-
-        Args:
-            input_data (list): An input data. A list of pairs of time and a list of particles.
-                Each particle is represented as a list of numbers: a coordinate (x, y, z),
-                molecule id, species id, and location id (and optionally a state of fluorecent
-                and photon budget).
-                The number of particles in each frame must be static.
-
-            rng (numpy.RandomState, optional): A random number generator.
-
-        Returns:
-            list: A new data which the photophysics effects are applyed to.
-                Given in the same format with `input_data`.
-
-        """
-        end_time = self.configs.shutter_end_time
-
-        N_particles = [len(particles) for _, particles in input_data]
-        if min(N_particles) != max(N_particles):
-            raise RuntimeError('The number of particles must be static during the simulation')
-        N_particles = N_particles[0]
-
-        # get focal point
-        p_0 = numpy.asarray(self.configs.detector_focal_point) / 1e-9  # nano meter
-
-        # beam position: Assuming beam position = focal point (for temporary)
-        # p_b = copy.copy(p_0)
-
-        # Snell's law
-        amplitude0, _ = self.__snells_law(p_0, p_0)
-
-        # determine photon budgets
-        time_array = numpy.array([t for t, _ in input_data])
-        time_array -= self.configs.shutter_start_time
-
-        N_emit0 = self.__get_emit_photons(amplitude0, 1.0)
-        fluorescence_state, fluorescence_budget = self.effects.get_photophysics_for_epifm(
-            time_array, N_emit0, N_particles, rng)
-
-        new_data = []
-        molecule_states = numpy.zeros(shape=(N_particles))
-        m_id_map = {}
-        for k, (t, particles) in enumerate(input_data):
-            next_time = input_data[k + 1][0] if k + 1 < len(input_data) else end_time
-            unit_time = next_time - t
-
-            # set molecular-states (unbound-bound)
-            # self.set_molecular_states(k, input_data)
-            # self.__initialize_molecular_states(molecule_states, k, particles)
-            # reset molecule-states
-            molecule_states.fill(0.0)
-
-            # loop for particles
-            # for (x, y, z, m_id, s_id, l_id, p_state, cyc_id) in particles:
-            for particle in particles:
-                m_id, s_id = particle[3], particle[4]
-                # molecule_states[m_id] = s_id  # s_id
-                if m_id in m_id_map:
-                    m_idx = m_id_map[m_id]
-                else:
-                    m_idx = len(m_id_map)
-                    m_id_map[m_id] = m_idx
-                # set molecule-states
-                molecule_states[m_idx] = s_id  # s_id
-
-            N_emit0 = self.__get_emit_photons(amplitude0, unit_time)
-
-            # set photobleaching-dataset arrays
-            self.__update_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, k, particles, p_0, unit_time, m_id_map)
-
-            # get new-dataset
-            # new_state = self.__get_new_state(molecule_states, fluorescence_state, fluorescence_budget, k, N_emit0)
-            # # new_input_data = numpy.column_stack((particles, state_stack))
-            # set additional arrays for new-dataset
-            state_pb = fluorescence_state[: , k]
-            new_state_pb = state_pb[molecule_states > 0]
-            new_budget = fluorescence_budget[molecule_states > 0]
-
-            # set new-dataset
-            new_state = numpy.column_stack((new_state_pb, (new_budget / N_emit0).astype('int')))
-
-            new_particles = []
-            for particle_j, (new_p_state, new_cyc_id) in zip(particles, new_state):
-                new_particle = (*tuple(particle_j)[: 6], new_p_state, new_cyc_id)
-                new_particles.append(new_particle)
-
-            new_particles = numpy.array(new_particles, dtype='f8, f8, f8, i4, i4, i4, f8, f8')
-            new_data.append((t, new_particles))
-
-        return new_data
-
     def output_frames(
             self, input_data, pathto='./images', data_fmt='image_%07d.npy', true_fmt='true_%07d.npy',
             image_fmt='image_%07d.png', cmin=None, cmax=None, low=None, high=None, cmap=None,
@@ -933,7 +889,7 @@ class EPIFMSimulator:
         _log.info('time: {} sec ({})'.format(t, frame_index))
 
         # focal point
-        p_0 = numpy.asarray(self.configs.detector_focal_point) / 1e-9  # nano meter
+        p_0 = numpy.asarray(self.configs.detector_focal_point)  # meter-scale
 
         # beam position: Assuming beam position = focal point (for temporary)
         p_b = copy.copy(p_0)
@@ -969,10 +925,8 @@ class EPIFMSimulator:
             #     particles = numpy.vstack(particles, numpy.zeros(shape=(len(particles) - true_data.shape[0], 7)))
 
             # loop for particles
-            # for j, particle_j in enumerate(particles):
-            #     self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0 * 1e-9, true_data[j], unit_time, fluo_psfs)
             for particle_j, true_data_j in zip(particles, true_data):
-                self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0 * 1e-9, true_data_j, unit_time, fluo_psfs)
+                self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0, true_data_j, unit_time, fluo_psfs)
 
         true_data[: , 3: 7] /= exposure_time
 
@@ -980,95 +934,7 @@ class EPIFMSimulator:
         camera, true_data = self.__detector_output(rng, camera_pixel, true_data)
         return (camera, true_data)
 
-    # def __initialize_molecular_states(self, states, count, data):
-    #     # reset molecule-states
-    #     states.fill(0.0)
-
-    #     # loop for particles
-    #     for (coordinate, m_id, s_id, l_id, p_state, cyc_id) in data:
-    #         # set molecule-states
-    #         states[m_id] = int(s_id)
-
-    def __update_fluorescence_photobleaching(
-            self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time, m_id_map):
-        if len(data) == 0:
-            return
-
-        state_pb, budget = self.__get_fluorescence_photobleaching(
-            fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time, m_id_map)
-
-        # reset global-arrays for photobleaching-state and photon-budget
-        for key, value in state_pb.items():
-            fluorescence_state[key, count] = value
-            fluorescence_budget[key] = budget[key]
-            # self.effects.fluorescence_state[key,count] = state_pb[key]
-            # self.effects.fluorescence_budget[key] = budget[key]
-
-    def __get_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time, m_id_map):
-        # get focal point
-        p_0 = focal_center
-
-        # set arrays for photobleaching-states and photon-budget
-        result_state_pb = {}
-        result_budget = {}
-
-        # loop for particles
-        # for (x, y, z, m_id, s_id, l_id, p_state, cyc_id) in data:
-        for particle in data:
-            x, y, z, m_id = particle[0], particle[1], particle[2], particle[3]
-
-            # set particle position
-            # p_i = numpy.array(coordinate) / 1e-9
-            p_i = numpy.array([x, y, z]) / 1e-9
-
-            # Snell's law
-            amplitude, _ = self.__snells_law(p_i, p_0)
-
-            # particle coordinate in real(nm) scale
-            p_i = p_i.copy()
-
-            state_j = 1  # particles given is always observable. already filtered when read
-
-            # get exponential amplitude (only for observation at basal surface)
-            # amplitide = amplitude * numpy.exp(-depth / pent_depth)
-
-            # get the number of emitted photons
-            N_emit = self.__get_emit_photons(amplitude, unit_time)
-
-            # get global-arrays for photobleaching-state and photon-budget
-            m_idx = m_id_map[m_id]
-            state_pb = fluorescence_state[m_idx, count]
-            budget = fluorescence_budget[m_idx]
-
-            # reset photon-budget
-            photons = budget - N_emit * state_j
-
-            if photons > 0:
-                budget = photons
-                state_pb = state_j
-            else:
-                budget = 0
-                state_pb = 0
-
-            result_state_pb[m_idx] = state_pb
-            result_budget[m_idx] = budget
-
-        return result_state_pb, result_budget
-
-    # def __get_new_state(self, molecule_states, fluorescence_state, fluorescence_budget, count, N_emit0):
-    #     state_mo = molecule_states
-    #     state_pb = fluorescence_state[: , count]
-    #     budget = fluorescence_budget
-
-    #     # set additional arrays for new-dataset
-    #     new_state_pb = state_pb[state_mo > 0]
-    #     new_budget = budget[state_mo > 0]
-
-    #     # set new-dataset
-    #     state_stack = numpy.column_stack((new_state_pb, (new_budget / N_emit0).astype('int')))
-    #     return state_stack
-
-    def __overlay_molecule_plane(self, camera, particle_i, p_b, p_0, true_data_i, unit_time, fluo_psfs=None):
+    def __overlay_molecule_plane(self, camera, particle_i, _p_b, p_0, true_data_i, unit_time, fluo_psfs=None):
         # m-scale
         # p_b (ndarray): beam position (assumed to be the same with focal center), but not used.
         # p_0 (ndarray): focal center
@@ -1079,7 +945,7 @@ class EPIFMSimulator:
         p_i = numpy.array([x, y, z])
 
         # Snell's law
-        amplitude, penet_depth = self.snells_law()
+        amplitude, penet_depth = self.snells_law()  #XXX: This might depends on p_b and p_i
 
         # particles coordinate in real(nm) scale
         _, radial, depth = cylindrical_coordinate(p_i, p_0)
@@ -1087,11 +953,13 @@ class EPIFMSimulator:
         # get exponential amplitude (only for TIRFM-configuration)
         amplitude = amplitude * numpy.exp(-depth / penet_depth)
 
-        # get signal matrix
-        signal, normalization = self.__get_signal(amplitude, radial, depth, p_state, unit_time, fluo_psfs)
+        # get the number of photons emitted
+        N_emit = self.__get_emit_photons(amplitude, unit_time)
+        normalization = p_state * N_emit / (4.0 * numpy.pi)
+
         # add signal matrix to image plane
         pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification
-        self.__overlay_signal(camera, signal, p_i, p_0, normalization, pixel_length)
+        self.configs.fluorophore_psf.overlay_signal(camera, p_i - p_0, pixel_length, normalization)
 
         # set true-dataset
         true_data_i[1] = m_id # molecule-ID
@@ -1101,64 +969,13 @@ class EPIFMSimulator:
         true_data_i[5] += unit_time * p_i[1] / 1e-9 # X-coordinate in the image-plane  #XXX: nm-scale for the consistency
         true_data_i[6] += unit_time * depth / 1e-9  # Depth from focal-plane  #XXX: nm-scale for the consistency
 
-    def __get_signal(self, amplitude, _, depth, p_state, unit_time, fluo_psfs=None):
-        # fluorophore axial position
-        psf_depth = self.configs.fluorophore_psf.get(depth)
-
-        # get the number of photons emitted
-        N_emit = self.__get_emit_photons(amplitude, unit_time)
-
-        # # get signal
-        #XXX: This line could be the bottle-neck, due to the huge size of psf_depth
-        # signal = p_state * N_emit / (4.0 * numpy.pi) * psf_depth
-        # return signal
-        return (psf_depth, p_state * N_emit / (4.0 * numpy.pi))
-
-    @staticmethod
-    def __overlay_signal(camera, signal, p_i, p_0, normalization, pixel_length):
-        # m-scale
-        # camera pixel
-        Nw_pixel, Nh_pixel = camera.shape
-
-        signal_resolution = 1.0e-9  # m
-
-        # particle position
-        _, yi, zi = p_i # rotated particle position
-        _, y0, z0 = p_0 # focal center
-
-        dz = ((zi - signal_resolution * signal.shape[0] / 2) - (z0 - pixel_length * Nw_pixel / 2))
-        dy = ((yi - signal_resolution * signal.shape[1] / 2) - (y0 - pixel_length * Nh_pixel / 2))
-
-        imin = math.ceil(dz / pixel_length)
-        imax = math.ceil((signal.shape[0] * signal_resolution + dz) / pixel_length) - 1
-        jmin = math.ceil(dy / pixel_length)
-        jmax = math.ceil((signal.shape[1] * signal_resolution + dy) / pixel_length) - 1
-        imin = max(imin, 0)
-        imax = min(imax, Nw_pixel)
-        jmin = max(jmin, 0)
-        jmax = min(jmax, Nh_pixel)
-
-        iarray = numpy.arange(imin, imax + 1)
-        ibottom = (iarray[: -1] * pixel_length - dz) / signal_resolution
-        ibottom = numpy.maximum(numpy.floor(ibottom).astype(int), 0)
-        itop = (iarray[1: ] * pixel_length - dz) / signal_resolution
-        itop = numpy.minimum(numpy.floor(itop).astype(int), signal.shape[0])
-        irange = numpy.vstack((iarray[: -1], ibottom, itop)).T
-        irange = irange[irange[:, 2] > irange[:, 1]]
-
-        jarray = numpy.arange(jmin, jmax)
-        jbottom = (jarray[: -1] * pixel_length - dy) / signal_resolution
-        jbottom = numpy.maximum(numpy.floor(jbottom).astype(int), 0)
-        jtop = (jarray[1: ] * pixel_length - dy) / signal_resolution
-        jtop = numpy.minimum(numpy.floor(jtop).astype(int), signal.shape[1])
-        jrange = numpy.vstack((jarray[: -1], jbottom, jtop)).T
-        jrange = jrange[jrange[:, 2] > jrange[:, 1]]
-
-        for i, i0, i1 in irange:
-            for j, j0, j1 in jrange:
-                photons = signal[i0: i1, j0: j1].sum()
-                if photons > 0:
-                    camera[i, j] += photons * normalization
+    def __get_emit_photons(self, amplitude, unit_time):
+        # Absorption coeff [1/(cm M)]
+        abs_coeff = self.effects.abs_coefficient
+        # Quantum yield
+        QY = self.effects.quantum_yield
+        fluorophore_radius = self.configs.fluorophore_radius
+        return self.get_emit_photons(amplitude, unit_time, abs_coeff, QY, fluorophore_radius)
 
     @staticmethod
     def get_emit_photons(amplitude, unit_time, abs_coeff, QY, fluorophore_radius):
@@ -1178,14 +995,6 @@ class EPIFMSimulator:
         n_emit = QY * n_abs * (1.0 - numpy.power(10.0, -A))
 
         return n_emit
-
-    def __get_emit_photons(self, amplitude, unit_time):
-        # Absorption coeff [1/(cm M)]
-        abs_coeff = self.effects.abs_coefficient
-        # Quantum yield
-        QY = self.effects.quantum_yield
-        fluorophore_radius = self.configs.fluorophore_radius
-        return self.get_emit_photons(amplitude, unit_time, abs_coeff, QY, fluorophore_radius)
 
     def __snells_law(self, p_i, p_0):
         amplitude, penet_depth = self.snells_law()
@@ -1349,6 +1158,8 @@ class EPIFMSimulator:
 
             # # for temp
             # penetration_depth = float('inf')
+            #
+            # penetration_depth *= 1e-9
         else:
             # TIRF-illumination at basal cell-surface
             # Evanescent field: Amplitude and Depth
@@ -1361,88 +1172,13 @@ class EPIFMSimulator:
             A2_Ts = A2_y
 
             penetration_depth = wave_length/(4.0*numpy.pi*numpy.sqrt(n_1**2*sin2 - n_2**2))
-            penetration_depth = penetration_depth/1e-9
 
         # set illumination amplitude
         amplitude = (A2_Tp + A2_Ts)/2
-        return amplitude, penetration_depth * 1e-9
-
-    @staticmethod
-    def __overwrite_smeared(cell_pixel, photon_dist, i, j):
-        # i-th pixel
-        Ni_pixel = len(cell_pixel)
-        Ni_pe    = len(photon_dist)
-
-        i_to   = i + Ni_pe/2
-        i_from = i - Ni_pe/2
-
-        if (i_to > Ni_pixel):
-            di_to = i_to - Ni_pixel
-            # i10_to = int(Ni_pixel)  #XXX: Is this a typo of 'i0_to'?
-            i1_to = int(Ni_pe - di_to)
-        else:
-            di_to = Ni_pixel - (i + Ni_pe/2)
-            i0_to = int(Ni_pixel - di_to)
-            i1_to = int(Ni_pe)
-
-        if (i_from < 0):
-            di_from = abs(i_from)
-            i0_from = 0
-            i1_from = int(di_from)
-        else:
-            di_from = i_from
-            i0_from = int(di_from)
-            i1_from = 0
-
-        ddi = (i0_to - i0_from) - (i1_to - i1_from)
-
-        if (ddi != 0): i0_to = i0_to - ddi
-        if (ddi != 0): i1_to = i1_to - ddi
-
-        # j-th pixel
-        Nj_pixel = len(cell_pixel[0])
-        Nj_pe    = len(photon_dist[0])
-
-        j_to   = j + Nj_pe/2
-        j_from = j - Nj_pe/2
-
-        if (j_to > Nj_pixel):
-            dj_to = j_to - Nj_pixel
-            j0_to = int(Nj_pixel)
-            j1_to = int(Nj_pe - dj_to)
-        else:
-            dj_to = Nj_pixel - (j + Nj_pe/2)
-            j0_to = int(Nj_pixel - dj_to)
-            j1_to = int(Nj_pe)
-
-        if (j_from < 0):
-            dj_from = abs(j_from)
-            j0_from = 0
-            j1_from = int(dj_from)
-        else:
-            dj_from = j_from
-            j0_from = int(dj_from)
-            j1_from = 0
-
-        ddj = (j0_to - j0_from) - (j1_to - j1_from)
-
-        if (ddj != 0): j0_to = j0_to - ddj
-        if (ddj != 0): j1_to = j1_to - ddj
-
-        # add to cellular plane
-        cell_pixel[i0_from:i0_to, j0_from:j0_to] += photon_dist[i1_from:i1_to, j1_from:j1_to]
-
-        return cell_pixel
+        return amplitude, penetration_depth
 
     def __detector_output(self, rng, camera_pixel, true_data):
-        focal_center = numpy.asarray(self.configs.detector_focal_point) / 1e-9  # nano meter
-
         Nw_pixel, Nh_pixel = self.configs.detector_image_size  # pixels
-        pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification / 1e-9  # nm
-        _, y0, z0 = focal_center  # nm
-
-        _log.info('scaling [nm/pixel]: {}'.format(pixel_length))
-        _log.info('center (width, height): {} {}'.format(z0, y0))
 
         if self.effects.crosstalk_switch is True:
             for i in range(Nw_pixel):
@@ -1458,13 +1194,14 @@ class EPIFMSimulator:
                     #FIXME: Update camera_pixel iteratively
                     camera_pixel[: , : , 0] = self.__overwrite_smeared(camera_pixel[: , : , 0], smeared_photons, i, j)
 
+        pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification  # m-scale
+        _, y0, z0 = numpy.asarray(self.configs.detector_focal_point)  # m-scale
 
-        true_data[: , 4] = (true_data[: , 4] - (z0 - Nw_pixel * pixel_length / 2)) / pixel_length
-        true_data[: , 5] = (true_data[: , 5] - (y0 - Nh_pixel * pixel_length / 2)) / pixel_length
-        # true_data[: , 4] = numpy.floor(
-        #     (numpy.floor(true_data[: , 4] ) - math.floor(z0 - Nw_pixel * pixel_length / 2)) / pixel_length)
-        # true_data[: , 5] = numpy.floor(
-        #     (numpy.floor(true_data[: , 5] ) - math.floor(y0 - Nh_pixel * pixel_length / 2)) / pixel_length)
+        _log.info('scaling [m/pixel]: {}'.format(pixel_length))
+        _log.info('center (width, height): {} {}'.format(z0, y0))
+
+        true_data[: , 4] = (true_data[: , 4] * 1e-9 - (z0 - Nw_pixel * pixel_length / 2)) / pixel_length  #XXX: nm-scale for the consistency
+        true_data[: , 5] = (true_data[: , 5] * 1e-9 - (y0 - Nh_pixel * pixel_length / 2)) / pixel_length  #XXX: nm-scale for the consistency
 
         # <=== BEGIN
         ## Detector: Quantum Efficiency
@@ -1550,6 +1287,73 @@ class EPIFMSimulator:
 
         return camera_pixel, true_data
 
+    @staticmethod
+    def __overwrite_smeared(cell_pixel, photon_dist, i, j):
+        # i-th pixel
+        Ni_pixel = len(cell_pixel)
+        Ni_pe    = len(photon_dist)
+
+        i_to   = i + Ni_pe/2
+        i_from = i - Ni_pe/2
+
+        if (i_to > Ni_pixel):
+            di_to = i_to - Ni_pixel
+            # i10_to = int(Ni_pixel)  #XXX: Is this a typo of 'i0_to'?
+            i1_to = int(Ni_pe - di_to)
+        else:
+            di_to = Ni_pixel - (i + Ni_pe/2)
+            i0_to = int(Ni_pixel - di_to)
+            i1_to = int(Ni_pe)
+
+        if (i_from < 0):
+            di_from = abs(i_from)
+            i0_from = 0
+            i1_from = int(di_from)
+        else:
+            di_from = i_from
+            i0_from = int(di_from)
+            i1_from = 0
+
+        ddi = (i0_to - i0_from) - (i1_to - i1_from)
+
+        if (ddi != 0): i0_to = i0_to - ddi
+        if (ddi != 0): i1_to = i1_to - ddi
+
+        # j-th pixel
+        Nj_pixel = len(cell_pixel[0])
+        Nj_pe    = len(photon_dist[0])
+
+        j_to   = j + Nj_pe/2
+        j_from = j - Nj_pe/2
+
+        if (j_to > Nj_pixel):
+            dj_to = j_to - Nj_pixel
+            j0_to = int(Nj_pixel)
+            j1_to = int(Nj_pe - dj_to)
+        else:
+            dj_to = Nj_pixel - (j + Nj_pe/2)
+            j0_to = int(Nj_pixel - dj_to)
+            j1_to = int(Nj_pe)
+
+        if (j_from < 0):
+            dj_from = abs(j_from)
+            j0_from = 0
+            j1_from = int(dj_from)
+        else:
+            dj_from = j_from
+            j0_from = int(dj_from)
+            j1_from = 0
+
+        ddj = (j0_to - j0_from) - (j1_to - j1_from)
+
+        if (ddj != 0): j0_to = j0_to - ddj
+        if (ddj != 0): j1_to = j1_to - ddj
+
+        # add to cellular plane
+        cell_pixel[i0_from:i0_to, j0_from:j0_to] += photon_dist[i1_from:i1_to, j1_from:j1_to]
+
+        return cell_pixel
+
     def __get_analog_to_digital_converter_value(self, rng, pixel, photoelectron):
         # pixel position
         i, j = pixel
@@ -1586,3 +1390,188 @@ class EPIFMSimulator:
         ADC[ADC > ADC_max] = ADC_max
         ADC[ADC < 0] = 0
         return ADC
+
+    # def __initialize_molecular_states(self, states, count, data):
+    #     # reset molecule-states
+    #     states.fill(0.0)
+
+    #     # loop for particles
+    #     for (coordinate, m_id, s_id, l_id, p_state, cyc_id) in data:
+    #         # set molecule-states
+    #         states[m_id] = int(s_id)
+
+    def apply_photophysics_effects(self, input_data, rng=None):
+        """Apply the effect of photophysics, i.e. photo bleaching, to the given data.
+
+        This function processes the given data, and returns the new data which includes
+        the state of fluorescent and its photon budget.
+
+        Args:
+            input_data (list): An input data. A list of pairs of time and a list of particles.
+                Each particle is represented as a list of numbers: a coordinate (x, y, z),
+                molecule id, species id, and location id (and optionally a state of fluorecent
+                and photon budget).
+                The number of particles in each frame must be static.
+
+            rng (numpy.RandomState, optional): A random number generator.
+
+        Returns:
+            list: A new data which the photophysics effects are applyed to.
+                Given in the same format with `input_data`.
+
+        """
+        end_time = self.configs.shutter_end_time
+
+        N_particles = [len(particles) for _, particles in input_data]
+        if min(N_particles) != max(N_particles):
+            raise RuntimeError('The number of particles must be static during the simulation')
+        N_particles = N_particles[0]
+
+        # get focal point
+        p_0 = numpy.asarray(self.configs.detector_focal_point) / 1e-9  # nano meter
+
+        # beam position: Assuming beam position = focal point (for temporary)
+        # p_b = copy.copy(p_0)
+
+        # Snell's law
+        amplitude0, _ = self.__snells_law(p_0, p_0)
+
+        # determine photon budgets
+        time_array = numpy.array([t for t, _ in input_data])
+        time_array -= self.configs.shutter_start_time
+
+        N_emit0 = self.__get_emit_photons(amplitude0, 1.0)
+        fluorescence_state, fluorescence_budget = self.effects.get_photophysics_for_epifm(
+            time_array, N_emit0, N_particles, rng)
+
+        new_data = []
+        molecule_states = numpy.zeros(shape=(N_particles))
+        m_id_map = {}
+        for k, (t, particles) in enumerate(input_data):
+            next_time = input_data[k + 1][0] if k + 1 < len(input_data) else end_time
+            unit_time = next_time - t
+
+            # set molecular-states (unbound-bound)
+            # self.set_molecular_states(k, input_data)
+            # self.__initialize_molecular_states(molecule_states, k, particles)
+            # reset molecule-states
+            molecule_states.fill(0.0)
+
+            # loop for particles
+            # for (x, y, z, m_id, s_id, l_id, p_state, cyc_id) in particles:
+            for particle in particles:
+                m_id, s_id = particle[3], particle[4]
+                # molecule_states[m_id] = s_id  # s_id
+                if m_id in m_id_map:
+                    m_idx = m_id_map[m_id]
+                else:
+                    m_idx = len(m_id_map)
+                    m_id_map[m_id] = m_idx
+                # set molecule-states
+                molecule_states[m_idx] = s_id  # s_id
+
+            N_emit0 = self.__get_emit_photons(amplitude0, unit_time)
+
+            # set photobleaching-dataset arrays
+            self.__update_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, k, particles, p_0, unit_time, m_id_map)
+
+            # get new-dataset
+            # new_state = self.__get_new_state(molecule_states, fluorescence_state, fluorescence_budget, k, N_emit0)
+            # # new_input_data = numpy.column_stack((particles, state_stack))
+            # set additional arrays for new-dataset
+            state_pb = fluorescence_state[: , k]
+            new_state_pb = state_pb[molecule_states > 0]
+            new_budget = fluorescence_budget[molecule_states > 0]
+
+            # set new-dataset
+            new_state = numpy.column_stack((new_state_pb, (new_budget / N_emit0).astype('int')))
+
+            new_particles = []
+            for particle_j, (new_p_state, new_cyc_id) in zip(particles, new_state):
+                new_particle = (*tuple(particle_j)[: 6], new_p_state, new_cyc_id)
+                new_particles.append(new_particle)
+
+            new_particles = numpy.array(new_particles, dtype='f8, f8, f8, i4, i4, i4, f8, f8')
+            new_data.append((t, new_particles))
+
+        return new_data
+
+    def __update_fluorescence_photobleaching(
+            self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time, m_id_map):
+        if len(data) == 0:
+            return
+
+        state_pb, budget = self.__get_fluorescence_photobleaching(
+            fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time, m_id_map)
+
+        # reset global-arrays for photobleaching-state and photon-budget
+        for key, value in state_pb.items():
+            fluorescence_state[key, count] = value
+            fluorescence_budget[key] = budget[key]
+            # self.effects.fluorescence_state[key,count] = state_pb[key]
+            # self.effects.fluorescence_budget[key] = budget[key]
+
+    def __get_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time, m_id_map):
+        # get focal point
+        p_0 = focal_center
+
+        # set arrays for photobleaching-states and photon-budget
+        result_state_pb = {}
+        result_budget = {}
+
+        # loop for particles
+        # for (x, y, z, m_id, s_id, l_id, p_state, cyc_id) in data:
+        for particle in data:
+            x, y, z, m_id = particle[0], particle[1], particle[2], particle[3]
+
+            # set particle position
+            # p_i = numpy.array(coordinate) / 1e-9
+            p_i = numpy.array([x, y, z]) / 1e-9
+
+            # Snell's law
+            amplitude, _ = self.__snells_law(p_i, p_0)
+
+            # particle coordinate in real(nm) scale
+            p_i = p_i.copy()
+
+            state_j = 1  # particles given is always observable. already filtered when read
+
+            # get exponential amplitude (only for observation at basal surface)
+            # amplitide = amplitude * numpy.exp(-depth / pent_depth)
+
+            # get the number of emitted photons
+            N_emit = self.__get_emit_photons(amplitude, unit_time)
+
+            # get global-arrays for photobleaching-state and photon-budget
+            m_idx = m_id_map[m_id]
+            state_pb = fluorescence_state[m_idx, count]
+            budget = fluorescence_budget[m_idx]
+
+            # reset photon-budget
+            photons = budget - N_emit * state_j
+
+            if photons > 0:
+                budget = photons
+                state_pb = state_j
+            else:
+                budget = 0
+                state_pb = 0
+
+            result_state_pb[m_idx] = state_pb
+            result_budget[m_idx] = budget
+
+        return result_state_pb, result_budget
+
+    # def __get_new_state(self, molecule_states, fluorescence_state, fluorescence_budget, count, N_emit0):
+    #     state_mo = molecule_states
+    #     state_pb = fluorescence_state[: , count]
+    #     budget = fluorescence_budget
+
+    #     # set additional arrays for new-dataset
+    #     new_state_pb = state_pb[state_mo > 0]
+    #     new_budget = budget[state_mo > 0]
+
+    #     # set new-dataset
+    #     state_stack = numpy.column_stack((new_state_pb, (new_budget / N_emit0).astype('int')))
+    #     return state_stack
+
