@@ -152,11 +152,10 @@ class PointSpreadingFunction:
         # print(f'psf.shape = {psf.shape}')
         return psf
 
-    def overlay_signal(camera, p_i, pixel_length, normalization=1.0):
-        depth = p_i[0]
-
+    def overlay_signal(self, camera, p_i, pixel_length, normalization=1.0):
         # fluorophore axial position
-        signal = self.configs.fluorophore_psf.get(depth)
+        depth = p_i[0]
+        signal = self.get(depth)
 
         self.__overlay_signal(camera, signal, p_i, pixel_length, normalization)
 
