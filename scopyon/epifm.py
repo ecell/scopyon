@@ -42,6 +42,37 @@ class PointSpreadingFunction:
 
         self.__normalization = self.__get_normalization()
         self.__fluorophore_psf = {}
+        self.__resolution_depth = 1e-9
+        self.__resolution_radial = 1e-9
+
+    def get(self, depth):
+        if depth < self.psf_depth_cutoff + self.__resolution_depth:
+            assert depth >= 0
+            key = int(depth / self.__resolution_depth)
+            depth = key * self.__resolution_depth
+        else:
+            key = -1
+            depth = self.psf_depth_cutoff
+
+        if key not in self.__fluorophore_psf:
+            self.__fluorophore_psf[key] = self.__get(depth)
+        return self.__fluorophore_psf[key]
+
+    def __get(self, depth):
+        radial = numpy.arange(0.0, self.psf_radial_cutoff, self.__resolution_radial, dtype=float)
+        r = radial / self.__resolution_radial
+        radial_cutoff = self.psf_radial_cutoff / self.__resolution_radial
+
+        theta = numpy.linspace(0, 90, 91)  #XXX: theta resolution
+        z = numpy.linspace(0, radial_cutoff, len(r))
+        y = numpy.linspace(0, radial_cutoff, len(r))
+
+        coordinates = _polar2cartesian_coordinates(r, theta, z, y)
+        psf_t = numpy.ones_like(theta)
+
+        psf_r = self.get_distribution(radial, depth)
+        psf_polar = numpy.array(list(map(lambda x: psf_t * x, psf_r)))
+        return _polar2cartesian(psf_polar, coordinates, (len(z), len(y)))
 
     def __get_normalization(self):
         # Fluorophores Emission Intensity (wave_length)
@@ -56,39 +87,14 @@ class PointSpreadingFunction:
 
         return numpy.sum(I) * self.psf_normalization
 
-    def get(self, depth, resolution=1e-9):
-        if depth < self.psf_depth_cutoff + resolution:
-            assert depth >= 0
-            key = int(depth / resolution)
-        else:
-            key = -1
-            depth = self.psf_depth_cutoff
-
-        if key not in self.__fluorophore_psf:
-            self.__fluorophore_psf[key] = self.__get(depth, resolution)
-        return self.__fluorophore_psf[key]
-
-    def __get(self, depth, resolution=1e-9):
-        radial = numpy.arange(0.0, self.psf_radial_cutoff, 1e-9, dtype=float)
-        r = radial / resolution
-        radial_cutoff = self.psf_radial_cutoff / resolution
-
-        theta = numpy.linspace(0, 90, 91)
-        z = numpy.linspace(0, radial_cutoff, len(r))
-        y = numpy.linspace(0, radial_cutoff, len(r))
-
-        coordinates = _polar2cartesian_coordinates(r, theta, z, y)
-        psf_t = numpy.ones_like(theta)
-
-        psf_r = self.get_distribution(radial, depth)
-        psf_polar = numpy.array(list(map(lambda x: psf_t * x, psf_r)))
-        return _polar2cartesian(psf_polar, coordinates, (len(z), len(y)))
-
     def get_distribution(self, radial, depth):
-        return self.__normalization * self.get_born_wolf_distribution(radial, depth, self.psf_wavelength)
+        psf = self.get_born_wolf_distribution(radial, depth, self.psf_wavelength)
+        return self.__normalization * psf
 
     @staticmethod
     def get_gaussian_distribution(r, width, normalization):
+        #XXX: normalization means I in __get_normalization.
+
         # For normalization
         # norm = list(map(lambda x: True if x > 1e-4 else False, I))
         norm = (normalization > 1e-4)
@@ -109,7 +115,7 @@ class PointSpreadingFunction:
         NA = 1.4  # self.objective_NA
 
         # set alpha and gamma consts
-        k = 2.0 * numpy.pi / (wave_length / 1e-9)
+        k = 2.0 * numpy.pi / wave_length
         alpha = k * NA
         gamma = k * numpy.power(NA / 2, 2)
 
@@ -122,9 +128,9 @@ class PointSpreadingFunction:
         # print(f'r.shape = {r.shape}')
         # print(f'rho.shape = {rho.shape}')
 
-        J0 = numpy.array(list(map(lambda x: j0(x * alpha * rho), r / 1e-9)))
+        J0 = numpy.array(list(map(lambda x: j0(x * alpha * rho), r)))
         # print(f'J0.shape = {J0.shape}')
-        Y  = numpy.exp(-2 * 1.j * (z / 1e-9) * gamma * rho * rho) * rho * drho
+        Y  = numpy.exp(-2 * 1.j * z * gamma * rho * rho) * rho * drho
         # print(f'Y.shape = {Y.shape}')
         I  = Y * J0
         # print(f'I.shape = {I.shape}')
@@ -132,9 +138,9 @@ class PointSpreadingFunction:
         # print(f'I_sum.shape = {I_sum.shape}')
 
         #XXX: z : 1d array_like
-        # J0 = numpy.array(list(map(lambda x: j0(x * alpha * rho), r / 1e-9)))
+        # J0 = numpy.array(list(map(lambda x: j0(x * alpha * rho), r)))
         # print(f'J0.shape = {J0.shape}')
-        # Y  = numpy.array(list(map(lambda x: numpy.exp(-2 * 1.j * x * gamma * rho * rho) * rho * drho, z / 1e-9)))
+        # Y  = numpy.array(list(map(lambda x: numpy.exp(-2 * 1.j * x * gamma * rho * rho) * rho * drho, z)))
         # print(f'Y.shape = {Y.shape}')
         # I  = numpy.array(list(map(lambda x: x * J0, Y)))
         # print(f'I.shape = {I.shape}')
@@ -964,9 +970,9 @@ class EPIFMSimulator:
 
             # loop for particles
             # for j, particle_j in enumerate(particles):
-            #     self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0, true_data[j], unit_time, fluo_psfs)
+            #     self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0 * 1e-9, true_data[j], unit_time, fluo_psfs)
             for particle_j, true_data_j in zip(particles, true_data):
-                self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0, true_data_j, unit_time, fluo_psfs)
+                self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0 * 1e-9, true_data_j, unit_time, fluo_psfs)
 
         true_data[: , 3: 7] /= exposure_time
 
@@ -1063,19 +1069,20 @@ class EPIFMSimulator:
     #     return state_stack
 
     def __overlay_molecule_plane(self, camera, particle_i, p_b, p_0, true_data_i, unit_time, fluo_psfs=None):
+        # m-scale
         # p_b (ndarray): beam position (assumed to be the same with focal center), but not used.
         # p_0 (ndarray): focal center
 
         # particles coordinate, species and lattice-IDs
         x, y, z, m_id, s_id, _, p_state, _ = particle_i
 
-        p_i = numpy.array([x, y, z]) / 1e-9
+        p_i = numpy.array([x, y, z])
 
         # Snell's law
-        amplitude, penet_depth = self.__snells_law(p_i, p_0)
+        amplitude, penet_depth = self.snells_law()
 
         # particles coordinate in real(nm) scale
-        p_i, radial, depth = cylindrical_coordinate(p_i, p_0)
+        _, radial, depth = cylindrical_coordinate(p_i, p_0)
 
         # get exponential amplitude (only for TIRFM-configuration)
         amplitude = amplitude * numpy.exp(-depth / penet_depth)
@@ -1090,15 +1097,12 @@ class EPIFMSimulator:
         true_data_i[1] = m_id # molecule-ID
         true_data_i[2] = int(s_id) # sid_index # molecular-state
         true_data_i[3] += unit_time * p_state # photon-state
-        true_data_i[4] += unit_time * p_i[2] # Y-coordinate in the image-plane
-        true_data_i[5] += unit_time * p_i[1] # X-coordinate in the image-plane
-        true_data_i[6] += unit_time * depth  # Depth from focal-plane
+        true_data_i[4] += unit_time * p_i[2] / 1e-9 # Y-coordinate in the image-plane  #XXX: nm-scale for the consistency
+        true_data_i[5] += unit_time * p_i[1] / 1e-9 # X-coordinate in the image-plane  #XXX: nm-scale for the consistency
+        true_data_i[6] += unit_time * depth / 1e-9  # Depth from focal-plane  #XXX: nm-scale for the consistency
 
-    def __get_signal(self, amplitude, radial, depth, p_state, unit_time, fluo_psfs=None):
+    def __get_signal(self, amplitude, _, depth, p_state, unit_time, fluo_psfs=None):
         # fluorophore axial position
-        # fluo_depth = depth if depth < (self.configs.depth[-1] / 1e-9 + 1.0) else -1
-        # get fluorophore PSF
-        # psf_depth = (fluo_psfs or self.fluo_psf)[int(fluo_depth)]
         psf_depth = self.configs.fluorophore_psf.get(depth)
 
         # get the number of photons emitted
@@ -1112,29 +1116,27 @@ class EPIFMSimulator:
 
     @staticmethod
     def __overlay_signal(camera, signal, p_i, p_0, normalization, pixel_length):
+        # m-scale
         # camera pixel
-        # Nw_pixel, Nh_pixel = self.configs.detector_image_size  # pixels
-        # pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification / 1e-9  # nm
         Nw_pixel, Nh_pixel = camera.shape
-        pixel_length = pixel_length / 1e-9  # nm
 
-        signal_resolution = 1.0  # nm
+        signal_resolution = 1.0e-9  # m
 
         # particle position
-        _, yi, zi = p_i  # rotated particle position
-        _, y0, z0 = p_0  # focal center
+        _, yi, zi = p_i # rotated particle position
+        _, y0, z0 = p_0 # focal center
 
-        dz = (zi - signal.shape[0] / 2) - (z0 - pixel_length * Nw_pixel / 2)
-        dy = (yi - signal.shape[1] / 2) - (y0 - pixel_length * Nh_pixel / 2)
+        dz = ((zi - signal_resolution * signal.shape[0] / 2) - (z0 - pixel_length * Nw_pixel / 2))
+        dy = ((yi - signal_resolution * signal.shape[1] / 2) - (y0 - pixel_length * Nh_pixel / 2))
 
         imin = math.ceil(dz / pixel_length)
         imax = math.ceil((signal.shape[0] * signal_resolution + dz) / pixel_length) - 1
         jmin = math.ceil(dy / pixel_length)
         jmax = math.ceil((signal.shape[1] * signal_resolution + dy) / pixel_length) - 1
         imin = max(imin, 0)
-        imax = min(imax, camera.shape[0])
+        imax = min(imax, Nw_pixel)
         jmin = max(jmin, 0)
-        jmax = min(jmax, camera.shape[1])
+        jmax = min(jmax, Nh_pixel)
 
         iarray = numpy.arange(imin, imax + 1)
         ibottom = (iarray[: -1] * pixel_length - dz) / signal_resolution
@@ -1186,6 +1188,10 @@ class EPIFMSimulator:
         return self.get_emit_photons(amplitude, unit_time, abs_coeff, QY, fluorophore_radius)
 
     def __snells_law(self, p_i, p_0):
+        amplitude, penet_depth = self.snells_law()
+        return amplitude, penet_depth / 1e-9
+
+    def snells_law(self):
         """Snell's law.
 
         Returns:
@@ -1359,7 +1365,7 @@ class EPIFMSimulator:
 
         # set illumination amplitude
         amplitude = (A2_Tp + A2_Ts)/2
-        return amplitude, penetration_depth
+        return amplitude, penetration_depth * 1e-9
 
     @staticmethod
     def __overwrite_smeared(cell_pixel, photon_dist, i, j):
