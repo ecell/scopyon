@@ -145,46 +145,6 @@ class PhysicalEffects:
 
         return tau, budget
 
-    def get_photophysics_for_epifm(self, time_array, N_emit0, N_part, rng=None):
-        """
-        Args:
-            N_emit0 (float): The number of photons emitted per unit time.
-        """
-        if self.photobleaching_switch is False:
-            raise RuntimeError('Not supported')
-        elif rng is None:
-            raise RuntimeError('A random number generator is required.')
-
-        # set the photobleaching-time
-        tau0  = self.photobleaching_tau0
-        alpha = self.photobleaching_alpha
-        prob_func = functools.partial(levy_probability_function, t0=tau0, a=alpha)
-
-        # set photon budget
-        # photon0 = tau0 * N_emit0
-
-        dt = tau0 * 1e-3
-        tau_bleach = numpy.arange(tau0, 50001 * tau0, dt)
-        prob = prob_func(tau_bleach)
-        norm = prob.sum()
-        p_bleach = prob / norm
-
-        # get photobleaching-time
-        tau = rng.choice(tau_bleach, N_part, p=p_bleach)
-
-        # sequences
-        budget = numpy.zeros(N_part)
-        state = numpy.zeros((N_part, len(time_array)))
-        for i in range(N_part):
-            # get photon budget
-            budget[i] = tau[i] * N_emit0
-
-            # bleaching time
-            Ni = numpy.searchsorted(time_array, tau[i])
-            state[i][0: Ni] = 1.0
-
-        return state, budget
-
     def set_photophysics_4palm(self, start, end, dt, f, F, N_part, rng):
         ##### PALM Configuration
         NNN = int(1e+7)
@@ -798,6 +758,10 @@ class EPIFMSimulator(object):
                 effects=PhysicalEffects(self.__config.default.effects),
                 environ=self.__config.environ)
 
+    def photophysics(self, inputs, rng=None):
+        base = self.base(rng)
+        return base.apply_photophysics_effects_new(inputs, rng=rng)
+
     def form_image(self, inputs, rng=None, debug=False):
         """Form image.
 
@@ -890,6 +854,10 @@ def form_image(inputs, *, method=None, config=None, rng=None, debug=False):
     """
     sim = create_simulator(config, method=method)
     return sim.form_image(inputs, rng=rng, debug=debug)
+
+def photophysics(inputs, *, method=None, config=None, rng=None):
+    sim = create_simulator(config, method=method)
+    return sim.photophysics(inputs, rng=rng)
 
 
 if __name__ == "__main__":

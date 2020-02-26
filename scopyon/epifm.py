@@ -24,21 +24,27 @@ from logging import getLogger
 _log = getLogger(__name__)
 
 
+def levy_probability_function(t, t0, a):
+    return (a / t0) * numpy.power(t0 / t, 1 + a)
+    # return numpy.power(t0 / t, 1 + a)
+
 class PointSpreadingFunction:
 
     def __init__(self, psf_radial_cutoff, psf_width, psf_depth_cutoff, fluoem_norm, dichroic_switch, dichroic_eff, emission_switch, emission_eff, fluorophore_type, psf_wavelength, psf_normalization):
+        # fluorophore
         self.fluoem_norm = fluoem_norm
+        self.fluorophore_type = fluorophore_type
+        self.psf_wavelength = psf_wavelength
+        self.psf_normalization = psf_normalization
+        self.psf_radial_cutoff = psf_radial_cutoff
+        self.psf_width = psf_width
+        self.psf_depth_cutoff = psf_depth_cutoff
+
+        # else
         self.dichroic_switch = dichroic_switch
         self.dichroic_eff = dichroic_eff
         self.emission_switch = emission_switch
         self.emission_eff = emission_eff
-        self.fluorophore_type = fluorophore_type
-        self.psf_wavelength = psf_wavelength
-        self.psf_normalization = psf_normalization
-
-        self.psf_radial_cutoff = psf_radial_cutoff
-        self.psf_width = psf_width
-        self.psf_depth_cutoff = psf_depth_cutoff
 
         self.__normalization = self.__get_normalization()
         self.__fluorophore_psf = {}
@@ -165,7 +171,7 @@ class PointSpreadingFunction:
         # camera pixel
         Nw_pixel, Nh_pixel = camera.shape
 
-        signal_resolution = 1.0e-9  # m
+        signal_resolution = 1.0e-9  # m  #=> self.psf_radial_cutoff / (len(r) - 1) ???
 
         # particle position
         _, yi, zi = p_i
@@ -633,17 +639,59 @@ def _polar2cartesian(grid, coordinates, shape):
     psf_cart[: r, : ] = psf_cart[: r: -1, : ]
     return psf_cart
 
+class CMOS:
+
+    @staticmethod
+    def get_noise(shape, rng, dtype=numpy.float64):
+        ## get detector noise (photoelectrons)
+        noise_data = numpy.loadtxt(
+            os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/detector/RNDist_F40.csv'),
+            delimiter=',')
+        Nr_cmos = noise_data[: , 0]
+        p_noise = noise_data[: , 1]
+        p_nsum  = p_noise.sum()
+        noise = numpy.zeros(shape, dtype=dtype)
+        for i in range(shape[0]):
+            for j in range(shape[1]):
+                ## get detector noise (photoelectrons)
+                noise[i, j]  = rng.choice(Nr_cmos, None, p=p_noise / p_nsum)
+        return noise
+
+    @staticmethod
+    def get_signal(expected, rng=None, processes=None):
+        signal = numpy.zeros(expected.shape, dtype=expected.dtype)
+        for i in range(expected.shape[0]):
+            for j in range(expected.shape[1]):
+                signal[i, j] = rng.poisson(expected[i, j], None)
+        # if processes is not None and processes > 1:
+        #     with Pool(processes) as pool:
+        #         signal = pool.map(functools.partial(CMOS.draw_signal, rng=None, emgain=emgain), expected.flatten())
+        #     signal = numpy.array(signal).reshape(expected.shape)
+        # else:
+        #     signal = numpy.zeros(expected.shape, dtype=expected.dtype)
+        #     for i in range(expected.shape[0]):
+        #         for j in range(expected.shape[1]):
+        #             signal[i, j] = CMOS.draw_signal(expected[i, j], emgain, rng)
+        return signal
+
 class EMCCD:
 
     @staticmethod
-    def prob_emccd(S, E, a):
-        # numpy.sqrt(a*E/S)*numpy.exp(-a*S-E+2*numpy.sqrt(a*E*S))*i1e(2*numpy.sqrt(a*E*S))
+    def get_noise(shape, readout_noise, rng, dtype=numpy.float64):
+        ## get detector noise (photoelectrons)
+        if readout_noise <= 0:
+            return numpy.zeros(shape, dtype=dtype)
+        return rng.normal(0, readout_noise, shape)
+
+    @staticmethod
+    def probability(S, E, a):
+        # numpy.sqrt(a * E / S) * numpy.exp(-a * S - E + 2 * numpy.sqrt(a * E * S)) * i1e(2 * numpy.sqrt(a * E * S))
         X = a * S
         Y = 2 * numpy.sqrt(E * X)
         return (1.0 / Y * numpy.exp(-X + Y) * i1e(Y)) # * (2 * a * E * numpy.exp(-E))
 
     @staticmethod
-    def probability_emccd(expected, emgain):
+    def probability_distribution(expected, emgain):
         ## set probability distributions
         sigma = numpy.sqrt(expected) * 5 + 10
         s_min = max(0, emgain * int(expected - sigma))
@@ -653,73 +701,64 @@ class EMCCD:
 
         a = 1.0 / emgain
         if S[0] > 0:
-            p_signal = EMCCD.prob_emccd(S, expected, a)
+            p_signal = EMCCD.probability(S, expected, a)
         else:
             # assert S[1] > 0
-            p_signal = numpy.zeros(shape=(len(S)))
+            p_signal = numpy.zeros(shape=(len(S), ))
             # p_signal[0] = numpy.exp(-expected)
             p_signal[0] = 1.0 / (2 * a * expected)
-            p_signal[1: ] = EMCCD.prob_emccd(S[1: ], expected, a)
+            p_signal[1: ] = EMCCD.probability(S[1: ], expected, a)
 
         p_signal /= p_signal.sum()
         return S, p_signal
 
     @staticmethod
-    def rng_emccd(expected, emgain, rng=None):
+    def draw_signal(expected, emgain, rng=None):
         if expected <= 0:
             return 0
-        s, p_signal = EMCCD.probability_emccd(expected, emgain)
+        s, p_signal = EMCCD.probability_distribution(expected, emgain)
         ## get signal (photoelectrons)
         signal = (rng or numpy.random).choice(s, None, p=p_signal)
         return signal
 
     @staticmethod
-    def signal_emccd(expected, emgain, rng=None, processes=None):
+    def get_signal(expected, emgain, rng=None, processes=None):
         if processes is not None and processes > 1:
             with Pool(processes) as pool:
-                signals = pool.map(functools.partial(EMCCD.rng_emccd, rng=None, emgain=emgain), expected.flatten())
-            signals = numpy.array(signals).reshape(expected.shape)
+                signal = pool.map(functools.partial(EMCCD.draw_signal, rng=None, emgain=emgain), expected.flatten())
+            signal = numpy.array(signal).reshape(expected.shape)
         else:
-            signals = numpy.zeros(expected.shape, dtype=expected.dtype)
+            signal = numpy.zeros(expected.shape, dtype=expected.dtype)
             for i in range(expected.shape[0]):
                 for j in range(expected.shape[1]):
-                    signals[i, j] = EMCCD.rng_emccd(expected[i, j], emgain, rng)
-        return signals
+                    signal[i, j] = EMCCD.draw_signal(expected[i, j], emgain, rng)
+        return signal
 
-    # @staticmethod
-    # def prob_emccd_cupy(S, E, a):
-    #     X = a * S
-    #     Y = 2 * cupy.sqrt(E * X)
-    #     return (1.0 / Y * cupy.exp(-X) * cupyx.scipy.special.i1(Y))  # * a * E / numpy.exp(E)
+class CCD:
 
-    # def __probability_emccd_cupy(self, expected, emgain):
-    #     ## set probability distributions
-    #     sigma = cupy.sqrt(expected) * 5 + 10
-    #     s_min = max(0, emgain * int(expected - sigma))
-    #     s_max = emgain * int(expected + sigma)
-    #     # s = cupy.array([k for k in range(s_min, s_max)])
-    #     S = cupy.arange(s_min, s_max)
+    @staticmethod
+    def get_noise(shape, readout_noise, rng, dtype=numpy.float64):
+        ## get detector noise (photoelectrons)
+        if readout_noise <= 0:
+            return numpy.zeros(shape, dtype=dtype)
+        return rng.normal(0, readout_noise, shape)
 
-    #     a = 1.0 / emgain
-    #     if S[0] > 0:
-    #         p_signal = self.prob_emccd_cupy(S, expected, a)
-    #     else:
-    #         # assert S[1] > 0
-    #         p_signal = cupy.zeros(shape=(len(S)))
-    #         # p_signal[0] = cupy.exp(-expected)
-    #         p_signal[0] = 1.0 / (2 * a * expected)
-    #         p_signal[1: ] = self.prob_emccd_cupy(S[1: ], expected, a)
-
-    #     p_signal /= p_signal.sum()
-    #     return S, p_signal
-
-    # def __rng_emccd_cupy(self, expected, emgain):
-    #     if expected <= 0:
-    #         return 0
-    #     s, p_signal = self.__probability_emccd_cupy(expected, emgain)
-    #     ## get signal (photoelectrons)
-    #     signal = cupy.random.choice(s, 1, p=p_signal)[0]  # size=None is not supported
-    #     return signal
+    @staticmethod
+    def get_signal(expected, rng=None, processes=None):
+        signal = numpy.zeros(expected.shape, dtype=expected.dtype)
+        for i in range(expected.shape[0]):
+            for j in range(expected.shape[1]):
+                signal[i, j] = rng.poisson(expected[i, j], None)
+        # if processes is not None and processes > 1:
+        #     with Pool(processes) as pool:
+        #         signal = pool.map(functools.partial(CCD.draw_signal, rng=None, emgain=emgain), expected.flatten())
+        #     signal = numpy.array(signal).reshape(expected.shape)
+        # else:
+        #     signal = numpy.zeros(expected.shape, dtype=expected.dtype)
+        #     for i in range(expected.shape[0]):
+        #         for j in range(expected.shape[1]):
+        #             signal[i, j] = CCD.draw_signal(expected[i, j], emgain, rng)
+        return signal
 
 class EPIFMSimulator:
     '''
@@ -1015,14 +1054,14 @@ class EPIFMSimulator:
 
         # Illumination: Assume that uniform illumination (No gaussian)
         # flux density [W/cm2 (joules/sec/m2)]
-        P_0 = self.configs.source_flux_density*1e+4
+        P_0 = self.configs.source_flux_density * 1e+4
 
         # single photon energy
         wave_length = self.configs.source_wavelength  # m
-        E_wl = hc/wave_length
+        E_wl = hc / wave_length
 
         # photon flux density [photons/sec/m2]
-        N_0 = P_0/E_wl
+        N_0 = P_0 / E_wl
 
         # Incident beam: Amplitude
         A2_Is = N_0
@@ -1030,26 +1069,26 @@ class EPIFMSimulator:
 
         # incident beam angle
         angle = self.configs.source_angle
-        theta_in = (angle/180.)*numpy.pi
+        theta_in = (angle / 180.) * numpy.pi
 
         sin_th1 = numpy.sin(theta_in)
         cos_th1 = numpy.cos(theta_in)
 
         sin = sin_th1
         cos = cos_th1
-        sin2 = sin**2
-        cos2 = cos**2
+        sin2 = sin ** 2
+        cos2 = cos ** 2
 
         # index of refraction
         n_1 = 1.46  # fused silica
         n_2 = 1.384 # cell
         # n_3 = 1.337 # culture medium
 
-        r  = n_2/n_1
-        r2 = r**2
+        r  = n_2 / n_1
+        r2 = r ** 2
 
         # Epi-illumination at apical surface
-        if (sin2/r2 < 1):
+        if sin2 / r2 < 1:
             raise RuntimeError('Not supported.')
 
             # # Refracted beam: 2nd beam angle to basal region of the cell
@@ -1163,17 +1202,17 @@ class EPIFMSimulator:
             # TIRF-illumination at basal cell-surface
             # Evanescent field: Amplitude and Depth
             # Assume that the s-polar direction is parallel to y-axis
-            A2_x = A2_Ip*(4*cos2*(sin2 - r2)/(r2**2*cos2 + sin2 - r2))
-            A2_y = A2_Is*(4*cos2/(1 - r2))
-            A2_z = A2_Ip*(4*cos2*sin2/(r2**2*cos2 + sin2 - r2))
+            A2_x = A2_Ip * (4 * cos2 * (sin2 - r2) / (r2 ** 2 *cos2 + sin2 - r2))
+            A2_y = A2_Is * (4 * cos2 / (1 - r2))
+            A2_z = A2_Ip * (4 * cos2 * sin2 / (r2 ** 2 * cos2 + sin2 - r2))
 
             A2_Tp = A2_x + A2_z
             A2_Ts = A2_y
 
-            penetration_depth = wave_length/(4.0*numpy.pi*numpy.sqrt(n_1**2*sin2 - n_2**2))
+            penetration_depth = wave_length / (4.0 * numpy.pi * numpy.sqrt(n_1 ** 2 * sin2 - n_2 ** 2))
 
         # set illumination amplitude
-        amplitude = (A2_Tp + A2_Ts)/2
+        amplitude = (A2_Tp + A2_Ts) / 2
         return amplitude, penetration_depth
 
     def __detector_output(self, rng, camera_pixel, true_data):
@@ -1184,7 +1223,7 @@ class EPIFMSimulator:
                 for j in range(Nh_pixel):
                     photons = camera_pixel[i, j, 0]
 
-                    n_i, n_j = rng.normal(0, self.effects.crosstalk_width, int(photons), 2)
+                    n_i, n_j = rng.normal(0, self.effects.crosstalk_width, int(photons), 2)  #???
 
                     smeared_photons, _, _ = numpy.histogram2d(
                         n_i, n_j, bins=(24, 24), range=[[-12, 12], [-12, 12]])
@@ -1195,14 +1234,11 @@ class EPIFMSimulator:
 
         pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification  # m-scale
         _, y0, z0 = numpy.asarray(self.configs.detector_focal_point)  # m-scale
-
         _log.info('scaling [m/pixel]: {}'.format(pixel_length))
         _log.info('center (width, height): {} {}'.format(z0, y0))
-
         true_data[: , 4] = (true_data[: , 4] * 1e-9 - (z0 - Nw_pixel * pixel_length / 2)) / pixel_length  #XXX: nm-scale for the consistency
         true_data[: , 5] = (true_data[: , 5] * 1e-9 - (y0 - Nh_pixel * pixel_length / 2)) / pixel_length  #XXX: nm-scale for the consistency
 
-        # <=== BEGIN
         ## Detector: Quantum Efficiency
         # index = int(self.configs.psf_wavelength / 1e-9) - int(self.configs.wave_length[0] / 1e-9)
         # QE = self.configs.detector_qeff[index]
@@ -1212,78 +1248,37 @@ class EPIFMSimulator:
         ## get constant background (photoelectrons)
         photons += self.effects.background_mean
         ## get signal (expectation)
-        camera_pixel[:, :, 0] = QE * photons
+        expected = QE * photons
 
+        processes = (1 if self.environ is None else self.environ.processes)
+
+        ## conversion: photon --> photoelectron --> ADC count
         ## select Camera type
         if self.configs.detector_type == "CMOS":
-            noise_data = numpy.loadtxt(
-                os.path.join(os.path.abspath(os.path.dirname(__file__)), 'catalog/detector/RNDist_F40.csv'),
-                delimiter=',')
-            Nr_cmos = noise_data[: , 0]
-            p_noise = noise_data[: , 1]
-            p_nsum  = p_noise.sum()
-
-            ## conversion: photon --> photoelectron --> ADC count
-            for i in range(Nw_pixel):
-                for j in range(Nh_pixel):
-                    ## get signal (expectation)
-                    expected = camera_pixel[i, j, 0]
-
-                    ## get signal (poisson distributions)
-                    signal = rng.poisson(expected, None)
-
-                    ## get detector noise (photoelectrons)
-                    noise  = rng.choice(Nr_cmos, None, p=p_noise / p_nsum)
-                    Nr = 1.3  #???
-
-                    ## A/D converter: Photoelectrons --> ADC counts
-                    PE = signal + noise
-                    ADC = self.__get_analog_to_digital_converter_value(rng, (i, j), PE)
-
-                    # set data in image array
-                    camera_pixel[i, j, 1] = ADC
-
+            noise = CMOS.get_noise(expected.shape, rng=rng)
+            signal = CMOS.get_signal(expected, rng=rng, processes=processes)
         elif self.configs.detector_type == "EMCCD":
-            # get detector noise (photoelectrons)
-            expected = camera_pixel[:, :, 0]
-            Nr = self.configs.detector_readout_noise
-            noise = rng.normal(0, Nr, expected.shape) if Nr > 0 else numpy.zeros(expected.shape)
-            signal = EMCCD.signal_emccd(
+            noise = EMCCD.get_noise(expected.shape, readout_noise=self.configs.detector_readout_noise, rng=rng)
+            signal = EMCCD.get_signal(
                     expected,
                     emgain=self.configs.detector_emgain,
                     rng=rng,
-                    processes=(1 if self.environ is None else self.environ.processes))
-            camera_pixel[:, :, 1] = self.__get_analog_to_digital_converter_counts(
-                    signal + noise,
-                    fullwell=self.configs.ADConverter_fullwell,
-                    gain=self.configs.ADConverter_gain,
-                    offset=self.configs.ADConverter_offset,
-                    bit=self.configs.ADConverter_bit)
-
+                    processes=processes)
         elif self.configs.detector_type == "CCD":
-            ## conversion: photon --> photoelectron --> ADC count
-            for i in range(Nw_pixel):
-                for j in range(Nh_pixel):
-                    ## get signal (expectation)
-                    expected = camera_pixel[i, j, 0]
-
-                    ## get signal (poisson distributions)
-                    signal = rng.poisson(expected, None)
-
-                    ## get detector noise (photoelectrons)
-                    Nr = self.configs.detector_readout_noise
-                    noise = rng.normal(0, Nr, None) if Nr > 0 else 0
-
-                    ## A/D converter: Photoelectrons --> ADC counts
-                    PE = signal + noise
-                    ADC = self.__get_analog_to_digital_converter_value(rng, (i, j), PE)
-
-                    # set data in image array
-                    camera_pixel[i, j, 1] = ADC
-
+            noise = CCD.get_noise(expected.shape, readout_noise=self.configs.detector_readout_noise, rng=rng)
+            signal = CCD.get_signal(expected, rng=rng, processes=processes)
         else:
-            raise RuntimeError()
+            raise RuntimeError(
+                    "Unknown detector type was given [{}]. ".format(self.configs.detector_type)
+                    + "Use either one of 'CMOS', 'CCD' or 'EMCCD'.")
 
+        camera_pixel[:, :, 0] = expected
+        camera_pixel[:, :, 1] = self.__get_analog_to_digital_converter_counts(
+                signal + noise,
+                fullwell=self.configs.ADConverter_fullwell,
+                gain=self.configs.ADConverter_gain,
+                offset=self.configs.ADConverter_offset,
+                bit=self.configs.ADConverter_bit)
         return camera_pixel, true_data
 
     @staticmethod
@@ -1353,29 +1348,6 @@ class EPIFMSimulator:
 
         return cell_pixel
 
-    def __get_analog_to_digital_converter_value(self, rng, pixel, photoelectron):
-        # pixel position
-        i, j = pixel
-
-        # check non-linearity
-        fullwell = self.configs.ADConverter_fullwell
-
-        if (photoelectron > fullwell):
-            photoelectron = fullwell
-
-        # convert photoelectron to ADC counts
-        k = self.configs.ADConverter_gain[i][j]
-        ADC0 = self.configs.ADConverter_offset[i][j]
-        ADC_max = 2**self.configs.ADConverter_bit - 1
-
-        ADC = photoelectron/k + ADC0
-
-        if (ADC > ADC_max): ADC = ADC_max
-        if (ADC < 0): ADC = 0
-
-        #return int(ADC)
-        return ADC
-
     @staticmethod
     def __get_analog_to_digital_converter_counts(photoelectron, fullwell, gain, offset, bit):
         # check non-linearity
@@ -1419,6 +1391,11 @@ class EPIFMSimulator:
                 Given in the same format with `input_data`.
 
         """
+        if rng is None:
+            _log.info('A random number generator was initialized.')
+            rng = numpy.random.RandomState()
+
+        start_time = self.configs.shutter_start_time
         end_time = self.configs.shutter_end_time
 
         N_particles = [len(particles) for _, particles in input_data]
@@ -1433,15 +1410,19 @@ class EPIFMSimulator:
         # p_b = copy.copy(p_0)
 
         # Snell's law
-        amplitude0, _ = self.__snells_law(p_0, p_0)
+        amplitude0, _ = self.snells_law()
+        N_emit0 = self.__get_emit_photons(amplitude0, unit_time=1.0)
 
         # determine photon budgets
         time_array = numpy.array([t for t, _ in input_data])
-        time_array -= self.configs.shutter_start_time
+        time_array -= start_time
 
-        N_emit0 = self.__get_emit_photons(amplitude0, 1.0)
-        fluorescence_state, fluorescence_budget = self.effects.get_photophysics_for_epifm(
-            time_array, N_emit0, N_particles, rng)
+        fluorescence_state, fluorescence_budget = self.get_photophysics_for_epifm(
+            time_array, N_emit0, N_particles,
+            self.effects.photobleaching_switch, self.effects.photobleaching_tau0, self.effects.photobleaching_alpha,
+            rng)
+
+        N_emit = self.__get_emit_photons(amplitude0, unit_time)
 
         new_data = []
         molecule_states = numpy.zeros(shape=(N_particles))
@@ -1469,13 +1450,11 @@ class EPIFMSimulator:
                 # set molecule-states
                 molecule_states[m_idx] = s_id  # s_id
 
-            N_emit0 = self.__get_emit_photons(amplitude0, unit_time)
-
             # set photobleaching-dataset arrays
             self.__update_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, k, particles, p_0, unit_time, m_id_map)
 
             # get new-dataset
-            # new_state = self.__get_new_state(molecule_states, fluorescence_state, fluorescence_budget, k, N_emit0)
+            # new_state = self.__get_new_state(molecule_states, fluorescence_state, fluorescence_budget, k, N_emit)
             # # new_input_data = numpy.column_stack((particles, state_stack))
             # set additional arrays for new-dataset
             state_pb = fluorescence_state[: , k]
@@ -1483,17 +1462,57 @@ class EPIFMSimulator:
             new_budget = fluorescence_budget[molecule_states > 0]
 
             # set new-dataset
-            new_state = numpy.column_stack((new_state_pb, (new_budget / N_emit0).astype('int')))
+            new_state = numpy.column_stack((new_state_pb, (new_budget / N_emit).astype('int')))
 
             new_particles = []
             for particle_j, (new_p_state, new_cyc_id) in zip(particles, new_state):
                 new_particle = (*tuple(particle_j)[: 6], new_p_state, new_cyc_id)
                 new_particles.append(new_particle)
 
-            new_particles = numpy.array(new_particles, dtype='f8, f8, f8, i4, i4, i4, f8, f8')
+            # new_particles = numpy.array(new_particles, dtype='f8, f8, f8, i4, i4, i4, f8, f8')
+            new_particles = numpy.array(new_particles)
             new_data.append((t, new_particles))
 
         return new_data
+
+    @staticmethod
+    def get_photophysics_for_epifm(time_array, N_emit0, N_part, photobleaching_switch, tau0, alpha, rng):
+        """
+        Args:
+            N_emit0 (float): The number of photons emitted per unit time.
+        """
+        ## Originally the member of PhysicalEffects
+        if photobleaching_switch is False:
+            raise RuntimeError('Not supported')
+        elif rng is None:
+            raise RuntimeError('A random number generator is required.')
+
+        # set photon budget
+        # photon0 = tau0 * N_emit0
+
+        # set the photobleaching-time
+        dt = tau0 * 1e-3
+        tau_bleach = numpy.arange(tau0, 50001 * tau0, dt)
+        prob_func = functools.partial(levy_probability_function, t0=tau0, a=alpha)
+        prob = prob_func(tau_bleach)
+        norm = prob.sum()
+        p_bleach = prob / norm
+
+        # get photobleaching-time
+        tau = rng.choice(tau_bleach, N_part, p=p_bleach)
+
+        # sequences
+        budget = numpy.zeros(N_part)
+        state = numpy.zeros((N_part, len(time_array)))
+        for i in range(N_part):
+            # get photon budget
+            budget[i] = tau[i] * N_emit0
+
+            # bleaching time
+            Ni = numpy.searchsorted(time_array, tau[i])
+            state[i][0: Ni] = 1.0
+
+        return state, budget
 
     def __update_fluorescence_photobleaching(
             self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time, m_id_map):
@@ -1510,7 +1529,8 @@ class EPIFMSimulator:
             # self.effects.fluorescence_state[key,count] = state_pb[key]
             # self.effects.fluorescence_budget[key] = budget[key]
 
-    def __get_fluorescence_photobleaching(self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time, m_id_map):
+    def __get_fluorescence_photobleaching(
+            self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time, m_id_map):
         # get focal point
         p_0 = focal_center
 
@@ -1521,17 +1541,15 @@ class EPIFMSimulator:
         # loop for particles
         # for (x, y, z, m_id, s_id, l_id, p_state, cyc_id) in data:
         for particle in data:
-            x, y, z, m_id = particle[0], particle[1], particle[2], particle[3]
+            x, y, z, m_id, _s_id, _l_id, _p_state, _cyc_id = particle
 
             # set particle position
+            # particle coordinate in real(nm) scale
             # p_i = numpy.array(coordinate) / 1e-9
             p_i = numpy.array([x, y, z]) / 1e-9
 
             # Snell's law
-            amplitude, _ = self.__snells_law(p_i, p_0)
-
-            # particle coordinate in real(nm) scale
-            p_i = p_i.copy()
+            amplitude, _penet_depth = self.snells_law()  # This might depends on p_i
 
             state_j = 1  # particles given is always observable. already filtered when read
 
@@ -1561,16 +1579,149 @@ class EPIFMSimulator:
 
         return result_state_pb, result_budget
 
-    # def __get_new_state(self, molecule_states, fluorescence_state, fluorescence_budget, count, N_emit0):
-    #     state_mo = molecule_states
-    #     state_pb = fluorescence_state[: , count]
-    #     budget = fluorescence_budget
+    def apply_photophysics_effects_new(self, input_data, rng=None):
+        if rng is None:
+            _log.info('A random number generator was initialized.')
+            rng = numpy.random.RandomState()
 
-    #     # set additional arrays for new-dataset
-    #     new_state_pb = state_pb[state_mo > 0]
-    #     new_budget = budget[state_mo > 0]
+        start_time = self.configs.shutter_start_time
+        end_time = self.configs.shutter_end_time
 
-    #     # set new-dataset
-    #     state_stack = numpy.column_stack((new_state_pb, (new_budget / N_emit0).astype('int')))
-    #     return state_stack
+        N_particles = [len(particles) for _, particles in input_data]
+        if min(N_particles) != max(N_particles):
+            raise RuntimeError('The number of particles must be static during the simulation')
+        N_particles = N_particles[0]
 
+        # get focal point
+        p_0 = numpy.asarray(self.configs.detector_focal_point)  # meter-scale
+
+        # beam position: Assuming beam position = focal point (for temporary)
+        # p_b = copy.copy(p_0)
+
+        # Snell's law
+        amplitude0, _ = self.snells_law()
+        N_emit0 = self.__get_emit_photons(amplitude0, unit_time=1.0)
+
+        # determine photon budgets
+        time_array = numpy.array([t for t, _ in input_data])
+        time_array -= start_time
+
+        if self.effects.photobleaching_switch:
+            bleaching_time, fluorescence_budget = self.get_photobleaching_time(
+                N_emit0, N_particles,
+                self.effects.photobleaching_tau0, self.effects.photobleaching_alpha,
+                rng)
+        else:
+            raise RuntimeError('Not supported')
+
+        new_data = []
+        m_id_map = {}
+        for i, (t, particles) in enumerate(input_data):
+            if t > end_time:
+                break
+
+            next_time = input_data[i + 1][0] if i + 1 < len(input_data) else end_time
+            unit_time = next_time - t
+
+            N_emit = self.__get_emit_photons(amplitude0, unit_time)
+
+            # loop for particles
+            # for (x, y, z, m_id, s_id, l_id, p_state, cyc_id) in particles:
+            for particle in particles:
+                m_id = particle[3]
+                if m_id not in m_id_map:
+                    m_id_map[m_id] = len(m_id_map)
+
+            # set photobleaching-dataset arrays
+            state_pb, budget = self.__get_fluorescence_photobleaching_new(
+                bleaching_time, fluorescence_budget, i, particles, p_0, t, unit_time, m_id_map)
+
+            # reset global-arrays for photobleaching-state and photon-budget
+            fluorescence_state = numpy.zeros(fluorescence_budget.shape, dtype=fluorescence_budget.dtype)
+            for key, value in state_pb.items():
+                fluorescence_state[key] = value
+                fluorescence_budget[key] = budget[key]
+
+            # set new-dataset
+            cyc = (fluorescence_budget / N_emit).astype('int')
+
+            new_particles = []
+            for particle_j, new_p_state, new_cyc_id in zip(particles, fluorescence_state, cyc):
+                new_particle = (*tuple(particle_j)[: 6], new_p_state, new_cyc_id)
+                new_particles.append(new_particle)
+            # new_particles = numpy.array(new_particles, dtype='f8, f8, f8, i4, i4, i4, f8, f8')
+            new_particles = numpy.array(new_particles)
+
+            new_data.append((t, new_particles))
+
+        return new_data
+
+    @staticmethod
+    def get_photobleaching_time(N_emit0, N_part, tau0, alpha, rng):
+        """
+        Args:
+            N_emit0 (float): The number of photons emitted per unit time.
+        """
+        ## Originally the member of PhysicalEffects
+
+        # set photon budget
+        # photon0 = tau0 * N_emit0
+
+        # set the photobleaching-time
+        dt = tau0 * 1e-3
+        tau_bleach = numpy.arange(tau0, 50001 * tau0, dt)
+        prob_func = functools.partial(levy_probability_function, t0=tau0, a=alpha)
+        prob = prob_func(tau_bleach)
+        norm = prob.sum()
+        p_bleach = prob / norm
+
+        # get photobleaching-time
+        tau = rng.choice(tau_bleach, N_part, p=p_bleach)
+
+        # get photon budget
+        budget = tau * N_emit0
+
+        print(f"bleaching_time={tau}")
+        print(f"fluorescence_budget={budget}")
+        return tau, budget
+
+    def __get_fluorescence_photobleaching_new(
+            self, _bleaching_time, fluorescence_budget, count, data, focal_center, t, unit_time, m_id_map):
+        # get focal point
+        p_0 = focal_center  # meter-scale
+
+        # set arrays for photobleaching-states and photon-budget
+        result_state = {}
+        result_budget = {}
+
+        # loop for particles
+        # for (x, y, z, m_id, s_id, l_id, p_state, cyc_id) in data:
+        for particle in data:
+            x, y, z, m_id, _s_id, _l_id, _p_state, _cyc_id = particle
+
+            # set particle position
+            # particle coordinate in real(meter) scale
+            p_i = numpy.array([x, y, z])
+
+            # Snell's law
+            amplitude, _penet_depth = self.snells_law()  # This might depends on p_i
+
+            # get exponential amplitude (only for observation at basal surface)
+            # _, depth = cylindrical_coordinate(p_i, p_0)
+            # amplitide = amplitude * numpy.exp(-depth / pent_depth)
+
+            # get the number of emitted photons
+            N_emit = self.__get_emit_photons(amplitude, unit_time)
+
+            # get global-arrays for photobleaching-state and photon-budget
+            m_idx = m_id_map[m_id]
+            # tau = bleaching_time[m_idx]  #XXX: tau is never used
+            budget = fluorescence_budget[m_idx]
+
+            # reset photon-budget
+            photons = max(0, budget - N_emit)
+
+            result_state[m_idx] = (1 if photons != 0 else 0)
+            result_budget[m_idx] = photons
+
+        return result_state, result_budget
