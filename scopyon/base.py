@@ -720,11 +720,17 @@ class Image(object):
         img = PIL.Image.fromarray(data)
         img.save(filename)
 
-    def plot(self, figsize=None):
-        import matplotlib.pylab as plt
-        _ = plt.figure(figsize=figsize)
-        plt.imshow(self.__data, interpolation='none', cmap="gray")
-        plt.show()
+    def plot(self):
+        try:
+            import plotly.express as px
+        except ImportError:
+            import matplotlib.pylab as plt
+            _ = plt.figure()
+            plt.imshow(self.__data, interpolation='none', cmap="gray")
+            plt.show()
+        else:
+            fig = px.imshow(self.__data, color_continuous_scale='gray')
+            fig.show()
 
     def _ipython_display_(self):
         """
