@@ -1089,115 +1089,8 @@ class EPIFMSimulator:
 
         # Epi-illumination at apical surface
         if sin2 / r2 < 1:
-            raise RuntimeError('Not supported.')
-
-            # # Refracted beam: 2nd beam angle to basal region of the cell
-            # sin_th2 = (n_1/n_2)*sin_th1
-            # cos_th2 = numpy.sqrt(1 - sin_th2**2)
-            # beam = numpy.array([cos_th2, sin_th2, 0])
-
-            # # Normal vector: Perpendicular to apical surface of the cell
-            # voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius
-            # cell_shape = self.configs.spatiocyte_shape.copy()
-
-            # diff = numpy.sqrt(numpy.sum((cell_shape - p_i*1e-9)**2, axis=1))
-            # k0 = numpy.nonzero(diff < 1.5*voxel_size)[0]
-            # k1 = numpy.nonzero(k0 != diff.argmin())[0]
-
-            # r_n = cell_shape[k0[k1]]
-
-            # # Optimization is definitely required!!
-            # norm = numpy.array([0, 0, 0])
-            # count = 0
-            # for kk in range(len(r_n)):
-            #     for ii in range(len(r_n)):
-            #         for jj in range(len(r_n)):
-            #             if (kk!=ii and kk!=jj and ii!=jj):
-            #                 t = r_n[ii] - r_n[kk]
-            #                 s = r_n[jj] - r_n[kk]
-
-            #                 vec = numpy.cross(s, t)
-            #                 if (vec[0] < 0): vec = numpy.cross(t, s)
-            #                 len_vec = numpy.sqrt(numpy.sum(vec**2))
-            #                 if (len_vec > 0):
-            #                     norm = norm + vec/len_vec
-            #                     count += 1
-
-            # norm = norm/count
-
-            # # Plane to separate between apical and basal cell-surface regions
-            # v_0 = numpy.array([voxel_size/1e-9, y_0, 0])
-            # v_1 = numpy.array([voxel_size/1e-9, 0, z_0])
-            # v_2 = numpy.cross(v_0, v_1)
-            # len_v2 = numpy.sqrt(numpy.sum(v_2**2))
-            # plane_vec = v_2/len_v2
-
-            # # Apical region (>0) and Basal region (<0)
-            # a, b, c = plane_vec
-            # plane_eqn = a*(x_i - voxel_size/1e-9) + b*y_i + c*z_i
-
-            # # check the direction of normal vector at each regions
-            # check = numpy.dot(plane_vec, norm)
-
-            # if (plane_eqn < 0 and check > 0):
-            #     norm = -norm
-            # elif (plane_eqn > 0 and check < 0):
-            #     norm = -norm
-
-            # # Incident beam: 3rd beam angle to apical surface of the cell
-            # #cos_th3 = numpy.dot(beam, norm)
-            # norm_x, norm_y, norm_z = norm
-            # len_norm_xy = numpy.sqrt(norm_x**2 + norm_y**2)
-            # norm_xy = numpy.array([norm_x, norm_y, 0])/len_norm_xy
-            # cos_th3 = numpy.dot(beam, norm_xy)
-
-            # if (cos_th3 > 0 and plane_eqn > 0):
-
-            #     # Incident beam to apical surface: amplitude
-            #     cosT = numpy.sqrt(1 - sin2/r2)
-
-            #     A2_Ip = A2_Ip*(2*cos/(cosT + r*cos))**2
-            #     A2_Is = A2_Is*(2*cos/(r*cosT + cos))**2
-
-            #     # Incident beam to apical surface: 3rd beam angle
-            #     cos = cos_th3
-            #     sin = numpy.sqrt(1 - cos**2)
-            #     sin2 = sin**2
-            #     cos2 = cos**2
-
-            #     r  = n_3/n_2 # must be < 1
-            #     r2 = r**2
-
-            #     if (sin2/r2 > 1):
-            #         # Evanescent field: Amplitude and Penetration depth
-            #         # Assume that the s-polar direction is parallel to y-axis
-            #         A2_x = A2_Ip*(4*cos2*(sin2 - r2)/(r2**2*cos2 + sin2 - r2))
-            #         A2_y = A2_Is*(4*cos2/(1 - r2))
-            #         A2_z = A2_Ip*(4*cos2*sin2/(r2**2*cos2 + sin2 - r2))
-
-            #         A2_Tp = A2_x + A2_z
-            #         A2_Ts = A2_y
-
-            #         #penetration_depth = wave_length/(4.0*numpy.pi*numpy.sqrt(n_2**2*sin2 - n_3**2))
-            #     else:
-            #         # Epi-fluorescence field: Amplitude and Penetration depth
-            #         cosT = numpy.sqrt(1 - sin2/r2)
-
-            #         A2_Tp = A2_Ip*(2*cos/(cosT + r*cos))**2
-            #         A2_Ts = A2_Is*(2*cos/(r*cosT + cos))**2
-
-            #         #penetration_depth = float('inf')
-            # else:
-            #     # Epi-fluorescence field: Amplitude and Penetration depth
-            #     A2_Tp = A2_Ip
-            #     A2_Ts = A2_Is
-
-            #     #penetration_depth = float('inf')
-
-            # # for temp
-            # penetration_depth = float('inf')
-            #
-            # penetration_depth *= 1e-9
+            amplitude = N_0  # = (A2_Ip + A2_Is) / 2
+            penetration_depth = numpy.inf
         else:
             # TIRF-illumination at basal cell-surface
             # Evanescent field: Amplitude and Depth
@@ -1206,13 +1099,13 @@ class EPIFMSimulator:
             A2_y = A2_Is * (4 * cos2 / (1 - r2))
             A2_z = A2_Ip * (4 * cos2 * sin2 / (r2 ** 2 * cos2 + sin2 - r2))
 
+            # set illumination amplitude
             A2_Tp = A2_x + A2_z
             A2_Ts = A2_y
+            amplitude = (A2_Tp + A2_Ts) / 2
 
             penetration_depth = wave_length / (4.0 * numpy.pi * numpy.sqrt(n_1 ** 2 * sin2 - n_2 ** 2))
 
-        # set illumination amplitude
-        amplitude = (A2_Tp + A2_Ts) / 2
         return amplitude, penetration_depth
 
     def __detector_output(self, rng, camera_pixel, true_data):
