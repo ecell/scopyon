@@ -755,10 +755,6 @@ class EPIFMSimulator(object):
                 effects=PhysicalEffects(self.__config.default.effects),
                 environ=self.__config.environ)
 
-    def photophysics(self, inputs, rng=None):
-        base = self.base(rng)
-        return base.apply_photophysics_effects_new(inputs, rng=rng)
-
     def form_image(self, inputs, rng=None, full_output=False):
         """Form image.
 
@@ -794,8 +790,9 @@ class EPIFMSimulator(object):
 
             data = numpy.hstack((
                 data,
-                numpy.zeros((data.shape[0], 5))))
-            data[:, 6] = 1.0
+                numpy.zeros((data.shape[0], 2))))
+            data[:, 3] = numpy.arange(inputs.shape[0])
+            data[:, 4] = 1.0
             data = ((0.0, data), )
         else:
             raise TypeError(
@@ -811,6 +808,58 @@ class EPIFMSimulator(object):
             infodict = dict(expectation=camera[:, :, 0], true_data=true_data)
             return img, infodict
         return img
+
+    def form_images(self, inputs, rng=None, full_output=False):
+        """Form image.
+
+        Args:
+            inputs (array_like): A list of points. The shape must be '(n, 3)', where
+                'n' means the number of points.
+            rng (numpy.RandomState, optional): A random number generator.
+                The default is None.
+
+        Returns:
+            Image: An image.
+        """
+        if isinstance(inputs, numpy.ndarray):
+            if inputs.ndim != 2:
+                raise ValueError("The given 'inputs' have wrong dimension.")
+
+            if inputs.shape[1] == 2:
+                data = numpy.hstack((
+                    numpy.zeros((inputs.shape[0], 1)),
+                    inputs))
+            elif inputs.shape[1] == 3:
+                origin = numpy.array(self.__config.preprocessing.origin)
+                data = inputs - origin
+                unit_z = numpy.cross(
+                    self.__config.preprocessing.unit_x,
+                    self.__config.preprocessing.unit_y)
+                data = numpy.hstack((
+                    numpy.dot(data, unit_z).reshape((-1, 1)),
+                    numpy.dot(data, self.__config.preprocessing.unit_x).reshape((-1, 1)),
+                    numpy.dot(data, self.__config.preprocessing.unit_y).reshape((-1, 1))))
+            else:
+                raise ValueError("The given 'inputs' have wrong shape.")
+
+            data = numpy.hstack((
+                data,
+                numpy.zeros((data.shape[0], 2))))
+            data[:, 3] = numpy.arange(inputs.shape[0])
+            data[:, 4] = 1.0
+            data = ((0.0, data), )
+        else:
+            raise TypeError(
+                    "Invalid argument was given [{}]."
+                    " A ndarray is expected.".format(type(inputs)))
+
+        base = self.base(rng)
+        results = base.output_frames(data, data_fmt=None, true_fmt=None, image_fmt=None, rng=rng)
+        imgs = [Image(result[0][:, :, 1]) for result in results]
+        if full_output:
+            infodict = dict(expectation=[result[0][:, :, 0] for result in results], true_data=[result[1] for result in results])
+            return imgs, infodict
+        return imgs
 
 def create_simulator(config=None, method=None):
     """Return a simulator.
@@ -853,9 +902,25 @@ def form_image(inputs, *, method=None, config=None, rng=None, full_output=False)
     sim = create_simulator(config, method=method)
     return sim.form_image(inputs, rng=rng, full_output=full_output)
 
-def photophysics(inputs, *, method=None, config=None, rng=None):
+def form_images(inputs, *, method=None, config=None, rng=None, full_output=False):
+    """Form images.
+
+    Args:
+        inputs (array_like): A list of points. The shape must be '(n, 3)',
+            where 'n' means the number of points.
+        method (str, optional): A name of method used.
+            The default is None ('epifm').
+        config (Configuration, optional): Configurations.
+            The default is None.
+        rng (numpy.RandomState, optional): A random number generator.
+            The default is None.
+
+    Returns:
+        Image: An image
+    """
     sim = create_simulator(config, method=method)
-    return sim.photophysics(inputs, rng=rng)
+    return sim.form_images(inputs, rng=rng, full_output=full_output)
+
 
 
 if __name__ == "__main__":

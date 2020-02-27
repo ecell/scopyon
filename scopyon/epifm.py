@@ -52,6 +52,7 @@ class PointSpreadingFunction:
         self.__resolution_radial = 1e-9
 
     def get(self, depth):
+        depth = abs(depth)
         if depth < self.psf_depth_cutoff + self.__resolution_depth:
             assert depth >= 0
             key = int(depth / self.__resolution_depth)
@@ -823,7 +824,7 @@ class EPIFMSimulator:
     def output_frames(
             self, input_data, pathto='./images', data_fmt='image_%07d.npy', true_fmt='true_%07d.npy',
             image_fmt='image_%07d.png', cmin=None, cmax=None, low=None, high=None, cmap=None,
-            rng=None):
+            rng=None, processes=None):
         """Output all images from the given particle data.
 
         Args:
@@ -865,9 +866,12 @@ class EPIFMSimulator:
             rng = numpy.random.RandomState()
 
         fluorescence_states = None
+        if self.effects.photobleaching_switch:
+            fluorescence_states = {}
 
+        results = []
         for frame_index in range(self.num_frames()):
-            camera, true_data = self.output_frame(input_data, frame_index, fluorescence_states=fluorescence_states, rng=rng)
+            camera, true_data = self.output_frame(input_data, frame_index, fluorescence_states=fluorescence_states, rng=rng, processes=processes)
 
             # save photon counts to numpy-binary file
             if data_fmt is not None:
@@ -885,7 +889,10 @@ class EPIFMSimulator:
                 image_file_name = os.path.join(pathto, image_fmt % (frame_index))
                 save_image(image_file_name, bytedata, cmap, low, high)
 
-    def output_frame(self, input_data, frame_index=0, start_time=None, exposure_time=None, fluorescence_states=None, rng=None):
+            results.append((camera, true_data))
+        return results
+
+    def output_frame(self, input_data, frame_index=0, start_time=None, exposure_time=None, fluorescence_states=None, rng=None, processes=None):
         """Output an image from the given particle data.
 
         Args:
@@ -904,6 +911,8 @@ class EPIFMSimulator:
             rng (numpy.RandomState, optional): A random number generator.
 
         """
+        processes = processes or (1 if self.environ is None else self.environ.processes)
+
         start_time = start_time or self.configs.shutter_start_time
         # end_time = self.configs.shutter_end_time
         exposure_time = exposure_time or self.configs.detector_exposure_time
@@ -956,28 +965,29 @@ class EPIFMSimulator:
             # true_data[: , 0] = t
 
             if true_data is None:
-                true_data = numpy.zeros(shape=(len(particles), 7))
+                true_data = numpy.zeros(shape=(len(particles), 6))
                 true_data[: , 0] = t
             # elif len(particles) > true_data.shape[0]:
             #     particles = numpy.vstack(particles, numpy.zeros(shape=(len(particles) - true_data.shape[0], 7)))
 
             # loop for particles
             for particle_j, true_data_j in zip(particles, true_data):
-                self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0, true_data_j, unit_time, fluorescence_states)
+                self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0, true_data_j, unit_time, rng, fluorescence_states)
 
-        true_data[: , 3: 7] /= exposure_time
+        true_data[: , 2: 6] /= exposure_time
 
         # apply detector effects
-        camera, true_data = self.__detector_output(rng, camera_pixel, true_data)
+        camera, true_data = self.__detector_output(rng, camera_pixel, true_data, processes=processes)
         return (camera, true_data)
 
-    def __overlay_molecule_plane(self, camera, particle_i, _p_b, p_0, true_data_i, unit_time, fluorescence_states=None):
+    def __overlay_molecule_plane(self, camera, particle_i, _p_b, p_0, true_data_i, unit_time, rng=None, fluorescence_states=None):
         # m-scale
         # p_b (ndarray): beam position (assumed to be the same with focal center), but not used.
         # p_0 (ndarray): focal center
 
         # particles coordinate, species and lattice-IDs
-        x, y, z, m_id, s_id, _, p_state, _ = particle_i
+        # x, y, z, m_id, s_id, _, p_state, _ = particle_i
+        x, y, z, m_id, p_state = particle_i
 
         p_i = numpy.array([x, y, z])
 
@@ -988,14 +998,20 @@ class EPIFMSimulator:
         _, radial, depth = cylindrical_coordinate(p_i, p_0)
 
         # get exponential amplitude (only for TIRFM-configuration)
-        amplitude = amplitude * numpy.exp(-depth / penet_depth)
+        # depth must be positve in case of TIRFM
+        #XXX: amplitude = amplitude * numpy.exp(-depth / penet_depth)
+        amplitude = amplitude * numpy.exp(-abs(depth) / penet_depth)
 
         # get the number of photons emitted
         N_emit = self.__get_emit_photons(amplitude, unit_time)
 
         if fluorescence_states is not None:
             if self.effects.photobleaching_switch:
-                assert m_id in fluorescence_states
+                if m_id not in fluorescence_states:
+                    amplitude0, _ = self.snells_law()
+                    N_emit0 = self.__get_emit_photons(amplitude0, 1.0)
+                    fluorescence_states[m_id] = self.get_photon_budget(
+                            N_emit0, self.effects.photobleaching_half_life, rng=rng)  #XXX: rng is only required here
                 budget = fluorescence_states[m_id] - N_emit
                 if budget <= 0:
                     budget = 0
@@ -1010,11 +1026,10 @@ class EPIFMSimulator:
 
         # set true-dataset
         true_data_i[1] = m_id # molecule-ID
-        true_data_i[2] = int(s_id) # sid_index # molecular-state
-        true_data_i[3] += unit_time * p_state # photon-state
-        true_data_i[4] += unit_time * p_i[2] # Y-coordinate in the image-plane
-        true_data_i[5] += unit_time * p_i[1] # X-coordinate in the image-plane
-        true_data_i[6] += unit_time * depth  # Depth from focal-plane
+        true_data_i[2] += unit_time * p_state # photon-state
+        true_data_i[3] += unit_time * p_i[2] # Y-coordinate in the image-plane
+        true_data_i[4] += unit_time * p_i[1] # X-coordinate in the image-plane
+        true_data_i[5] += unit_time * depth # Depth from focal-plane
 
     def __get_emit_photons(self, amplitude, unit_time):
         # Absorption coeff [1/(cm M)]
@@ -1042,10 +1057,6 @@ class EPIFMSimulator:
         n_emit = QY * n_abs * (1.0 - numpy.power(10.0, -A))
 
         return n_emit
-
-    def __snells_law(self, p_i, p_0):
-        amplitude, penet_depth = self.snells_law()
-        return amplitude, penet_depth / 1e-9
 
     def snells_law(self):
         """Snell's law.
@@ -1117,15 +1128,14 @@ class EPIFMSimulator:
 
         return amplitude, penetration_depth
 
-    def __detector_output(self, rng, camera_pixel, true_data):
+    def __detector_output(self, rng, camera_pixel, true_data, processes=1):
         Nw_pixel, Nh_pixel = self.configs.detector_image_size  # pixels
-
         pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification  # m-scale
-        _, y0, z0 = numpy.asarray(self.configs.detector_focal_point)  # m-scale
+        _, y0, z0 = self.configs.detector_focal_point  # m-scale
         _log.info('scaling [m/pixel]: {}'.format(pixel_length))
         _log.info('center (width, height): {} {}'.format(z0, y0))
-        true_data[: , 4] = (true_data[: , 4] - (z0 - Nw_pixel * pixel_length / 2)) / pixel_length
-        true_data[: , 5] = (true_data[: , 5] - (y0 - Nh_pixel * pixel_length / 2)) / pixel_length
+        true_data[: , 3] = (true_data[: , 3] - (z0 - Nw_pixel * pixel_length / 2)) / pixel_length
+        true_data[: , 4] = (true_data[: , 4] - (y0 - Nh_pixel * pixel_length / 2)) / pixel_length
 
         ## Detector: Quantum Efficiency
         # index = int(self.configs.psf_wavelength / 1e-9) - int(self.configs.wave_length[0] / 1e-9)
@@ -1137,8 +1147,6 @@ class EPIFMSimulator:
         photons += self.effects.background_mean
         ## get signal (expectation)
         expected = QE * photons
-
-        processes = (1 if self.environ is None else self.environ.processes)
 
         ## conversion: photon --> photoelectron --> ADC count
         ## select Camera type
