@@ -77,10 +77,6 @@ class Config(_Config):
         self.update('background_switch', True)
         self.update('background_mean', mean)
 
-    def set_effects_crosstalk(self, width=None):
-        self.update('crosstalk_switch', True)
-        self.update('crosstalk_width', width)
-
     def set_effects_fluorescence(self, quantum_yield=None, abs_coefficient=None):
         self.update('quantum_yield', quantum_yield)
         self.update('abs_coefficient', abs_coefficient)

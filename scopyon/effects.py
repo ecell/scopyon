@@ -34,11 +34,6 @@ class PhysicalEffects:
         _log.info('--- Background: ')
         _log.info('    Mean = {} photons'.format(self.background_mean))
 
-        self.set_crosstalk(width=config.crosstalk_width, switch=config.crosstalk_switch)
-
-        _log.info('--- Photoelectron Crosstalk: ')
-        _log.info('    Width = {} pixels'.format(self.crosstalk_width))
-
         self.set_fluorescence(quantum_yield=config.quantum_yield, abs_coefficient=config.abs_coefficient)
 
         _log.info('--- Fluorescence: ')
@@ -75,10 +70,6 @@ class PhysicalEffects:
     def set_background(self, mean=None, switch=True):
         self._set_data('background_switch', switch)
         self._set_data('background_mean', mean)
-
-    def set_crosstalk(self, width=None, switch=True):
-        self._set_data('crosstalk_switch', switch)
-        self._set_data('crosstalk_width', width)
 
     def set_fluorescence(self, quantum_yield=None, abs_coefficient=None):
         self._set_data('quantum_yield', quantum_yield)

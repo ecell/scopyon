@@ -37,7 +37,6 @@ class PhysicalEffects:
         self.fluorescence_state  = []
 
         self.set_background(**config.background)
-        self.set_crosstalk(**config.crosstalk)
         self.set_fluorescence(**config.fluorescence)
         self.set_photobleaching(**config.photo_bleaching)
         self.set_photoactivation(**config.photo_activation)
@@ -52,12 +51,6 @@ class PhysicalEffects:
         self.background_mean = mean
         _log.info('--- Background: ')
         _log.info('    Mean = {} photons'.format(self.background_mean))
-
-    def set_crosstalk(self, width=None, switch=True):
-        self.crosstalk_switch = switch
-        self.crosstalk_width = width
-        _log.info('--- Photoelectron Crosstalk: ')
-        _log.info('    Width = {} pixels'.format(self.crosstalk_width))
 
     def set_fluorescence(self, quantum_yield=None, abs_coefficient=None):
         self.quantum_yield = quantum_yield
@@ -768,7 +761,7 @@ class EPIFMSimulator(object):
         base = self.base(rng)
         return base.apply_photophysics_effects_new(inputs, rng=rng)
 
-    def form_image(self, inputs, rng=None, debug=False):
+    def form_image(self, inputs, rng=None, full_output=False):
         """Form image.
 
         Args:
@@ -816,8 +809,9 @@ class EPIFMSimulator(object):
         # camera[:, :, 0] => expected
         # camera[:, :, 1] => ADC
         img = Image(camera[:, :, 1])
-        if debug:
-            return img, (camera, true_data)
+        if full_output:
+            infodict = dict(expectation=camera[:, :, 0], true_data=true_data)
+            return img, infodict
         return img
 
 def create_simulator(config=None, method=None):
@@ -842,7 +836,7 @@ def create_simulator(config=None, method=None):
     else:
         raise ValueError(f"An unknown method [{method}] was given.")
 
-def form_image(inputs, *, method=None, config=None, rng=None, debug=False):
+def form_image(inputs, *, method=None, config=None, rng=None, full_output=False):
     """Form image.
 
     Args:
@@ -859,7 +853,7 @@ def form_image(inputs, *, method=None, config=None, rng=None, debug=False):
         Image: An image
     """
     sim = create_simulator(config, method=method)
-    return sim.form_image(inputs, rng=rng, debug=debug)
+    return sim.form_image(inputs, rng=rng, full_output=full_output)
 
 def photophysics(inputs, *, method=None, config=None, rng=None):
     sim = create_simulator(config, method=method)
