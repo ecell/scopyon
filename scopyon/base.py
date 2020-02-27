@@ -60,13 +60,11 @@ class PhysicalEffects:
         _log.info('    Abs. Coefficient =  {} 1/(M cm)'.format(self.abs_coefficient))
         _log.info('    Abs. Cross-section =  {} cm^2'.format((numpy.log(10) * self.abs_coefficient * 0.1 / constants.N_A) * 1e+4))
 
-    def set_photobleaching(self, tau0=None, alpha=None, switch=True):
+    def set_photobleaching(self, half_life=None, switch=True):
         self.photobleaching_switch = switch
-        self.photobleaching_tau0 = tau0
-        self.photobleaching_alpha = alpha
+        self.photobleaching_half_life = half_life
         _log.info('--- Photobleaching: ')
-        _log.info('    Photobleaching tau0  =  {}'.format(self.photobleaching_tau0))
-        _log.info('    Photobleaching alpha =  {}'.format(self.photobleaching_alpha))
+        _log.info('    Photobleaching half life  =  {}'.format(self.photobleaching_half_life))
 
     def set_photoactivation(self, turn_on_ratio=None, activation_yield=None, frac_preactivation=None, switch=True):
         self.photoactivation_switch = switch

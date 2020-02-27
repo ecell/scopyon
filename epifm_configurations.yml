@@ -112,16 +112,12 @@ default:
         background:
             switch: !!bool true
             mean: 0.01
-        crosstalk:
-            switch: !!bool false
-            width: 0.0
         fluorescence:
             quantum_yield: 0.61
             abs_coefficient: 83400
         photo_bleaching:
             switch: !!bool true
-            tau0: 2.27
-            alpha: 0.73
+            half_life: 2.5
         photo_activation:
             switch: !!bool false
             turn_on_ratio: 1000
