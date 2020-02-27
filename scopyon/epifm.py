@@ -160,9 +160,10 @@ class PointSpreadingFunction:
 
     def overlay_signal(self, camera, p_i, pixel_length, normalization=1.0):
         # fluorophore axial position
+        if normalization <= 0.0:
+            return
         depth = p_i[0]
         signal = self.get(depth)
-
         self.__overlay_signal(camera, signal, p_i, pixel_length, normalization)
 
     @staticmethod
@@ -863,8 +864,10 @@ class EPIFMSimulator:
             _log.info('A random number generator was initialized.')
             rng = numpy.random.RandomState()
 
+        fluorescence_states = None
+
         for frame_index in range(self.num_frames()):
-            camera, true_data = self.output_frame(input_data, frame_index, rng=rng)
+            camera, true_data = self.output_frame(input_data, frame_index, fluorescence_states=fluorescence_states, rng=rng)
 
             # save photon counts to numpy-binary file
             if data_fmt is not None:
@@ -882,7 +885,7 @@ class EPIFMSimulator:
                 image_file_name = os.path.join(pathto, image_fmt % (frame_index))
                 save_image(image_file_name, bytedata, cmap, low, high)
 
-    def output_frame(self, input_data, frame_index=0, start_time=None, exposure_time=None, rng=None):
+    def output_frame(self, input_data, frame_index=0, start_time=None, exposure_time=None, fluorescence_states=None, rng=None):
         """Output an image from the given particle data.
 
         Args:
@@ -964,7 +967,7 @@ class EPIFMSimulator:
 
             # loop for particles
             for particle_j, true_data_j in zip(particles, true_data):
-                self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0, true_data_j, unit_time, fluo_psfs)
+                self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0, true_data_j, unit_time, fluo_psfs, fluorescence_states)
 
         true_data[: , 3: 7] /= exposure_time
 
@@ -972,7 +975,7 @@ class EPIFMSimulator:
         camera, true_data = self.__detector_output(rng, camera_pixel, true_data)
         return (camera, true_data)
 
-    def __overlay_molecule_plane(self, camera, particle_i, _p_b, p_0, true_data_i, unit_time, fluo_psfs=None):
+    def __overlay_molecule_plane(self, camera, particle_i, _p_b, p_0, true_data_i, unit_time, fluo_psfs=None, fluorescence_states=None):
         # m-scale
         # p_b (ndarray): beam position (assumed to be the same with focal center), but not used.
         # p_0 (ndarray): focal center
@@ -993,7 +996,17 @@ class EPIFMSimulator:
 
         # get the number of photons emitted
         N_emit = self.__get_emit_photons(amplitude, unit_time)
+
         normalization = p_state * N_emit / (4.0 * numpy.pi)
+
+        if fluorescence_states is not None:
+            if self.effects.photobleaching_switch:
+                assert m_id in fluorescence_states
+                budget = fluorescence_states[m_id] - N_emit
+                if budget <= 0:
+                    budget = 0
+                    normalization = 0.0
+                fluorescence_states[m_id] = budget
 
         # add signal matrix to image plane
         pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification
@@ -1254,223 +1267,6 @@ class EPIFMSimulator:
         ADC[ADC > ADC_max] = ADC_max
         ADC[ADC < 0] = 0
         return ADC
-
-    # def __initialize_molecular_states(self, states, count, data):
-    #     # reset molecule-states
-    #     states.fill(0.0)
-
-    #     # loop for particles
-    #     for (coordinate, m_id, s_id, l_id, p_state, cyc_id) in data:
-    #         # set molecule-states
-    #         states[m_id] = int(s_id)
-
-    def apply_photophysics_effects(self, input_data, rng=None):
-        """Apply the effect of photophysics, i.e. photo bleaching, to the given data.
-
-        This function processes the given data, and returns the new data which includes
-        the state of fluorescent and its photon budget.
-
-        Args:
-            input_data (list): An input data. A list of pairs of time and a list of particles.
-                Each particle is represented as a list of numbers: a coordinate (x, y, z),
-                molecule id, species id, and location id (and optionally a state of fluorecent
-                and photon budget).
-                The number of particles in each frame must be static.
-
-            rng (numpy.RandomState, optional): A random number generator.
-
-        Returns:
-            list: A new data which the photophysics effects are applyed to.
-                Given in the same format with `input_data`.
-
-        """
-        if rng is None:
-            _log.info('A random number generator was initialized.')
-            rng = numpy.random.RandomState()
-
-        start_time = self.configs.shutter_start_time
-        end_time = self.configs.shutter_end_time
-
-        N_particles = [len(particles) for _, particles in input_data]
-        if min(N_particles) != max(N_particles):
-            raise RuntimeError('The number of particles must be static during the simulation')
-        N_particles = N_particles[0]
-
-        # get focal point
-        p_0 = numpy.asarray(self.configs.detector_focal_point) / 1e-9  # nano meter
-
-        # beam position: Assuming beam position = focal point (for temporary)
-        # p_b = copy.copy(p_0)
-
-        # Snell's law
-        amplitude0, _ = self.snells_law()
-        N_emit0 = self.__get_emit_photons(amplitude0, unit_time=1.0)
-
-        # determine photon budgets
-        time_array = numpy.array([t for t, _ in input_data])
-        time_array -= start_time
-
-        fluorescence_state, fluorescence_budget = self.get_photophysics_for_epifm(
-            time_array, N_emit0, N_particles,
-            self.effects.photobleaching_switch, self.effects.photobleaching_tau0, self.effects.photobleaching_alpha,
-            rng)
-
-        N_emit = self.__get_emit_photons(amplitude0, unit_time)
-
-        new_data = []
-        molecule_states = numpy.zeros(shape=(N_particles))
-        m_id_map = {}
-        for k, (t, particles) in enumerate(input_data):
-            next_time = input_data[k + 1][0] if k + 1 < len(input_data) else end_time
-            unit_time = next_time - t
-
-            # set molecular-states (unbound-bound)
-            # self.set_molecular_states(k, input_data)
-            # self.__initialize_molecular_states(molecule_states, k, particles)
-            # reset molecule-states
-            molecule_states.fill(0.0)
-
-            # loop for particles
-            # for (x, y, z, m_id, s_id, l_id, p_state, cyc_id) in particles:
-            for particle in particles:
-                m_id, s_id = particle[3], particle[4]
-                # molecule_states[m_id] = s_id  # s_id
-                if m_id in m_id_map:
-                    m_idx = m_id_map[m_id]
-                else:
-                    m_idx = len(m_id_map)
-                    m_id_map[m_id] = m_idx
-                # set molecule-states
-                molecule_states[m_idx] = s_id  # s_id
-
-            # set photobleaching-dataset arrays
-            self.__update_fluorescence_photobleaching(fluorescence_state, fluorescence_budget, k, particles, p_0, unit_time, m_id_map)
-
-            # get new-dataset
-            # new_state = self.__get_new_state(molecule_states, fluorescence_state, fluorescence_budget, k, N_emit)
-            # # new_input_data = numpy.column_stack((particles, state_stack))
-            # set additional arrays for new-dataset
-            state_pb = fluorescence_state[: , k]
-            new_state_pb = state_pb[molecule_states > 0]
-            new_budget = fluorescence_budget[molecule_states > 0]
-
-            # set new-dataset
-            new_state = numpy.column_stack((new_state_pb, (new_budget / N_emit).astype('int')))
-
-            new_particles = []
-            for particle_j, (new_p_state, new_cyc_id) in zip(particles, new_state):
-                new_particle = (*tuple(particle_j)[: 6], new_p_state, new_cyc_id)
-                new_particles.append(new_particle)
-
-            # new_particles = numpy.array(new_particles, dtype='f8, f8, f8, i4, i4, i4, f8, f8')
-            new_particles = numpy.array(new_particles)
-            new_data.append((t, new_particles))
-
-        return new_data
-
-    @staticmethod
-    def get_photophysics_for_epifm(time_array, N_emit0, N_part, photobleaching_switch, tau0, alpha, rng):
-        """
-        Args:
-            N_emit0 (float): The number of photons emitted per unit time.
-        """
-        ## Originally the member of PhysicalEffects
-        if photobleaching_switch is False:
-            raise RuntimeError('Not supported')
-        elif rng is None:
-            raise RuntimeError('A random number generator is required.')
-
-        # set photon budget
-        # photon0 = tau0 * N_emit0
-
-        # set the photobleaching-time
-        dt = tau0 * 1e-3
-        tau_bleach = numpy.arange(tau0, 50001 * tau0, dt)
-        prob_func = functools.partial(levy_probability_function, t0=tau0, a=alpha)
-        prob = prob_func(tau_bleach)
-        norm = prob.sum()
-        p_bleach = prob / norm
-
-        # get photobleaching-time
-        tau = rng.choice(tau_bleach, N_part, p=p_bleach)
-
-        # sequences
-        budget = numpy.zeros(N_part)
-        state = numpy.zeros((N_part, len(time_array)))
-        for i in range(N_part):
-            # get photon budget
-            budget[i] = tau[i] * N_emit0
-
-            # bleaching time
-            Ni = numpy.searchsorted(time_array, tau[i])
-            state[i][0: Ni] = 1.0
-
-        return state, budget
-
-    def __update_fluorescence_photobleaching(
-            self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time, m_id_map):
-        if len(data) == 0:
-            return
-
-        state_pb, budget = self.__get_fluorescence_photobleaching(
-            fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time, m_id_map)
-
-        # reset global-arrays for photobleaching-state and photon-budget
-        for key, value in state_pb.items():
-            fluorescence_state[key, count] = value
-            fluorescence_budget[key] = budget[key]
-            # self.effects.fluorescence_state[key,count] = state_pb[key]
-            # self.effects.fluorescence_budget[key] = budget[key]
-
-    def __get_fluorescence_photobleaching(
-            self, fluorescence_state, fluorescence_budget, count, data, focal_center, unit_time, m_id_map):
-        # get focal point
-        p_0 = focal_center
-
-        # set arrays for photobleaching-states and photon-budget
-        result_state_pb = {}
-        result_budget = {}
-
-        # loop for particles
-        # for (x, y, z, m_id, s_id, l_id, p_state, cyc_id) in data:
-        for particle in data:
-            x, y, z, m_id, _s_id, _l_id, _p_state, _cyc_id = particle
-
-            # set particle position
-            # particle coordinate in real(nm) scale
-            # p_i = numpy.array(coordinate) / 1e-9
-            p_i = numpy.array([x, y, z]) / 1e-9
-
-            # Snell's law
-            amplitude, _penet_depth = self.snells_law()  # This might depends on p_i
-
-            state_j = 1  # particles given is always observable. already filtered when read
-
-            # get exponential amplitude (only for observation at basal surface)
-            # amplitide = amplitude * numpy.exp(-depth / pent_depth)
-
-            # get the number of emitted photons
-            N_emit = self.__get_emit_photons(amplitude, unit_time)
-
-            # get global-arrays for photobleaching-state and photon-budget
-            m_idx = m_id_map[m_id]
-            state_pb = fluorescence_state[m_idx, count]
-            budget = fluorescence_budget[m_idx]
-
-            # reset photon-budget
-            photons = budget - N_emit * state_j
-
-            if photons > 0:
-                budget = photons
-                state_pb = state_j
-            else:
-                budget = 0
-                state_pb = 0
-
-            result_state_pb[m_idx] = state_pb
-            result_budget[m_idx] = budget
-
-        return result_state_pb, result_budget
 
     def apply_photophysics_effects_new(self, input_data, rng=None):
         if rng is None:
