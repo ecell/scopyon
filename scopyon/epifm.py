@@ -1016,9 +1016,9 @@ class EPIFMSimulator:
         true_data_i[1] = m_id # molecule-ID
         true_data_i[2] = int(s_id) # sid_index # molecular-state
         true_data_i[3] += unit_time * p_state # photon-state
-        true_data_i[4] += unit_time * p_i[2] / 1e-9 # Y-coordinate in the image-plane  #XXX: nm-scale for the consistency
-        true_data_i[5] += unit_time * p_i[1] / 1e-9 # X-coordinate in the image-plane  #XXX: nm-scale for the consistency
-        true_data_i[6] += unit_time * depth / 1e-9  # Depth from focal-plane  #XXX: nm-scale for the consistency
+        true_data_i[4] += unit_time * p_i[2] # Y-coordinate in the image-plane
+        true_data_i[5] += unit_time * p_i[1] # X-coordinate in the image-plane
+        true_data_i[6] += unit_time * depth  # Depth from focal-plane
 
     def __get_emit_photons(self, amplitude, unit_time):
         # Absorption coeff [1/(cm M)]
@@ -1142,8 +1142,8 @@ class EPIFMSimulator:
         _, y0, z0 = numpy.asarray(self.configs.detector_focal_point)  # m-scale
         _log.info('scaling [m/pixel]: {}'.format(pixel_length))
         _log.info('center (width, height): {} {}'.format(z0, y0))
-        true_data[: , 4] = (true_data[: , 4] * 1e-9 - (z0 - Nw_pixel * pixel_length / 2)) / pixel_length  #XXX: nm-scale for the consistency
-        true_data[: , 5] = (true_data[: , 5] * 1e-9 - (y0 - Nh_pixel * pixel_length / 2)) / pixel_length  #XXX: nm-scale for the consistency
+        true_data[: , 4] = (true_data[: , 4] - (z0 - Nw_pixel * pixel_length / 2)) / pixel_length
+        true_data[: , 5] = (true_data[: , 5] - (y0 - Nh_pixel * pixel_length / 2)) / pixel_length
 
         ## Detector: Quantum Efficiency
         # index = int(self.configs.psf_wavelength / 1e-9) - int(self.configs.wave_length[0] / 1e-9)
