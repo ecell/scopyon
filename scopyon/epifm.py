@@ -14,19 +14,13 @@ from scipy.special import j0, i1e
 from scipy.interpolate import interp1d
 from scipy.ndimage import map_coordinates
 
-from .effects import PhysicalEffects
 from . import io
-from .config import Config
 from .image import save_image, convert_8bit
 from . import constants
 
 from logging import getLogger
 _log = getLogger(__name__)
 
-
-# def levy_probability_function(t, t0, a):
-#     return (a / t0) * numpy.power(t0 / t, 1 + a)
-#     # return numpy.power(t0 / t, 1 + a)
 
 class PointSpreadingFunction:
 
@@ -211,404 +205,6 @@ class PointSpreadingFunction:
                 if photons > 0:
                     camera[i, j] += photons * normalization
 
-class _EPIFMConfigs:
-
-    def __init__(self):
-        pass
-
-    def initialize(self, config, rng=None):
-        """Initialize based on the given config.
-
-        Args:
-            config (Config): A config object.
-            rng (numpy.RandomState, optional): A random number generator
-                for initializing this class. Defaults to `None`.
-
-        """
-        if rng is None:
-            warnings.warn('A random number generator [rng] is not given.')
-            rng = numpy.random.RandomState()
-
-        # self.wave_length = numpy.arange(config.psf_min_wave_length, config.psf_max_wave_length, dtype=int)
-        self.wave_length = numpy.arange(config.psf_min_wave_length, config.psf_max_wave_length, 1e-9, dtype=float)
-        N = len(self.wave_length)
-        self.wave_number = 2 * numpy.pi / (self.wave_length / 1e-9)  # 1/nm
-        self.excitation_eff = numpy.zeros(N, dtype=float)
-        self.dichroic_eff = numpy.zeros(N, dtype=float)
-        self.emission_eff = numpy.zeros(N, dtype=float)
-
-        self._set_data('hc_const', config.hc_const)
-
-        self.set_shutter(
-            config.shutter_start_time, config.shutter_end_time, config.shutter_time_open,
-            config.shutter_time_lapse, config.shutter_switch)
-
-        _log.info('--- Shutter:')
-        _log.info('    Start-Time = {} sec'.format(self.shutter_start_time))
-        _log.info('    End-Time   = {} sec'.format(self.shutter_end_time))
-        _log.info('    Time-open  = {} sec'.format(self.shutter_time_open))
-        _log.info('    Time-lapse = {} sec'.format(self.shutter_time_lapse))
-
-        self.set_light_source(
-            config.source_type, config.source_wavelength, config.source_flux_density,
-            config.source_radius, config.source_angle, config.source_switch)
-
-        _log.info('--- Light Source:{}'.format(self.source_type))
-        _log.info('    Wave Length = {} m'.format(self.source_wavelength))
-        _log.info('    Beam Flux Density = {} W/cm2'.format(self.source_flux_density))
-        _log.info('    1/e2 Radius = {} m'.format(self.source_radius))
-        _log.info('    Angle = {} degree'.format(self.source_angle))
-
-        self.set_fluorophore(
-            config.fluorophore_type, config.psf_wavelength, config.psf_normalization,
-            config.fluorophore_radius, config.psf_width)
-
-        _log.info('--- Fluorophore: {} PSF'.format(self.fluorophore_type))
-        _log.info('    Wave Length   =  {} m'.format(self.psf_wavelength))
-        _log.info('    Normalization =  {}'.format(self.psf_normalization))
-        _log.info('    Fluorophore radius =  {} m'.format(self.fluorophore_radius))
-        if hasattr(self, 'psf_width'):
-            _log.info('    Lateral Width =  {} m'.format(self.psf_width[0]))
-            _log.info('    Axial Width =  {} m'.format(self.psf_width[1]))
-        _log.info('    PSF Normalization Factor =  {}'.format(self.psf_normalization))
-        _log.info('    Emission  : Wave Length =  {} m'.format(self.psf_wavelength))
-
-        self.set_dichroic_mirror(config.dichroic_mirror, config.dichroic_switch)
-        _log.info('--- Dichroic Mirror:')
-
-        self.set_magnification(config.image_magnification)
-        _log.info('--- Magnification: x {}'.format(self.image_magnification))
-
-        self.set_detector(
-            config.detector_type, config.detector_image_size, config.detector_pixel_length,
-            config.detector_exposure_time, config.detector_focal_point, config.detector_qeff,
-            config.detector_readout_noise, config.detector_dark_count, config.detector_emgain)
-
-        _log.info('--- Detector:  {}'.format(self.detector_type))
-        if hasattr(self, 'detector_image_size'):
-            _log.info('    Image Size  =  {} x {}'.format(self.detector_image_size[0], self.detector_image_size[1]))
-        _log.info('    Pixel Size  =  {} m/pixel'.format(self.detector_pixel_length))
-        _log.info('    Focal Point =  {}'.format(self.detector_focal_point))
-        _log.info('    Exposure Time =  {} sec'.format(self.detector_exposure_time))
-        if hasattr(self, 'detector_qeff'):
-            _log.info('    Quantum Efficiency =  {} %'.format(100 * self.detector_qeff))
-        _log.info('    Readout Noise =  {} electron'.format(self.detector_readout_noise))
-        _log.info('    Dark Count =  {} electron/sec'.format(self.detector_dark_count))
-        _log.info('    EM gain = x {}'.format(self.detector_emgain))
-        # _log.info('    Position    =  {}'.format(self.detector_base_position))
-
-        self.set_analog_to_digital_converter(
-            config.ADConverter_bit, config.ADConverter_offset, config.ADConverter_fullwell,
-            config.ADConverter_fpn_type, config.ADConverter_fpn_count, rng=rng)
-
-        _log.info('--- A/D Converter: %d-bit' % (self.ADConverter_bit))
-        # _log.info('    Gain = %.3f electron/count' % (self.ADConverter_gain))
-        # _log.info('    Offset =  {} count'.format(self.ADConverter_offset))
-        _log.info('    Fullwell =  {} electron'.format(self.ADConverter_fullwell))
-        _log.info('    {}-Fixed Pattern Noise: {} count'.format(self.ADConverter_fpn_type, self.ADConverter_fpn_count))
-
-        self.set_illumination_path(config.detector_focal_point, config.detector_focal_norm)
-        _log.info('Focal Center: {}'.format(self.detector_focal_point))
-        _log.info('Normal Vector: {}'.format(self.detector_focal_norm))
-
-        self.set_excitation_filter(config.excitation_filter, config.excitation_switch)
-        _log.info('--- Excitation Filter:')
-
-        self.set_emission_filter(config.emission_filter, config.emission_switch)
-        _log.info('--- Emission Filter:')
-
-        # self.set_illumination_path(focal_point=config.detector_focal_point, focal_norm=config.detector_focal_norm)
-
-        self._set_data(
-                'fluorophore_psf',
-                PointSpreadingFunction(
-                    config.psf_radial_cutoff, self.psf_width, config.psf_depth_cutoff, self.fluoem_norm, self.dichroic_switch, self.dichroic_eff, self.emission_switch, self.emission_eff, self.fluorophore_type, self.psf_wavelength, self.psf_normalization))
-
-    def _set_data(self, key, val):
-        if val is not None:
-            setattr(self, key, val)
-
-    def set_efficiency(self, data):
-        data = numpy.array(data, dtype = 'float')
-        data = data[data[: , 0] % 1 == 0, :]
-
-        efficiency = numpy.zeros(len(self.wave_length))
-
-        wave_length = numpy.round(self.wave_length / 1e-9).astype(int)  #XXX: numpy.array(dtype=int)
-        idx1 = numpy.in1d(wave_length, data[:, 0])
-        idx2 = numpy.in1d(numpy.array(data[:, 0]), wave_length)
-
-        efficiency[idx1] = data[idx2, 1]
-
-        return efficiency.tolist()
-
-    def set_shutter(self, start_time=None, end_time=None, time_open=None, time_lapse=None, switch=True):
-        self._set_data('shutter_switch', switch)
-        self._set_data('shutter_start_time', start_time)
-        self._set_data('shutter_end_time', end_time)
-
-        self._set_data('shutter_time_open', time_open or end_time - start_time)
-        self._set_data('shutter_time_lapse', time_lapse or end_time - start_time)
-
-    def set_light_source(self, source_type=None, wave_length=None, flux_density=None, radius=None, angle=None, switch=True):
-        self._set_data('source_switch', switch)
-        self._set_data('source_type', source_type)
-        self._set_data('source_wavelength', wave_length)
-        self._set_data('source_flux_density', flux_density)
-        self._set_data('source_radius', radius)
-        self._set_data('source_angle', angle)
-
-    def set_fluorophore(
-            self, fluorophore_type=None, wave_length=None, normalization=None, radius=None, width=None):
-        self._set_data('fluorophore_type', fluorophore_type)
-        self._set_data('fluorophore_radius', radius)
-        self._set_data('psf_normalization', normalization)
-
-        if (fluorophore_type == 'Gaussian'):
-            N = len(self.wave_length)
-            fluorophore_excitation = numpy.zeros(N, dtype=float)
-            fluorophore_emission = numpy.zeros(N, dtype=float)
-            index = (numpy.abs(self.wave_length / 1e-9 - self.psf_wavelength / 1e-9)).argmin()
-            fluorophore_excitation[index] = 100
-            fluorophore_emission[index] = 100
-            self._set_data('fluoex_eff', fluorophore_excitation)
-            self._set_data('fluoem_eff', fluorophore_emission)
-
-            fluorophore_excitation /= sum(fluorophore_excitation)
-            fluorophore_emission /= sum(fluorophore_emission)
-            self._set_data('fluoex_norm', fluorophore_excitation)
-            self._set_data('fluoem_norm', fluorophore_emission)
-
-            self._set_data('psf_wavelength', wave_length)
-            self._set_data('psf_width', width)
-
-        else:
-            (fluorophore_excitation, fluorophore_emission) = io.read_fluorophore_catalog(fluorophore_type)
-            fluorophore_excitation = self.set_efficiency(fluorophore_excitation)
-            fluorophore_emission = self.set_efficiency(fluorophore_emission)
-            fluorophore_excitation = numpy.array(fluorophore_excitation)
-            fluorophore_emission = numpy.array(fluorophore_emission)
-            index_ex = fluorophore_excitation.argmax()
-            index_em = fluorophore_emission.argmax()
-            # index_ex = fluorophore_excitation.index(max(fluorophore_excitation))
-            # index_em = fluorophore_emission.index(max(fluorophore_emission))
-            fluorophore_excitation[index_ex] = 100
-            fluorophore_emission[index_em] = 100
-            self._set_data('fluoex_eff', fluorophore_excitation)
-            self._set_data('fluoem_eff', fluorophore_emission)
-
-            fluorophore_excitation /= sum(fluorophore_excitation)
-            fluorophore_emission /= sum(fluorophore_emission)
-            self._set_data('fluoex_norm', fluorophore_excitation)
-            self._set_data('fluoem_norm', fluorophore_emission)
-
-            if wave_length is not None:
-                warnings.warn('The given wave length [{}] was ignored'.format(wave_length))
-
-            # _log.info('    Excitation: Wave Length =  {} m'.format(self.wave_length[index_ex]))
-            self._set_data('psf_wavelength', self.wave_length[index_em])
-
-    def set_magnification(self, magnification=None):
-        self._set_data('image_magnification', magnification)
-
-    def set_detector(
-            self, detector=None, image_size=None, pixel_length=None, exposure_time=None, focal_point=None,
-            QE=None, readout_noise=None, dark_count=None, emgain=None, switch=True):
-        self._set_data('detector_switch', switch)
-        self._set_data('detector_type', detector)
-        self._set_data('detector_image_size', image_size)
-        self._set_data('detector_pixel_length', pixel_length)
-        self._set_data('detector_exposure_time', exposure_time)
-        self._set_data('detector_focal_point', focal_point)
-        self._set_data('detector_qeff', QE)
-        self._set_data('detector_readout_noise', readout_noise)
-        self._set_data('detector_dark_count', dark_count)
-        self._set_data('detector_emgain', emgain)
-        # self._set_data('detector_base_position', base_position)
-
-    def set_analog_to_digital_converter(self, bit=None, offset=None, fullwell=None, fpn_type=None, fpn_count=None, rng=None):
-        self._set_data('ADConverter_bit', bit)
-        # self._set_data('ADConverter_offset', offset)
-        self._set_data('ADConverter_fullwell', fullwell)
-        self._set_data('ADConverter_fpn_type', fpn_type)
-        self._set_data('ADConverter_fpn_count', fpn_count)
-
-        # if self.fullwel is not None and self.bit is not None and self.offset is not None:
-        #     self._set_data(
-        #         'ADConverter_gain',
-        #         (self.ADConverter_fullwell - 0.0) / (pow(2.0, self.ADConverter_bit) - self.ADConverter_offset))
-
-        offset, gain = self.calculate_analog_to_digital_converter_gain(offset, rng)
-        self._set_data('ADConverter_offset', offset)
-        self._set_data('ADConverter_gain', gain)
-
-    def calculate_analog_to_digital_converter_gain(self, ADC0, rng):
-        # image pixel-size
-        Nw_pixel = self.detector_image_size[0]
-        Nh_pixel = self.detector_image_size[1]
-
-        # set ADC parameters
-        bit  = self.ADConverter_bit
-        fullwell = self.ADConverter_fullwell
-        # ADC0 = self.ADConverter_offset
-
-        # set Fixed-Pattern noise
-        FPN_type = self.ADConverter_fpn_type
-        FPN_count = self.ADConverter_fpn_count
-
-        # if FPN_type is None:
-        if FPN_type == 'none':
-            offset = numpy.full(Nw_pixel * Nh_pixel, ADC0)
-        elif FPN_type == 'pixel':
-            if rng is None:
-                raise RuntimeError('A random number generator is required.')
-            offset = numpy.rint(rng.normal(ADC0, FPN_count, Nw_pixel * Nh_pixel))
-        elif FPN_type == 'column':
-            column = rng.normal(ADC0, FPN_count, Nh_pixel)
-            temporal = numpy.tile(column, (1, Nw_pixel))
-            offset = numpy.rint(temporal.reshape(Nh_pixel * Nw_pixel))
-        else:
-            raise ValueError("FPN type [{}] is invalid ['pixel', 'column' or 'none']".format(FPN_type))
-
-        # set ADC gain
-        # gain = numpy.array(map(lambda x: (fullwell - 0.0) / (pow(2.0, bit) - x), offset))
-        gain = (fullwell - 0.0) / (pow(2.0, bit) - offset)
-
-        offset = offset.reshape([Nw_pixel, Nh_pixel])
-        gain = gain.reshape([Nw_pixel, Nh_pixel])
-
-        return (offset, gain)
-
-    def set_dichroic_mirror(self, dm=None, switch=True):
-        self._set_data('dichroic_switch', switch)
-        if dm is not None:
-            dichroic_mirror = io.read_dichroic_catalog(dm)
-            self._set_data('dichroic_eff', self.set_efficiency(dichroic_mirror))
-
-    def set_excitation_filter(self, excitation=None, switch=True):
-        self._set_data('excitation_switch', switch)
-        if excitation is not None:
-            excitation_filter = io.read_excitation_catalog(excitation)
-            self._set_data('excitation_eff', self.set_efficiency(excitation_filter))
-
-    def set_emission_filter(self, emission=None, switch=True):
-        self._set_data('emission_switch', switch)
-        if emission is not None:
-            emission_filter = io.read_emission_catalog(emission)
-            self._set_data('emission_eff', self.set_efficiency(emission_filter))
-
-    def set_illumination_path(self, focal_point, focal_norm):
-        self._set_data('detector_focal_point', focal_point)
-        self._set_data('detector_focal_norm', focal_norm)
-
-    # def set_Illumination_path(self):
-    #     # define observational image plane in nm-scale
-    #     voxel_size = 2.0 * self.spatiocyte_VoxelRadius
-
-    #     # cell size (nm scale)
-    #     Nz = self.spatiocyte_lengths[2] * voxel_size
-    #     Ny = self.spatiocyte_lengths[1] * voxel_size
-    #     Nx = self.spatiocyte_lengths[0] * voxel_size
-
-    #     # beam center
-    #     # b_0 = self.source_center
-    #     b_0 = numpy.array(self.detector_focal_point) / 1e-9  # nano meter
-    #     x_0, y_0, z_0 = numpy.array([Nx, Ny, Nz]) * b_0
-
-    #     # Incident beam: 1st beam angle to basal region of the cell
-    #     theta_in = (self.source_angle / 180.0) * numpy.pi
-    #     sin_th1 = numpy.sin(theta_in)
-    #     sin2 = sin_th1 * sin_th1
-
-    #     # Index of refraction
-    #     n_1 = 1.460 # fused silica
-    #     n_2 = 1.384 # cell
-    #     n_3 = 1.337 # culture medium
-
-    #     r  = n_2 / n_1
-    #     r2 = r * r
-
-    #     if (sin2 / r2 < 1):
-    #         raise RuntimeError('Not supported.')
-
-    #         # get cell-shape data
-    #         # cell_shape = self.spatiocyte_shape.copy()
-
-    #         # # find cross point of beam center and cell surface
-    #         # # rho = numpy.sqrt(Nx * Nx + Ny * Ny)
-    #         # rho = Nx
-
-    #         # while (rho > 0):
-    #         #     # set beam position
-    #         #     #x_b, y_b, z_b = rho*cos_th2, rho*sin_th2 + y_0, z_0
-    #         #     x_b, y_b, z_b = rho, y_0, z_0
-    #         #     r_b = numpy.array([x_b, y_b, z_b])
-
-    #         #     # evaluate for intersection of beam-line to cell-surface
-    #         #     diff  = numpy.sqrt(numpy.sum((cell_shape - r_b) ** 2, axis=1))
-    #         #     index = numpy.nonzero(diff < voxel_size)[0]
-
-    #         #     if (len(index) > 0):
-
-    #         #         p_0 = cell_shape[index[0]]
-    #         #         x_b, y_b, z_b = p_0
-
-    #         #         f0 = (x_b / Nx, y_b / Ny, z_b / Nz)
-
-    #         #         # evaluate for normal vector of cell-surface
-    #         #         diff = numpy.sqrt(numpy.sum((cell_shape - p_0) ** 2, axis=1))
-    #         #         k0 = numpy.nonzero(diff < 1.5 * voxel_size)[0]
-    #         #         k1 = numpy.nonzero(k0 != diff.argmin())[0]
-
-    #         #         r_n = cell_shape[k0[k1]]
-
-    #         #         # Optimization is definitely required!!
-    #         #         f0_norm = numpy.array([0, 0, 0])
-    #         #         count = 0
-    #         #         for kk in range(len(r_n)):
-    #         #             for ii in range(len(r_n)):
-    #         #                 for jj in range(len(r_n)):
-    #         #                     if (kk!=ii and kk!=jj and ii!=jj):
-    #         #                         t = r_n[ii] - r_n[kk]
-    #         #                         s = r_n[jj] - r_n[kk]
-
-    #         #                         vec = numpy.cross(s, t)
-    #         #                         if (vec[0] < 0): vec = numpy.cross(t, s)
-    #         #                         len_vec = numpy.sqrt(numpy.sum(vec**2))
-    #         #                         if (len_vec > 0):
-    #         #                             f0_norm = f0_norm + vec/len_vec
-    #         #                             count += 1
-
-    #         #         f0_norm = f0_norm / count
-    #         #         break
-
-    #         #     rho -= voxel_size / 2
-    #     else:
-    #         f0 = b_0
-    #         f0_norm = numpy.array([1, 0, 0])
-
-    #     # set focal position
-    #     self.detector_focal_point = f0 * 1e-9  # meter
-    #     self.detector_focal_norm  = f0_norm
-
-    #     _log.info('Focal Center: {}'.format(self.detector_focal_point))
-    #     _log.info('Normal Vector: {}'.format(self.detector_focal_norm))
-
-    # def set_Detection_path(self):
-    #     # # set image scaling factor
-    #     # voxel_radius = self.spatiocyte_VoxelRadius
-
-    #     # # set camera's pixel length
-    #     # pixel_length = self.detector_pixel_length / self.image_magnification
-    #     # # self.image_resolution = pixel_length
-    #     # self.image_scaling = pixel_length / (2.0 * voxel_radius)
-
-    #     # # _log.info('Resolution: {} m'.format(self.image_resolution))
-    #     # _log.info('Scaling: {}'.format(self.image_scaling))
-
-    #     # Detector PSF
-    #     self.set_PSF_detector()
-
 def cylindrical_coordinate(p_i, p_0):
     p_i = numpy.array(p_i)  # Make a copy
     p_0 = numpy.asarray(p_0)
@@ -747,12 +343,599 @@ class CCD:
                 signal[i, j] = rng.poisson(expected[i, j], None)
         return signal
 
+class PhysicalEffectConfigs:
+    '''
+    Physical effects setting class
+
+        Fluorescence
+        Photo-bleaching
+        Photo-blinking
+    '''
+
+    def __init__(self, config):
+        self.initialize(config)
+
+    def initialize(self, config):
+        self.fluorescence_bleach = []
+        self.fluorescence_budget = []
+        self.fluorescence_state  = []
+
+        self.set_background(**config.background)
+        self.set_fluorescence(**config.fluorescence)
+        self.set_photobleaching(**config.photo_bleaching)
+        self.set_photoactivation(**config.photo_activation)
+        self.set_photoblinking(**config.photo_blinking)
+
+    def set_background(self, mean=None, switch=True):
+        self.background_switch = switch
+        self.background_mean = mean
+        _log.info('--- Background: ')
+        _log.info('    Mean = {} photons'.format(self.background_mean))
+
+    def set_fluorescence(self, quantum_yield=None, abs_coefficient=None):
+        self.quantum_yield = quantum_yield
+        self.abs_coefficient = abs_coefficient
+        _log.info('--- Fluorescence: ')
+        _log.info('    Quantum Yield =  {}'.format(self.quantum_yield))
+        _log.info('    Abs. Coefficient =  {} 1/(M cm)'.format(self.abs_coefficient))
+        _log.info('    Abs. Cross-section =  {} cm^2'.format((numpy.log(10) * self.abs_coefficient * 0.1 / constants.N_A) * 1e+4))
+
+    def set_photobleaching(self, half_life=None, switch=True):
+        self.photobleaching_switch = switch
+        self.photobleaching_half_life = half_life
+        _log.info('--- Photobleaching: ')
+        _log.info('    Photobleaching half life  =  {}'.format(self.photobleaching_half_life))
+
+    def set_photoactivation(self, turn_on_ratio=None, activation_yield=None, frac_preactivation=None, switch=True):
+        self.photoactivation_switch = switch
+        self.photoactivation_turn_on_ratio = turn_on_ratio
+        self.photoactivation_activation_yield = activation_yield
+        self.photoactivation_frac_preactivation = frac_preactivation
+        _log.info('--- Photoactivation: ')
+        _log.info('    Turn-on Ratio  =  {}'.format(self.photoactivation_turn_on_ratio))
+        _log.info('    Effective Ratio  =  {}'.format(self.photoactivation_activation_yield * self.photoactivation_turn_on_ratio / (1 + self.photoactivation_frac_preactivation * self.photoactivation_turn_on_ratio)))
+        _log.info('    Reaction Yield =  {}'.format(self.photoactivation_activation_yield))
+        _log.info('    Fraction of Preactivation =  {}'.format(self.photoactivation_frac_preactivation))
+
+    def set_photoblinking(self, t0_on=None, a_on=None, t0_off=None, a_off=None, switch=True):
+        self.photoblinking_switch = switch
+        self.photoblinking_t0_on = t0_on
+        self.photoblinking_a_on = a_on
+        self.photoblinking_t0_off = t0_off
+        self.photoblinking_a_off = a_off
+        _log.info('--- Photo-blinking: ')
+        _log.info('    (ON)  t0 =  {} sec'.format(self.photoblinking_t0_on))
+        _log.info('    (ON)  a  =  {}'.format(self.photoblinking_a_on))
+        _log.info('    (OFF) t0 =  {} sec'.format(self.photoblinking_t0_off))
+        _log.info('    (OFF) a  =  {}'.format(self.photoblinking_a_off))
+
+    # def get_prob_bleach(self, tau, dt):
+    #     # set the photobleaching-time
+    #     tau0  = self.photobleaching_tau0
+    #     alpha = self.photobleaching_alpha
+
+    #     # set probability
+    #     prob = self.prob_levy(tau, tau0, alpha)
+    #     norm = prob.sum()
+    #     p_bleach = prob/norm
+
+    #     return p_bleach
+
+    # def get_prob_blink(self, tau_on, tau_off, dt):
+    #     # time scale
+    #     t0_on  = self.photoblinking_t0_on
+    #     a_on   = self.photoblinking_a_on
+    #     t0_off = self.photoblinking_t0_off
+    #     a_off  = self.photoblinking_a_off
+
+    #     # ON-state
+    #     prob_on = self.prob_levy(tau_on, t0_on, a_on)
+    #     norm_on = prob_on.sum()
+    #     p_blink_on = prob_on/norm_on
+
+    #     # OFF-state
+    #     prob_off = self.prob_levy(tau_off, t0_off, a_off)
+    #     norm_off = prob_off.sum()
+    #     p_blink_off = prob_off/norm_off
+
+    #     return p_blink_on, p_blink_off
+
+    # def get_photobleaching_property(self, dt, n_emit0, rng):
+    #     # set the photobleaching-time
+    #     tau0  = self.photobleaching_tau0
+
+    #     # set photon budget
+    #     photon0 = (tau0/dt)*n_emit0
+
+    #     tau_bleach = numpy.array([j*dt + tau0 for j in range(int(1e+7))])
+    #     p_bleach = self.get_prob_bleach(tau_bleach, dt)
+
+    #     # get photon budget and photobleaching-time
+    #     tau = rng.choice(tau_bleach, 1, p=p_bleach)
+    #     budget = (tau/tau0)*photon0
+
+    #     return tau, budget
+
+    # def set_photophysics_4palm(self, start, end, dt, f, F, N_part, rng):
+    #     ##### PALM Configuration
+    #     NNN = int(1e+7)
+
+    #     # set the photobleaching-time
+    #     tau0  = self.photobleaching_tau0
+    #     alpha = self.photobleaching_alpha
+
+    #     # set photon budget
+    #     # photon0 = (tau0/dt)*N_emit0
+    #     photon0 = (tau0/dt)*1.0
+
+    #     tau_bleach = numpy.array([j*dt+tau0 for j in range(NNN)])
+    #     prob = self.prob_levy(tau_bleach, tau0, alpha)
+    #     norm = prob.sum()
+    #     p_bleach = prob/norm
+
+    #     # set photoblinking (ON/OFF) probability density function (PDF)
+    #     if (self.photoblinking_switch == True):
+
+    #         # time scale
+    #         t0_on  = self.photoblinking_t0_on
+    #         a_on   = self.photoblinking_a_on
+    #         t0_off = self.photoblinking_t0_off
+    #         a_off  = self.photoblinking_a_off
+
+    #         tau_on  = numpy.array([j*dt+t0_on  for j in range(NNN)])
+    #         tau_off = numpy.array([j*dt+t0_off for j in range(NNN)])
+
+    #         # ON-state
+    #         prob_on = self.prob_levy(tau_on, t0_on, a_on)
+    #         norm_on = prob_on.sum()
+    #         p_on = prob_on/norm_on
+
+    #         # OFF-state
+    #         prob_off = self.prob_levy(tau_off, t0_off, a_off)
+    #         norm_off = prob_off.sum()
+    #         p_off = prob_off/norm_off
+
+    #     # sequences
+    #     budget = []
+    #     state_act = []
+
+    #     # get random number
+    #     # numpy.random.seed()
+
+    #     # get photon budget and photobleaching-time
+    #     tau = rng.choice(tau_bleach, N_part, p=p_bleach)
+
+    #     for i in range(N_part):
+
+    #         # get photon budget and photobleaching-time
+    #         photons = (tau[i]/tau0)*photon0
+
+    #         N = int((end - start)/dt)
+
+    #         time  = numpy.array([j*dt + start for j in range(N)])
+    #         state = numpy.zeros(shape=(N))
+
+    #         #### Photoactivation: overall activation yeild
+    #         p = self.photoactivation_activation_yield
+    #         # q = self.photoactivation_frac_preactivation
+
+    #         r = rng.uniform(0, 1, N/F*f)
+    #         s = (r < p).astype('int')
+
+    #         index = numpy.abs(s - 1).argmin()
+    #         t0 = (index/f*F + numpy.remainder(index, f))*dt + start
+
+    #         t1 = t0 + tau[i]
+
+    #         N0 = (numpy.abs(time - t0)).argmin()
+    #         N1 = (numpy.abs(time - t1)).argmin()
+    #         state[N0:N1] = numpy.ones(shape=(N1-N0))
+
+    #         if (self.photoblinking_switch == True):
+
+    #             # ON-state
+    #             t_on  = rng.choice(tau_on,  100, p=p_on)
+    #             # OFF-state
+    #             t_off = rng.choice(tau_off, 100, p=p_off)
+
+    #             k = (numpy.abs(numpy.cumsum(t_on) - tau[i])).argmin()
+
+    #             # merge t_on/off arrays
+    #             t_blink = numpy.array([t_on[0:k], t_off[0:k]])
+    #             t = numpy.reshape(t_blink, 2*k, order='F')
+
+    #             i_on  = N0
+
+    #             for j in range(k):
+
+    #                 f_on  = i_on  + int(t[j]/dt)
+    #                 i_off = f_on
+    #                 f_off = i_off + int(t[j+1]/dt)
+
+    #                 state[i_on:f_on]   = 1
+    #                 state[i_off:f_off] = 0
+
+    #                 i_on = f_off
+
+    #         # set fluorescence state (without photoblinking)
+    #         budget.append(photons)
+    #         state_act.append(state)
+
+    #     self.fluorescence_bleach = numpy.array(tau)
+    #     self.fluorescence_budget = numpy.array(budget)
+    #     self.fluorescence_state  = numpy.array(state_act)
+
+    # def set_photophysics_4lscm(self, start, end, dt, N_part, rng):
+    #     ##### LSCM Configuration
+
+    #     NNN = int(1e+7)
+
+    #     # set the photobleaching-time
+    #     tau0  = self.photobleaching_tau0
+    #     alpha = self.photobleaching_alpha
+
+    #     # set photon budget
+    #     photon0 = (tau0/dt)*1.0
+
+    #     tau_bleach = numpy.array([j*dt+tau0 for j in range(NNN)])
+    #     prob = self.prob_levy(tau_bleach, tau0, alpha)
+    #     norm = prob.sum()
+    #     p_bleach = prob/norm
+
+    #     # set photoblinking (ON/OFF) probability density function (PDF)
+    #     if (self.photoblinking_switch == True):
+
+    #         # time scale
+    #         t0_on  = self.photoblinking_t0_on
+    #         a_on   = self.photoblinking_a_on
+    #         t0_off = self.photoblinking_t0_off
+    #         a_off  = self.photoblinking_a_off
+
+    #         tau_on  = numpy.array([j*dt+t0_on  for j in range(NNN)])
+    #         tau_off = numpy.array([j*dt+t0_off for j in range(NNN)])
+
+    #         # ON-state
+    #         prob_on = self.prob_levy(tau_on, t0_on, a_on)
+    #         norm_on = prob_on.sum()
+    #         p_on = prob_on/norm_on
+
+    #         # OFF-state
+    #         prob_off = self.prob_levy(tau_off, t0_off, a_off)
+    #         norm_off = prob_off.sum()
+    #         p_off = prob_off/norm_off
+
+    #     # sequences
+    #     budget = []
+    #     state_act = []
+
+    #     # get random number
+    #     # numpy.random.seed()
+
+    #     # get photon budget and photobleaching-time
+    #     tau = rng.choice(tau_bleach, N_part, p=p_bleach)
+
+    #     for i in range(N_part):
+
+    #         # get photon budget and photobleaching-time
+    #         photons = (tau[i]/tau0)*photon0
+
+    #         N = 10000 #int((end - start)/dt)
+
+    #         time  = numpy.array([j*dt + start for j in range(N)])
+    #         state = numpy.zeros(shape=(N))
+
+    #         t0 = start
+    #         t1 = t0 + tau[i]
+
+    #         N0 = (numpy.abs(time - t0)).argmin()
+    #         N1 = (numpy.abs(time - t1)).argmin()
+    #         state[N0:N1] = numpy.ones(shape=(N1-N0))
+
+    #         if (self.photoblinking_switch == True):
+
+    #             # ON-state
+    #             t_on  = rng.choice(tau_on,  100, p=p_on)
+    #             # OFF-state
+    #             t_off = rng.choice(tau_off, 100, p=p_off)
+
+    #             k = (numpy.abs(numpy.cumsum(t_on) - tau[i])).argmin()
+
+    #             # merge t_on/off arrays
+    #             t_blink = numpy.array([t_on[0:k], t_off[0:k]])
+    #             t = numpy.reshape(t_blink, 2*k, order='F')
+
+    #             i_on  = N0
+
+    #             for j in range(k):
+
+    #                 f_on  = i_on  + int(t[j]/dt)
+    #                 i_off = f_on
+    #                 f_off = i_off + int(t[j+1]/dt)
+
+    #                 state[i_on:f_on]   = 1
+    #                 state[i_off:f_off] = 0
+
+    #                 i_on = f_off
+
+    #         # set photon budget and fluorescence state
+    #         budget.append(photons)
+    #         state_act.append(state)
+
+    #     self.fluorescence_bleach = numpy.array(tau)
+    #     self.fluorescence_budget = numpy.array(budget)
+    #     self.fluorescence_state  = numpy.array(state_act)
+
+class EPIFMConfigs:
+
+    def __init__(self, config, rng=None):
+        self.initialize(config, rng=rng)
+
+    def initialize(self, config, rng=None):
+        """Initialize based on the given config.
+
+        Args:
+            config (Configuration): A config object.
+            rng (numpy.RandomState, optional): A random number generator
+                for initializing this class. Defaults to `None`.
+
+        """
+        if rng is None:
+            warnings.warn('A random number generator [rng] is not given.')
+            rng = numpy.random.RandomState()
+
+        self.set_fluorophore(**config.fluorophore)  # => self.wave_length
+
+        self.hc_const = config.hc_const
+
+        self.set_shutter(**config.shutter)
+        self.set_light_source(**config.light_source)
+        self.set_dichroic_mirror(**config.dichroic_mirror)
+
+        self.image_magnification = config.magnification
+        _log.info('--- Magnification: x {}'.format(self.image_magnification))
+
+        self.set_detector(**config.detector)
+        self.set_analog_to_digital_converter(rng=rng, **config.analog_to_digital_converter)
+        self.set_excitation_filter(**config.excitation_filter)
+        self.set_emission_filter(**config.emission_filter)
+
+        # self.fluorophore_psf = self.get_PSF_detector()
+        self.fluorophore_psf = PointSpreadingFunction(
+            config.fluorophore.radial_cutoff, self.psf_width, config.fluorophore.depth_cutoff,
+            self.fluoem_norm, self.dichroic_switch, self.dichroic_eff, self.emission_switch, self.emission_eff,
+            self.fluorophore_type, self.psf_wavelength, self.psf_normalization)
+
+    def set_shutter(self, start_time=None, end_time=None, time_open=None, time_lapse=None, switch=True):
+        self.shutter_switch = switch
+        self.shutter_start_time = start_time
+        self.shutter_end_time = end_time
+        self.shutter_time_open = time_open or end_time - start_time
+        self.shutter_time_lapse = time_lapse or end_time - start_time
+
+        _log.info('--- Shutter:')
+        _log.info('    Start-Time = {} sec'.format(self.shutter_start_time))
+        _log.info('    End-Time   = {} sec'.format(self.shutter_end_time))
+        _log.info('    Time-open  = {} sec'.format(self.shutter_time_open))
+        _log.info('    Time-lapse = {} sec'.format(self.shutter_time_lapse))
+
+    def set_light_source(self, type=None, wave_length=None, flux_density=None, radius=None, angle=None, switch=True):
+        self.source_switch = switch
+        self.source_type = type
+        self.source_wavelength = wave_length
+        self.source_flux_density = flux_density
+        self.source_radius = radius
+        self.source_angle = angle
+
+        _log.info('--- Light Source:{}'.format(self.source_type))
+        _log.info('    Wave Length = {} m'.format(self.source_wavelength))
+        _log.info('    Beam Flux Density = {} W/cm2'.format(self.source_flux_density))
+        _log.info('    1/e2 Radius = {} m'.format(self.source_radius))
+        _log.info('    Angle = {} degree'.format(self.source_angle))
+
+    def set_fluorophore(
+            self, type=None, wave_length=None, normalization=None, radius=None, width=None,
+            min_wave_length=None, max_wave_length=None, radial_cutoff=None, depth_cutoff=None):
+        self.wave_length = numpy.arange(min_wave_length, max_wave_length, 1e-9, dtype=float)
+        self.wave_number = 2 * numpy.pi / (self.wave_length / 1e-9)  # 1/nm
+
+        self.fluorophore_type = type
+        self.fluorophore_radius = radius
+        self.psf_normalization = normalization
+
+        if type == 'Gaussian':
+            N = len(self.wave_length)
+            fluorophore_excitation = numpy.zeros(N, dtype=float)
+            fluorophore_emission = numpy.zeros(N, dtype=float)
+            idx = (numpy.abs(self.wave_length / 1e-9 - wave_length / 1e-9)).argmin()
+            # idx = (numpy.abs(self.wave_length / 1e-9 - self.psf_wavelength / 1e-9)).argmin()
+            fluorophore_excitation[idx] = 100
+            fluorophore_emission[idx] = 100
+            self.fluoex_eff = fluorophore_excitation
+            self.fluoem_eff = fluorophore_emission
+
+            fluorophore_excitation /= sum(fluorophore_excitation)
+            fluorophore_emission /= sum(fluorophore_emission)
+            self.fluoex_norm = fluorophore_excitation
+            self.fluoem_norm = fluorophore_emission
+
+            self.psf_wavelength = wave_length
+            self.psf_width = width
+
+        else:
+            (fluorophore_excitation, fluorophore_emission) = io.read_fluorophore_catalog(type)
+            fluorophore_excitation = self.calculate_efficiency(fluorophore_excitation, self.wave_length)
+            fluorophore_emission = self.calculate_efficiency(fluorophore_emission, self.wave_length)
+            fluorophore_excitation = numpy.array(fluorophore_excitation)
+            fluorophore_emission = numpy.array(fluorophore_emission)
+            index_ex = fluorophore_excitation.argmax()
+            index_em = fluorophore_emission.argmax()
+            fluorophore_excitation[index_ex] = 100
+            fluorophore_emission[index_em] = 100
+            self.fluoex_eff = fluorophore_excitation
+            self.fluoem_eff = fluorophore_emission
+
+            fluorophore_excitation /= sum(fluorophore_excitation)
+            fluorophore_emission /= sum(fluorophore_emission)
+            self.fluoex_norm = fluorophore_excitation
+            self.fluoem_norm = fluorophore_emission
+
+            if wave_length is not None:
+                warnings.warn('The given wave length [{}] was ignored'.format(wave_length))
+            self.psf_wavelength = self.wave_length[index_em]
+            self.psf_width = None
+
+        _log.info('--- Fluorophore: {} PSF'.format(self.fluorophore_type))
+        _log.info('    Wave Length   =  {} m'.format(self.psf_wavelength))
+        _log.info('    Normalization =  {}'.format(self.psf_normalization))
+        _log.info('    Fluorophore radius =  {} m'.format(self.fluorophore_radius))
+        if self.psf_width is not None:
+            _log.info('    Lateral Width =  {} m'.format(self.psf_width[0]))
+            _log.info('    Axial Width =  {} m'.format(self.psf_width[1]))
+        _log.info('    PSF Normalization Factor =  {}'.format(self.psf_normalization))
+        _log.info('    Emission  : Wave Length =  {} m'.format(self.psf_wavelength))
+
+    def set_dichroic_mirror(self, type=None, switch=True):
+        self.dichroic_switch = switch
+        if type is not None:
+            dichroic_mirror = io.read_dichroic_catalog(type)
+            self.dichroic_eff = self.calculate_efficiency(dichroic_mirror, self.wave_length)
+        else:
+            self.dichroic_eff = numpy.zeros(len(self.wave_length), dtype=float)
+        _log.info('--- Dichroic Mirror:')
+
+    def set_detector(
+            self, type=None, image_size=None, pixel_length=None, exposure_time=None, focal_point=None,
+            QE=None, readout_noise=None, dark_count=None, emgain=None, switch=True, focal_norm=None):
+        self.detector_switch = switch
+        self.detector_type = type
+        self.detector_image_size = image_size
+        self.detector_pixel_length = pixel_length
+        self.detector_exposure_time = exposure_time
+        self.detector_focal_point = focal_point
+        self.detector_qeff = QE
+        self.detector_readout_noise = readout_noise
+        self.detector_dark_count = dark_count
+        self.detector_emgain = emgain
+        # self.detector_base_position = base_position
+
+        self.detector_focal_point = focal_point
+        self.detector_focal_norm = focal_norm
+
+        _log.info('--- Detector:  {}'.format(self.detector_type))
+        if self.detector_image_size is not None:
+            _log.info('    Image Size  =  {} x {}'.format(self.detector_image_size[0], self.detector_image_size[1]))
+        _log.info('    Pixel Size  =  {} m/pixel'.format(self.detector_pixel_length))
+        _log.info('    Focal Point =  {}'.format(self.detector_focal_point))
+        _log.info('    Exposure Time =  {} sec'.format(self.detector_exposure_time))
+        if self.detector_qeff is not None:
+            _log.info('    Quantum Efficiency =  {} %'.format(100 * self.detector_qeff))
+        _log.info('    Readout Noise =  {} electron'.format(self.detector_readout_noise))
+        _log.info('    Dark Count =  {} electron/sec'.format(self.detector_dark_count))
+        _log.info('    EM gain = x {}'.format(self.detector_emgain))
+        # _log.info('    Position    =  {}'.format(self.detector_base_position))
+        _log.info('Focal Center: {}'.format(self.detector_focal_point))
+        _log.info('Normal Vector: {}'.format(self.detector_focal_norm))
+
+    def set_analog_to_digital_converter(self, *, rng, bit=None, offset=None, fullwell=None, type=None, count=None):
+        self.ADConverter_bit = bit
+        self.ADConverter_fullwell = fullwell
+        self.ADConverter_fpn_type = type
+        self.ADConverter_fpn_count = count
+
+        offset, gain = self.calculate_analog_to_digital_converter_gain(offset, rng)
+        self.ADConverter_offset = offset
+        self.ADConverter_gain = gain
+
+        _log.info('--- A/D Converter: %d-bit' % (self.ADConverter_bit))
+        # _log.info('    Gain = %.3f electron/count' % (self.ADConverter_gain))
+        # _log.info('    Offset =  {} count'.format(self.ADConverter_offset))
+        _log.info('    Fullwell =  {} electron'.format(self.ADConverter_fullwell))
+        _log.info('    {}-Fixed Pattern Noise: {} count'.format(self.ADConverter_fpn_type, self.ADConverter_fpn_count))
+
+    def calculate_analog_to_digital_converter_gain(self, ADC0, rng):
+        # image pixel-size
+        Nw_pixel = self.detector_image_size[0]
+        Nh_pixel = self.detector_image_size[1]
+
+        # set ADC parameters
+        bit  = self.ADConverter_bit
+        fullwell = self.ADConverter_fullwell
+        # ADC0 = self.ADConverter_offset
+
+        # set Fixed-Pattern noise
+        FPN_type = self.ADConverter_fpn_type
+        FPN_count = self.ADConverter_fpn_count
+
+        # if FPN_type is None:
+        if FPN_type == 'none':
+            offset = numpy.full(Nw_pixel * Nh_pixel, ADC0)
+        elif FPN_type == 'pixel':
+            if rng is None:
+                raise RuntimeError('A random number generator is required.')
+            offset = numpy.rint(rng.normal(ADC0, FPN_count, Nw_pixel * Nh_pixel))
+        elif FPN_type == 'column':
+            column = rng.normal(ADC0, FPN_count, Nh_pixel)
+            temporal = numpy.tile(column, (1, Nw_pixel))
+            offset = numpy.rint(temporal.reshape(Nh_pixel * Nw_pixel))
+        else:
+            raise ValueError("FPN type [{}] is invalid ['pixel', 'column' or None]".format(FPN_type))
+
+        # set ADC gain
+        # gain = numpy.array(map(lambda x: (fullwell - 0.0) / (pow(2.0, bit) - x), offset))
+        gain = (fullwell - 0.0) / (pow(2.0, bit) - offset)
+
+        offset = offset.reshape([Nw_pixel, Nh_pixel])
+        gain = gain.reshape([Nw_pixel, Nh_pixel])
+
+        return (offset, gain)
+
+    def set_excitation_filter(self, type=None, switch=True):
+        self.excitation_switch = switch
+        if type is not None:
+            excitation_filter = io.read_excitation_catalog(type)
+            self.excitation_eff = self.calculate_efficiency(excitation_filter, self.wave_length)
+        else:
+            self.excitation_eff = numpy.zeros(len(self.wave_length), dtype=float)
+        _log.info('--- Excitation Filter:')
+
+    def set_emission_filter(self, type=None, switch=True):
+        self.emission_switch = switch
+        if type is not None:
+            emission_filter = io.read_emission_catalog(type)
+            self.emission_eff = self.calculate_efficiency(emission_filter, self.wave_length)
+        else:
+            self.emission_eff = numpy.zeros(len(self.wave_length), dtype=float)
+        _log.info('--- Emission Filter:')
+
+    @staticmethod
+    def calculate_efficiency(data, wave_length):
+        data = numpy.array(data, dtype = 'float')
+        data = data[data[: , 0] % 1 == 0, :]
+
+        efficiency = numpy.zeros(len(wave_length))
+
+        wave_length = numpy.round(wave_length / 1e-9).astype(int)  #XXX: numpy.array(dtype=int)
+        idx1 = numpy.in1d(wave_length, data[:, 0])
+        idx2 = numpy.in1d(numpy.array(data[:, 0]), wave_length)
+
+        efficiency[idx1] = data[idx2, 1]
+
+        return efficiency.tolist()
+
+class EnvironConfigs:
+
+    def __init__(self, config):
+        self.initialize(config)
+
+    def initialize(self, config):
+        self.processes = config.processes
+
 class EPIFMSimulator:
     '''
     A class of the simulator for Epifluorescence microscopy (EPI).
     '''
 
-    def __init__(self, config=None, rng=None, *, configs=None, effects=None, environ=None):
+    def __init__(self, configs, effects, environ=None):
         """A constructor of EPIFMSimulator.
 
         Args:
@@ -761,39 +944,11 @@ class EPIFMSimulator:
                 for initializing this class.
 
         """
-        if configs is not None and effects is not None:
-            assert config is None and rng is None
-            self.configs = configs
-            self.effects = effects
-        elif config is not None:
-            assert configs is None and effects is None
-            self.initialize(config, rng)
-        else:
-            raise RuntimeError()
+        self.configs = configs
+        self.effects = effects
 
         if environ is not None:
             self.environ = environ
-
-    def initialize(self, config=None, rng=None):
-        """Initialize EPIFMSimulator.
-
-        Args:
-            config (Config, optional): A config object.
-            rng (numpy.RandomState, optional): A random number generator.
-
-        """
-        if config is None:
-            self.__config = Config()
-        elif isinstance(config, Config):
-            self.__config = config  # copy?
-        else:
-            self.__config = Config(config)
-
-        self.configs = _EPIFMConfigs()
-        self.configs.initialize(self.__config, rng)
-
-        self.effects = PhysicalEffects()
-        self.effects.initialize(self.__config)
 
     def num_frames(self):
         """Return the number of frames within the interval given.
