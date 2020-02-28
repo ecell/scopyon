@@ -118,14 +118,14 @@ default:
         photo_bleaching:
             switch: !!bool true
             half_life: 2.5
-        photo_activation:
-            switch: !!bool false
-            turn_on_ratio: 1000
-            activation_yield: 0.1
-            frac_preactivation: 0.00
-        photo_blinking:
-            switch: !!bool false
-            t0_on: 0.3
-            a_on: 0.58
-            t0_off: 0.3
-            a_off: 0.48
+        # photo_activation:
+        #     switch: !!bool false
+        #     turn_on_ratio: 1000
+        #     activation_yield: 0.1
+        #     frac_preactivation: 0.00
+        # photo_blinking:
+        #     switch: !!bool false
+        #    t0_on: 0.3
+        #     a_on: 0.58
+        #     t0_off: 0.3
+        #     a_off: 0.48

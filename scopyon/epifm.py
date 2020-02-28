@@ -363,8 +363,8 @@ class PhysicalEffectConfigs:
         self.set_background(**config.background)
         self.set_fluorescence(**config.fluorescence)
         self.set_photobleaching(**config.photo_bleaching)
-        self.set_photoactivation(**config.photo_activation)
-        self.set_photoblinking(**config.photo_blinking)
+        # self.set_photoactivation(**config.photo_activation)
+        # self.set_photoblinking(**config.photo_blinking)
 
     def set_background(self, mean=None, switch=True):
         self.background_switch = switch
@@ -386,28 +386,28 @@ class PhysicalEffectConfigs:
         _log.info('--- Photobleaching: ')
         _log.info('    Photobleaching half life  =  {}'.format(self.photobleaching_half_life))
 
-    def set_photoactivation(self, turn_on_ratio=None, activation_yield=None, frac_preactivation=None, switch=True):
-        self.photoactivation_switch = switch
-        self.photoactivation_turn_on_ratio = turn_on_ratio
-        self.photoactivation_activation_yield = activation_yield
-        self.photoactivation_frac_preactivation = frac_preactivation
-        _log.info('--- Photoactivation: ')
-        _log.info('    Turn-on Ratio  =  {}'.format(self.photoactivation_turn_on_ratio))
-        _log.info('    Effective Ratio  =  {}'.format(self.photoactivation_activation_yield * self.photoactivation_turn_on_ratio / (1 + self.photoactivation_frac_preactivation * self.photoactivation_turn_on_ratio)))
-        _log.info('    Reaction Yield =  {}'.format(self.photoactivation_activation_yield))
-        _log.info('    Fraction of Preactivation =  {}'.format(self.photoactivation_frac_preactivation))
+    # def set_photoactivation(self, turn_on_ratio=None, activation_yield=None, frac_preactivation=None, switch=True):
+    #     self.photoactivation_switch = switch
+    #     self.photoactivation_turn_on_ratio = turn_on_ratio
+    #     self.photoactivation_activation_yield = activation_yield
+    #     self.photoactivation_frac_preactivation = frac_preactivation
+    #     _log.info('--- Photoactivation: ')
+    #     _log.info('    Turn-on Ratio  =  {}'.format(self.photoactivation_turn_on_ratio))
+    #     _log.info('    Effective Ratio  =  {}'.format(self.photoactivation_activation_yield * self.photoactivation_turn_on_ratio / (1 + self.photoactivation_frac_preactivation * self.photoactivation_turn_on_ratio)))
+    #     _log.info('    Reaction Yield =  {}'.format(self.photoactivation_activation_yield))
+    #     _log.info('    Fraction of Preactivation =  {}'.format(self.photoactivation_frac_preactivation))
 
-    def set_photoblinking(self, t0_on=None, a_on=None, t0_off=None, a_off=None, switch=True):
-        self.photoblinking_switch = switch
-        self.photoblinking_t0_on = t0_on
-        self.photoblinking_a_on = a_on
-        self.photoblinking_t0_off = t0_off
-        self.photoblinking_a_off = a_off
-        _log.info('--- Photo-blinking: ')
-        _log.info('    (ON)  t0 =  {} sec'.format(self.photoblinking_t0_on))
-        _log.info('    (ON)  a  =  {}'.format(self.photoblinking_a_on))
-        _log.info('    (OFF) t0 =  {} sec'.format(self.photoblinking_t0_off))
-        _log.info('    (OFF) a  =  {}'.format(self.photoblinking_a_off))
+    # def set_photoblinking(self, t0_on=None, a_on=None, t0_off=None, a_off=None, switch=True):
+    #     self.photoblinking_switch = switch
+    #     self.photoblinking_t0_on = t0_on
+    #     self.photoblinking_a_on = a_on
+    #     self.photoblinking_t0_off = t0_off
+    #     self.photoblinking_a_off = a_off
+    #     _log.info('--- Photo-blinking: ')
+    #     _log.info('    (ON)  t0 =  {} sec'.format(self.photoblinking_t0_on))
+    #     _log.info('    (ON)  a  =  {}'.format(self.photoblinking_a_on))
+    #     _log.info('    (OFF) t0 =  {} sec'.format(self.photoblinking_t0_off))
+    #     _log.info('    (OFF) a  =  {}'.format(self.photoblinking_a_off))
 
     # def get_prob_bleach(self, tau, dt):
     #     # set the photobleaching-time
@@ -874,11 +874,13 @@ class EPIFMConfigs:
                 raise RuntimeError('A random number generator is required.')
             offset = numpy.rint(rng.normal(ADC0, FPN_count, Nw_pixel * Nh_pixel))
         elif FPN_type == 'column':
+            if rng is None:
+                raise RuntimeError('A random number generator is required.')
             column = rng.normal(ADC0, FPN_count, Nh_pixel)
             temporal = numpy.tile(column, (1, Nw_pixel))
             offset = numpy.rint(temporal.reshape(Nh_pixel * Nw_pixel))
         else:
-            raise ValueError("FPN type [{}] is invalid ['pixel', 'column' or None]".format(FPN_type))
+            raise ValueError("FPN type [{}] is invalid ['pixel', 'column' or 'none']".format(FPN_type))
 
         # set ADC gain
         # gain = numpy.array(map(lambda x: (fullwell - 0.0) / (pow(2.0, bit) - x), offset))
