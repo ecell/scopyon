@@ -1,19 +1,10 @@
-from logging import getLogger
-_log = getLogger(__name__)
-
 import numpy
 import collections.abc
-import warnings
-
-from scipy.special import j0, i1e
-from scipy.interpolate import interp1d
-from scipy.ndimage import map_coordinates
 
 import scopyon.epifm
 
-from scopyon import io
-from scopyon import constants
-
+from logging import getLogger
+_log = getLogger(__name__)
 
 
 def dict_merge(dct, merge_dct):
@@ -164,7 +155,6 @@ class EPIFMSimulator(object):
         self.__config = config
 
     def base(self, rng=None):
-        # return scopyon.epifm.EPIFMSimulator(self.__config, rng=rng)
         return scopyon.epifm.EPIFMSimulator(
                 configs=scopyon.epifm.EPIFMConfigs(self.__config.default.epifm, rng=rng),
                 effects=scopyon.epifm.PhysicalEffectConfigs(self.__config.default.effects),
