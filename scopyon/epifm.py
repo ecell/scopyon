@@ -665,15 +665,6 @@ class CMOS:
         for i in range(expected.shape[0]):
             for j in range(expected.shape[1]):
                 signal[i, j] = rng.poisson(expected[i, j], None)
-        # if processes is not None and processes > 1:
-        #     with Pool(processes) as pool:
-        #         signal = pool.map(functools.partial(CMOS.draw_signal, rng=None, emgain=emgain), expected.flatten())
-        #     signal = numpy.array(signal).reshape(expected.shape)
-        # else:
-        #     signal = numpy.zeros(expected.shape, dtype=expected.dtype)
-        #     for i in range(expected.shape[0]):
-        #         for j in range(expected.shape[1]):
-        #             signal[i, j] = CMOS.draw_signal(expected[i, j], emgain, rng)
         return signal
 
 class EMCCD:
@@ -727,13 +718,16 @@ class EMCCD:
     def get_signal(expected, emgain, rng=None, processes=None):
         if processes is not None and processes > 1:
             with Pool(processes) as pool:
-                signal = pool.map(functools.partial(EMCCD.draw_signal, rng=None, emgain=emgain), expected.flatten())
-            signal = numpy.array(signal).reshape(expected.shape)
+                signal = pool.map(functools.partial(EMCCD.get_signal, rng=None, emgain=emgain), numpy.array_split(expected.flatten(), processes))
+            signal = numpy.hstack(signal).reshape(expected.shape)
         else:
-            signal = numpy.zeros(expected.shape, dtype=expected.dtype)
-            for i in range(expected.shape[0]):
-                for j in range(expected.shape[1]):
-                    signal[i, j] = EMCCD.draw_signal(expected[i, j], emgain, rng)
+            # epected could be one-dimensional. See above.
+            shape = expected.shape
+            expected = expected.flatten()
+            signal = numpy.zeros(expected.size, dtype=expected.dtype)
+            for i in range(signal.size):
+                signal[i] = EMCCD.draw_signal(expected[i], emgain, rng)
+            signal = signal.reshape(shape)
         return signal
 
 class CCD:
@@ -751,15 +745,6 @@ class CCD:
         for i in range(expected.shape[0]):
             for j in range(expected.shape[1]):
                 signal[i, j] = rng.poisson(expected[i, j], None)
-        # if processes is not None and processes > 1:
-        #     with Pool(processes) as pool:
-        #         signal = pool.map(functools.partial(CCD.draw_signal, rng=None, emgain=emgain), expected.flatten())
-        #     signal = numpy.array(signal).reshape(expected.shape)
-        # else:
-        #     signal = numpy.zeros(expected.shape, dtype=expected.dtype)
-        #     for i in range(expected.shape[0]):
-        #         for j in range(expected.shape[1]):
-        #             signal[i, j] = CCD.draw_signal(expected[i, j], emgain, rng)
         return signal
 
 class EPIFMSimulator:
@@ -830,8 +815,7 @@ class EPIFMSimulator:
         Args:
             input_data (list): An input data. A list of pairs of time and a list of particles.
                 Each particle is represented as a list of numbers: a coordinate (a triplet of floats),
-                molecule id, species id, and location id (and optionally a state of fluorecent
-                and photon budget).
+                molecule id, and a state of fluorecent.
                 The number of particles in each frame must be static.
             pathto (str, optional): A path to save images and ndarrays. Defaults to './images'.
             image_fmt (str, optional): A format of the filename to save 8-bit images.
@@ -898,8 +882,7 @@ class EPIFMSimulator:
         Args:
             input_data (list): An input data. A list of pairs of time and a list of particles.
                 Each particle is represented as a list of numbers: a coordinate (x, y, z),
-                molecule id, species id, and location id (and optionally a state of fluorecent
-                and photon budget).
+                molecule id, and a state of fluorecent.
                 The number of particles in each frame must be static.
             frame_index (int, optional): An index of the frame. The value must be 0 and more.
                 Defaults to 0.
@@ -959,20 +942,19 @@ class EPIFMSimulator:
             if unit_time < 1e-13:  #XXX: Skip merging when the exposure time is too short
                 continue
 
-            # # define true-dataset in last-frame
-            # # [frame-time, m-ID, m-state, p-state, (depth,y0,z0), sqrt(<dr2>)]
-            # true_data = numpy.zeros(shape=(len(particles), 7))  #XXX: <== true_data just keeps the last state in the frame
-            # true_data[: , 0] = t
-
             if true_data is None:
+                #XXX: The number and order of particles is expected to be constant
                 true_data = numpy.zeros(shape=(len(particles), 6))
                 true_data[: , 0] = t
-            # elif len(particles) > true_data.shape[0]:
-            #     particles = numpy.vstack(particles, numpy.zeros(shape=(len(particles) - true_data.shape[0], 7)))
 
             # loop for particles
-            for particle_j, true_data_j in zip(particles, true_data):
-                self.__overlay_molecule_plane(camera_pixel[: , : , 0], particle_j, p_b, p_0, true_data_j, unit_time, rng, fluorescence_states)
+            expected, optinfo, states = self.get_molecule_plane(
+                    particles, shape=camera_pixel.shape[: 2], p_b=p_b, p_0=p_0, unit_time=unit_time,
+                    fluorescence_states=fluorescence_states, rng=rng, processes=processes)
+            camera_pixel[:, :, 0] = expected
+            true_data[:, 1: ] = optinfo[:, 1: ]
+            if fluorescence_states is not None:
+                fluorescence_states.update(states)
 
         true_data[: , 2: 6] /= exposure_time
 
@@ -980,13 +962,41 @@ class EPIFMSimulator:
         camera, true_data = self.__detector_output(rng, camera_pixel, true_data, processes=processes)
         return (camera, true_data)
 
+    def get_molecule_plane(self, particles, shape, p_b, p_0, unit_time, fluorescence_states, rng=None, processes=None):
+        expected = numpy.zeros(shape)
+        optinfo = numpy.zeros(shape=(len(particles), 6))  # true_data
+        if fluorescence_states is None:
+            states = None
+        else:
+            states = {m_id: fluorescence_states[m_id]
+                    for _, _, _, m_id, _ in particles if m_id in fluorescence_states}
+
+        if processes is not None and processes > 1:
+            func = functools.partial(
+                    self.get_molecule_plane,
+                    shape=shape, p_b=p_b, p_0=p_0, unit_time=unit_time,
+                    fluorescence_states=states, rng=None, processes=None)
+            with Pool(processes) as pool:
+                results = pool.map(func, numpy.array_split(particles, processes))
+            i = 0
+            for expected_, optinfo_, states_ in results:
+                expected += expected_
+                optinfo[i: i + optinfo_.shape[0], 1: ] = optinfo_[:, 1: ]
+                i += optinfo_.shape[0]
+                if states is not None:
+                    states.update(states_)
+        else:
+            for i in range(len(particles)):
+                self.__overlay_molecule_plane(
+                        expected, particles[i], p_b, p_0, optinfo[i], unit_time, rng, states)
+        return expected, optinfo, states
+
     def __overlay_molecule_plane(self, camera, particle_i, _p_b, p_0, true_data_i, unit_time, rng=None, fluorescence_states=None):
         # m-scale
         # p_b (ndarray): beam position (assumed to be the same with focal center), but not used.
         # p_0 (ndarray): focal center
 
-        # particles coordinate, species and lattice-IDs
-        # x, y, z, m_id, s_id, _, p_state, _ = particle_i
+        # particles coordinate, molecule id, photon state
         x, y, z, m_id, p_state = particle_i
 
         p_i = numpy.array([x, y, z])
@@ -1194,6 +1204,6 @@ class EPIFMSimulator:
     @staticmethod
     def get_photon_budget(N_emit0, half_life, rng):
         beta = half_life / numpy.log(2.0)
-        bleaching_time = rng.exponential(scale=beta, size=None)
+        bleaching_time = (rng or numpy.random).exponential(scale=beta, size=None)
         budget = bleaching_time * N_emit0
         return budget
