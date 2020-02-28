@@ -42,10 +42,6 @@ class PhysicalEffects:
         self.set_photoactivation(**config.photo_activation)
         self.set_photoblinking(**config.photo_blinking)
 
-    def _set_data(self, key, val):
-        if val != None:
-            setattr(self, key, val)
-
     def set_background(self, mean=None, switch=True):
         self.background_switch = switch
         self.background_mean = mean
