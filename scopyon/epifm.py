@@ -683,7 +683,7 @@ class EPIFMConfigs:
             warnings.warn('A random number generator [rng] is not given.')
             rng = numpy.random.RandomState()
 
-        self.set_fluorophore(**config.fluorophore)  # => self.wave_length
+        self.set_fluorophore(**config.fluorophore)  # => self.__wave_length
 
         self.hc_const = config.hc_const
 
@@ -735,54 +735,40 @@ class EPIFMConfigs:
     def set_fluorophore(
             self, type=None, wave_length=None, normalization=None, radius=None, width=None,
             min_wave_length=None, max_wave_length=None, radial_cutoff=None, depth_cutoff=None):
-        self.wave_length = numpy.arange(min_wave_length, max_wave_length, 1e-9, dtype=float)
-        self.wave_number = 2 * numpy.pi / (self.wave_length / 1e-9)  # 1/nm
+        self.__wave_length = numpy.arange(min_wave_length, max_wave_length, 1e-9, dtype=float)
 
         self.fluorophore_type = type
         self.fluorophore_radius = radius
         self.psf_normalization = normalization
 
         if type == 'Gaussian':
-            N = len(self.wave_length)
+            N = len(self.__wave_length)
             fluorophore_excitation = numpy.zeros(N, dtype=float)
             fluorophore_emission = numpy.zeros(N, dtype=float)
-            idx = (numpy.abs(self.wave_length / 1e-9 - wave_length / 1e-9)).argmin()
-            # idx = (numpy.abs(self.wave_length / 1e-9 - self.psf_wavelength / 1e-9)).argmin()
-            fluorophore_excitation[idx] = 100
-            fluorophore_emission[idx] = 100
-            self.fluoex_eff = fluorophore_excitation
-            self.fluoem_eff = fluorophore_emission
-
-            fluorophore_excitation /= sum(fluorophore_excitation)
-            fluorophore_emission /= sum(fluorophore_emission)
-            self.fluoex_norm = fluorophore_excitation
-            self.fluoem_norm = fluorophore_emission
-
-            self.psf_wavelength = wave_length
+            idx = (numpy.abs(self.__wave_length - wave_length)).argmin()
+            index_ex = index_em = idx
             self.psf_width = width
-
         else:
             (fluorophore_excitation, fluorophore_emission) = io.read_fluorophore_catalog(type)
-            fluorophore_excitation = self.calculate_efficiency(fluorophore_excitation, self.wave_length)
-            fluorophore_emission = self.calculate_efficiency(fluorophore_emission, self.wave_length)
+            fluorophore_excitation = self.calculate_efficiency(fluorophore_excitation, self.__wave_length)
+            fluorophore_emission = self.calculate_efficiency(fluorophore_emission, self.__wave_length)
             fluorophore_excitation = numpy.array(fluorophore_excitation)
             fluorophore_emission = numpy.array(fluorophore_emission)
             index_ex = fluorophore_excitation.argmax()
             index_em = fluorophore_emission.argmax()
-            fluorophore_excitation[index_ex] = 100
-            fluorophore_emission[index_em] = 100
-            self.fluoex_eff = fluorophore_excitation
-            self.fluoem_eff = fluorophore_emission
-
-            fluorophore_excitation /= sum(fluorophore_excitation)
-            fluorophore_emission /= sum(fluorophore_emission)
-            self.fluoex_norm = fluorophore_excitation
-            self.fluoem_norm = fluorophore_emission
-
             if wave_length is not None:
                 warnings.warn('The given wave length [{}] was ignored'.format(wave_length))
-            self.psf_wavelength = self.wave_length[index_em]
             self.psf_width = None
+
+        fluorophore_excitation[index_ex] = 100
+        fluorophore_emission[index_em] = 100
+        self.fluoex_eff = fluorophore_excitation
+        self.fluoem_eff = fluorophore_emission
+        fluorophore_excitation /= sum(fluorophore_excitation)
+        fluorophore_emission /= sum(fluorophore_emission)
+        self.fluoex_norm = fluorophore_excitation
+        self.fluoem_norm = fluorophore_emission
+        self.psf_wavelength = self.__wave_length[index_em]
 
         _log.info('--- Fluorophore: {} PSF'.format(self.fluorophore_type))
         _log.info('    Wave Length   =  {} m'.format(self.psf_wavelength))
@@ -798,9 +784,9 @@ class EPIFMConfigs:
         self.dichroic_switch = switch
         if type is not None:
             dichroic_mirror = io.read_dichroic_catalog(type)
-            self.dichroic_eff = self.calculate_efficiency(dichroic_mirror, self.wave_length)
+            self.dichroic_eff = self.calculate_efficiency(dichroic_mirror, self.__wave_length)
         else:
-            self.dichroic_eff = numpy.zeros(len(self.wave_length), dtype=float)
+            self.dichroic_eff = numpy.zeros(len(self.__wave_length), dtype=float)
         _log.info('--- Dichroic Mirror:')
 
     def set_detector(
@@ -895,18 +881,18 @@ class EPIFMConfigs:
         self.excitation_switch = switch
         if type is not None:
             excitation_filter = io.read_excitation_catalog(type)
-            self.excitation_eff = self.calculate_efficiency(excitation_filter, self.wave_length)
+            self.excitation_eff = self.calculate_efficiency(excitation_filter, self.__wave_length)
         else:
-            self.excitation_eff = numpy.zeros(len(self.wave_length), dtype=float)
+            self.excitation_eff = numpy.zeros(len(self.__wave_length), dtype=float)
         _log.info('--- Excitation Filter:')
 
     def set_emission_filter(self, type=None, switch=True):
         self.emission_switch = switch
         if type is not None:
             emission_filter = io.read_emission_catalog(type)
-            self.emission_eff = self.calculate_efficiency(emission_filter, self.wave_length)
+            self.emission_eff = self.calculate_efficiency(emission_filter, self.__wave_length)
         else:
-            self.emission_eff = numpy.zeros(len(self.wave_length), dtype=float)
+            self.emission_eff = numpy.zeros(len(self.__wave_length), dtype=float)
         _log.info('--- Emission Filter:')
 
     @staticmethod
@@ -952,19 +938,9 @@ class EPIFMSimulator:
         if environ is not None:
             self.environ = environ
 
-    def num_frames(self):
-        """Return the number of frames within the interval given.
-
-        Returns:
-            int: The number of frames available within the interval.
-
-        """
-        return math.ceil(
-            (self.configs.shutter_end_time - self.configs.shutter_start_time)
-            / self.configs.detector_exposure_time)
-
     def output_frames(
-            self, input_data, pathto='./images', data_fmt='image_%07d.npy', true_fmt='true_%07d.npy',
+            self, input_data, start_time=None, end_time=None, exposure_time=None,
+            pathto='./images', data_fmt='image_%07d.npy', true_fmt='true_%07d.npy',
             image_fmt='image_%07d.png', cmin=None, cmax=None, low=None, high=None, cmap=None,
             rng=None, processes=None):
         """Output all images from the given particle data.
@@ -974,6 +950,12 @@ class EPIFMSimulator:
                 Each particle is represented as a list of numbers: a coordinate (a triplet of floats),
                 molecule id, and a state of fluorecent.
                 The number of particles in each frame must be static.
+            start_time (float, optional): A time to open a shutter.
+                Defaults to `shutter_start_time` in the configuration.
+            end_time (float, optional): A time to open a shutter.
+                Defaults to `shutter_end_time` in the configuration.
+            exposure_time (float, optional): An exposure time.
+                Defaults to `detector_exposure_time` in the configuration.
             pathto (str, optional): A path to save images and ndarrays. Defaults to './images'.
             image_fmt (str, optional): A format of the filename to save 8-bit images.
                 An int is available as its frame index. Defaults to 'image_%07d.png'.
@@ -1010,9 +992,18 @@ class EPIFMSimulator:
         if self.effects.photobleaching_switch:
             fluorescence_states = {}
 
+        start_time = start_time or self.configs.shutter_start_time
+        end_time = end_time or self.configs.shutter_end_time
+        exposure_time = exposure_time or self.configs.detector_exposure_time
+        num_frames = math.ceil((end_time - start_time) / exposure_time)
+
         results = []
-        for frame_index in range(self.num_frames()):
-            camera, true_data = self.output_frame(input_data, frame_index, fluorescence_states=fluorescence_states, rng=rng, processes=processes)
+        for frame_index in range(num_frames):
+            t = start_time + exposure_time * frame_index
+            interval = min(exposure_time, end_time - t)
+            camera, true_data = self.output_frame(
+                    input_data, frame_index=frame_index, start_time=start_time, exposure_time=interval,
+                    fluorescence_states=fluorescence_states, rng=rng, processes=processes)
 
             # save photon counts to numpy-binary file
             if data_fmt is not None:
@@ -1033,7 +1024,9 @@ class EPIFMSimulator:
             results.append((camera, true_data))
         return results
 
-    def output_frame(self, input_data, frame_index=0, start_time=None, exposure_time=None, fluorescence_states=None, rng=None, processes=None):
+    def output_frame(
+            self, input_data, frame_index=0, start_time=None, exposure_time=None,
+            fluorescence_states=None, rng=None, processes=None):
         """Output an image from the given particle data.
 
         Args:
