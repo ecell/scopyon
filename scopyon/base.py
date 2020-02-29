@@ -65,7 +65,7 @@ class EPIFMSimulator(object):
         self.__config = config
 
     def base(self, rng=None):
-        return scopyon.epifm.EPIFMSimulator(
+        return scopyon.epifm._EPIFMSimulator(
                 configs=scopyon.epifm.EPIFMConfigs(self.__config.default.epifm, rng=rng),
                 effects=scopyon.epifm.PhysicalEffectConfigs(self.__config.default.effects),
                 environ=scopyon.epifm.EnvironConfigs(self.__config.environ))

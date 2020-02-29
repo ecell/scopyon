@@ -918,13 +918,13 @@ class EnvironConfigs:
     def initialize(self, config):
         self.processes = config.processes
 
-class EPIFMSimulator:
+class _EPIFMSimulator:
     '''
     A class of the simulator for Epifluorescence microscopy (EPI).
     '''
 
     def __init__(self, configs, effects, environ=None):
-        """A constructor of EPIFMSimulator.
+        """A constructor of _EPIFMSimulator.
 
         Args:
             config (Config, optional): A config object for initializing this class.
@@ -1037,7 +1037,6 @@ class EPIFMSimulator:
                 The number of particles in each frame must be static.
             frame_index (int, optional): An index of the frame. The value must be 0 and more.
                 Defaults to 0.
-                See also `EPIFMSimulator.num_frames`.
             start_time (float, optional): A time to open a shutter.
                 Defaults to `shutter_start_time` in the configuration.
             exposure_time (float, optional): An exposure time.

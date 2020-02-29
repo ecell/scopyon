@@ -38,10 +38,9 @@ def background(roi):
     a5, a6, a7 = planar_background(roi)
     return roi.astype(dtype=numpy.float64) - (numpy.tile(numpy.arange(m)[:, numpy.newaxis], (1, n)) * a5 + numpy.tile(numpy.arange(n), (m, 1)) * a6 + a7)
 
-
 def gaussian(a1, a2, a3, a4):
     return lambda x, y: (
-        a1 * numpy.exp(-((x - a2) ** 2 + (y - a3) ** 2) / a4)) 
+        a1 * numpy.exp(-((x - a2) ** 2 + (y - a3) ** 2) / a4))
 
 def weighted_com(data):
     total = data.sum()
