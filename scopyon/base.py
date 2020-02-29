@@ -138,9 +138,12 @@ class EPIFMSimulator(object):
                 Defaults to `shutter.exposure_time` in the configuration.
             rng (numpy.RandomState, optional): A random number generator.
                 The default is None.
+            full_output (bool, optional):
+                True if to return a dictionary of optional outputs as the second output
 
         Returns:
             Image: An image.
+            dict: only returned if full_output == True
         """
         data = self.format_inputs(inputs)
         base = self.base(rng)
@@ -170,9 +173,12 @@ class EPIFMSimulator(object):
                 Defaults to `detector_exposure_time` in the configuration.
             rng (numpy.RandomState, optional): A random number generator.
                 The default is None.
+            full_output (bool, optional):
+                True if to return a dictionary of optional outputs as the second output
 
         Returns:
-            Image: An image.
+            list: A list of images.
+            list: A list of dict. only returned if full_output == True
         """
         data = self.format_inputs(inputs)
         base = self.base(rng)
@@ -225,9 +231,12 @@ def form_image(
             The default is None.
         rng (numpy.RandomState, optional): A random number generator.
             The default is None.
+        full_output (bool, optional):
+            True if to return a dictionary of optional outputs as the second output
 
     Returns:
         Image: An image
+        dict: only returned if full_output == True
     """
     sim = create_simulator(config, method=method)
     return sim.form_image(inputs, start_time, exposure_time, rng=rng, full_output=full_output)
@@ -252,9 +261,12 @@ def form_images(
             The default is None.
         rng (numpy.RandomState, optional): A random number generator.
             The default is None.
+        full_output (bool, optional):
+            True if to return a dictionary of optional outputs as the second output
 
     Returns:
-        Image: An image
+        list: A list of images.
+        list: A list of dict. only returned if full_output == True
     """
     sim = create_simulator(config, method=method)
     return sim.form_images(inputs, start_time, end_time, exposure_time, rng=rng, full_output=full_output)

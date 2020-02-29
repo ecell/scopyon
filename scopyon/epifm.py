@@ -1001,7 +1001,7 @@ class EPIFMSimulator:
         for frame_index in range(num_frames):
             t = start_time + exposure_time * frame_index
             interval = min(exposure_time, end_time - t)
-            camera, true_data = self.output_frame(
+            camera, optinfo = self.output_frame(
                     input_data, frame_index=frame_index, start_time=start_time, exposure_time=interval,
                     fluorescence_states=fluorescence_states, rng=rng, processes=processes)
 
@@ -1012,8 +1012,9 @@ class EPIFMSimulator:
 
             # save true-dataset to numpy-binary file
             if true_fmt is not None:
-                true_file_name = os.path.join(pathto, true_fmt % (frame_index))
-                numpy.save(true_file_name, true_data)
+                raise RuntimeError("Not supported.")
+                # true_file_name = os.path.join(pathto, true_fmt % (frame_index))
+                # numpy.save(true_file_name, true_data)
 
             # save images to numpy-binary file
             if image_fmt is not None:
@@ -1021,7 +1022,7 @@ class EPIFMSimulator:
                 image_file_name = os.path.join(pathto, image_fmt % (frame_index))
                 save_image(image_file_name, bytedata, cmap, low, high)
 
-            results.append((camera, true_data))
+            results.append((camera, optinfo))
         return results
 
     def output_frame(
@@ -1069,15 +1070,18 @@ class EPIFMSimulator:
 
         # focal point
         p_0 = numpy.asarray(self.configs.detector_focal_point)  # meter-scale
+        _log.info('center (width, height): {} {}'.format(p_0[0], p_0[1]))
 
         # beam position: Assuming beam position = focal point (for temporary)
         p_b = copy.copy(p_0)
 
         # camera pixels
         Nw_pixel, Nh_pixel = self.configs.detector_image_size  # pixels
+        pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification  # m-scale
         camera_pixel = numpy.zeros((Nw_pixel, Nh_pixel, 2))
+        _log.info('scaling [m/pixel]: {}'.format(pixel_length))
 
-        true_data = None
+        optinfo = {}
 
         # loop for frame data
         for i, (i_time, particles) in enumerate(frame_data):
@@ -1092,62 +1096,65 @@ class EPIFMSimulator:
             if unit_time < 1e-13:  #XXX: Skip merging when the exposure time is too short
                 continue
 
-            if true_data is None:
-                #XXX: The number and order of particles is expected to be constant
-                true_data = numpy.zeros(shape=(len(particles), 6))
-                true_data[: , 0] = t
-
             # loop for particles
-            expected, optinfo, states = self.get_molecule_plane(
+            expected, optinfo_, states = self.get_molecule_plane(
                     particles, shape=camera_pixel.shape[: 2], p_b=p_b, p_0=p_0, unit_time=unit_time,
-                    fluorescence_states=fluorescence_states, rng=rng, processes=processes)
+                    optional_info=optinfo, fluorescence_states=fluorescence_states, rng=rng, processes=processes)
             camera_pixel[:, :, 0] = expected
-            true_data[:, 1: ] = optinfo[:, 1: ]
+            optinfo.update(optinfo_)
             if fluorescence_states is not None:
                 fluorescence_states.update(states)
 
-        true_data[: , 2: 6] /= exposure_time
+        for m_id in optinfo:
+            optinfo[m_id][1] /= exposure_time  # photon state
+            optinfo[m_id][2: ] /= optinfo[m_id][0]
+            optinfo[m_id][2] = (optinfo[m_id][2] - p_0[1]) / pixel_length + Nw_pixel * 0.5  # X-coordinate in pixel
+            optinfo[m_id][3] = (optinfo[m_id][3] - p_0[2]) / pixel_length + Nh_pixel * 0.5  # Y-coordinate in pixel
 
         # apply detector effects
-        camera, true_data = self.__detector_output(rng, camera_pixel, true_data, processes=processes)
-        return (camera, true_data)
+        camera = self.__detector_output(rng, camera_pixel, processes=processes)
+        return (camera, optinfo)
 
-    def get_molecule_plane(self, particles, shape, p_b, p_0, unit_time, fluorescence_states, rng=None, processes=None):
+    def get_molecule_plane(
+            self, particles, shape, p_b, p_0, unit_time,
+            optional_info, fluorescence_states, rng=None, processes=None):
         expected = numpy.zeros(shape)
-        optinfo = numpy.zeros(shape=(len(particles), 6))  # true_data
+        optinfo = {int(m_id): optional_info[int(m_id)]
+                for _, _, _, m_id, _ in particles if int(m_id) in optional_info}
         if fluorescence_states is None:
             states = None
         else:
-            states = {m_id: fluorescence_states[m_id]
-                    for _, _, _, m_id, _ in particles if m_id in fluorescence_states}
+            states = {int(m_id): fluorescence_states[int(m_id)]
+                    for _, _, _, m_id, _ in particles if int(m_id) in fluorescence_states}
 
         if processes is not None and processes > 1:
             func = functools.partial(
                     self.get_molecule_plane,
                     shape=shape, p_b=p_b, p_0=p_0, unit_time=unit_time,
-                    fluorescence_states=states, rng=None, processes=None)
+                    optional_info=optinfo, fluorescence_states=states, rng=None, processes=None)
             with Pool(processes) as pool:
                 results = pool.map(func, numpy.array_split(particles, processes))
-            i = 0
             for expected_, optinfo_, states_ in results:
                 expected += expected_
-                optinfo[i: i + optinfo_.shape[0], 1: ] = optinfo_[:, 1: ]
-                i += optinfo_.shape[0]
+                optinfo.update(optinfo_)
                 if states is not None:
                     states.update(states_)
         else:
             for i in range(len(particles)):
                 self.__overlay_molecule_plane(
-                        expected, particles[i], p_b, p_0, optinfo[i], unit_time, rng, states)
+                        expected, particles[i], p_b, p_0, unit_time, optinfo, states, rng)
         return expected, optinfo, states
 
-    def __overlay_molecule_plane(self, camera, particle_i, _p_b, p_0, true_data_i, unit_time, rng=None, fluorescence_states=None):
+    def __overlay_molecule_plane(
+            self, camera, particle_i, _p_b, p_0, unit_time,
+            optional_info, fluorescence_states=None, rng=None):
         # m-scale
         # p_b (ndarray): beam position (assumed to be the same with focal center), but not used.
         # p_0 (ndarray): focal center
 
         # particles coordinate, molecule id, photon state
         x, y, z, m_id, p_state = particle_i
+        m_id = int(m_id)
 
         p_i = numpy.array([x, y, z])
 
@@ -1185,11 +1192,17 @@ class EPIFMSimulator:
         self.configs.fluorophore_psf.overlay_signal(camera, p_i - p_0, pixel_length, normalization)
 
         # set true-dataset
-        true_data_i[1] = m_id # molecule-ID
-        true_data_i[2] += unit_time * p_state # photon-state
-        true_data_i[3] += unit_time * p_i[2] # Y-coordinate in the image-plane
-        true_data_i[4] += unit_time * p_i[1] # X-coordinate in the image-plane
-        true_data_i[5] += unit_time * depth # Depth from focal-plane
+        if m_id not in optional_info:
+            optional_info[m_id] = numpy.zeros(7, dtype=numpy.float64)
+        optional_info[m_id] += numpy.array([
+            unit_time,
+            unit_time * p_state,  # photon-state
+            unit_time * p_i[1],  # X-coordinate in the image-plane
+            unit_time * p_i[2],  # Y-coordinate in the image-plane
+            unit_time * p_i[1],  # X-coordinate in the image-plane
+            unit_time * p_i[2],  # Y-coordinate in the image-plane
+            unit_time * depth,  # Depth from focal-plane
+            ])
 
     def __get_emit_photons(self, amplitude, unit_time):
         # Absorption coeff [1/(cm M)]
@@ -1288,15 +1301,7 @@ class EPIFMSimulator:
 
         return amplitude, penetration_depth
 
-    def __detector_output(self, rng, camera_pixel, true_data, processes=1):
-        Nw_pixel, Nh_pixel = self.configs.detector_image_size  # pixels
-        pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification  # m-scale
-        _, y0, z0 = self.configs.detector_focal_point  # m-scale
-        _log.info('scaling [m/pixel]: {}'.format(pixel_length))
-        _log.info('center (width, height): {} {}'.format(z0, y0))
-        true_data[: , 3] = (true_data[: , 3] - (z0 - Nw_pixel * pixel_length / 2)) / pixel_length
-        true_data[: , 4] = (true_data[: , 4] - (y0 - Nh_pixel * pixel_length / 2)) / pixel_length
-
+    def __detector_output(self, rng, camera_pixel, processes=1):
         ## Detector: Quantum Efficiency
         # index = int(self.configs.psf_wavelength / 1e-9) - int(self.configs.wave_length[0] / 1e-9)
         # QE = self.configs.detector_qeff[index]
@@ -1335,7 +1340,7 @@ class EPIFMSimulator:
                 gain=self.configs.ADConverter_gain,
                 offset=self.configs.ADConverter_offset,
                 bit=self.configs.ADConverter_bit)
-        return camera_pixel, true_data
+        return camera_pixel
 
     @staticmethod
     def __get_analog_to_digital_converter_counts(photoelectron, fullwell, gain, offset, bit):
