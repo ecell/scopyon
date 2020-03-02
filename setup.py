@@ -44,7 +44,7 @@ setup(
     maintainer_email='kaizu@riken.jp',
     packages=['scopyon'],
     package_dir={'scopyon': 'scopyon'},
-    package_data={'scopyon': ['default_parameters.ini', 'catalog/*.txt', 'catalog/*/*.csv']},
+    package_data={'scopyon': ['scopyon.yml', 'catalog/*.txt', 'catalog/*/*.csv']},
     data_files=[('examples', ['examples/tirf_script.py']), ('examples/data/inputs_epifm', glob.glob('examples/data/inputs_epifm/*.csv')), ('examples/data/outputs_tirf', glob.glob('examples/data/outputs_tirf/*.png'))],
     install_requires=install_requires,
     test_suite='test',

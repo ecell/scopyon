@@ -1,4 +1,7 @@
 import collections.abc
+import contextlib
+import io
+import pkgutil
 
 from logging import getLogger
 _log = getLogger(__name__)
@@ -99,3 +102,16 @@ class Configuration(collections.abc.Mapping):
             else:
                 value_['value'] = value
         self.__yaml[key] = value
+
+class DefaultConfiguration(Configuration):
+
+    def __init__(self):
+        import yaml
+        try:
+            from yaml import CLoader as Loader
+        except ImportError:
+            from yaml import Loader
+        with contextlib.closing(io.StringIO(pkgutil.get_data("scopyon", "scopyon.yml").decode())) as f:
+            data = yaml.load(f.read(), Loader=Loader)
+
+        Configuration.__init__(self, yaml=data)
