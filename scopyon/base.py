@@ -2,49 +2,11 @@ import numpy
 
 import scopyon.epifm
 import scopyon.config
+import scopyon.image
 
 from logging import getLogger
 _log = getLogger(__name__)
 
-
-class Image(object):
-
-    def __init__(self, data):
-        assert data.ndim == 2
-        self.__data = data
-
-    def as_array(self):
-        return self.__data
-
-    def save(self, filename, low=None, high=None):
-        data = self.as_array()
-        low = data.min() if low is None else low
-        high = data.max() if high is None else high
-        data = (high - data) / (high - low) * 255
-        data = numpy.uint8(self.__data)
-
-        import PIL.Image
-        img = PIL.Image.fromarray(data)
-        img.save(filename)
-
-    def plot(self):
-        try:
-            import plotly.express as px
-        except ImportError:
-            import matplotlib.pylab as plt
-            _ = plt.figure()
-            plt.imshow(self.__data, interpolation='none', cmap="gray")
-            plt.show()
-        else:
-            fig = px.imshow(self.__data, color_continuous_scale='gray')
-            fig.show()
-
-    def _ipython_display_(self):
-        """
-        Displays the object as a side effect.
-        https://ipython.readthedocs.io/en/stable/config/integrating.html
-        """
-        self.plot()
 
 class EPIFMSimulator(object):
 
@@ -151,7 +113,7 @@ class EPIFMSimulator(object):
                 data, start_time=start_time, exposure_time=exposure_time, rng=rng)
         # camera[:, :, 0] => expected
         # camera[:, :, 1] => ADC
-        img = Image(camera[:, :, 1])
+        img = scopyon.image.Image(camera[:, :, 1])
         if full_output:
             infodict = dict(expectation=camera[:, :, 0], true_data=true_data)
             return img, infodict
@@ -183,7 +145,7 @@ class EPIFMSimulator(object):
         data = self.format_inputs(inputs)
         base = self.base(rng)
         results = base.output_frames(data, data_fmt=None, true_fmt=None, image_fmt=None, rng=rng)
-        imgs = [Image(result[0][:, :, 1]) for result in results]
+        imgs = [scopyon.image.Image(result[0][:, :, 1]) for result in results]
         if full_output:
             infodict = dict(
                     expectation=[result[0][:, :, 0] for result in results],
