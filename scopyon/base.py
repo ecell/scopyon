@@ -91,38 +91,18 @@ class EPIFMSimulator(object):
                     " A ndarray is expected.".format(type(inputs)))
         return data
 
-    def num_frames(self, start_time=None, end_time=None, exposure_time=None):
-        """Return the number of frames within the interval given.
-
-        Args:
-            start_time (float, optional): A time to open a shutter.
-                Defaults to `shutter_start_time` in the configuration.
-            end_time (float, optional): A time to open a shutter.
-                Defaults to `shutter_end_time` in the configuration.
-            exposure_time (float, optional): An exposure time.
-                Defaults to `detector_exposure_time` in the configuration.
-
-        Returns:
-            int: The number of frames available within the interval.
-        """
-        start_time = start_time or self.__config.shutter.start_time
-        end_time = end_time or self.__config.shutter.end_time
-        exposure_time = exposure_time or self.__config.detector.exposure_time
-        num_frames = math.ceil((end_time - start_time) / exposure_time)
-        return num_frames
-
     def form_image(
-            self, inputs, start_time=None, exposure_time=None,
+            self, inputs, start_time=0.0, exposure_time=None,
             rng=None, full_output=False):
         """Form image.
 
         Args:
             inputs (array_like): A list of points. The shape must be '(n, 3)', where
                 'n' means the number of points.
-            start_time (float, optional): A time to open a shutter.
-                Defaults to `shutter.start_time` in the configuration.
+            start_time (float, optional): A time to start detecting.
+                Defaults to 0.0.
             exposure_time (float, optional): An exposure time.
-                Defaults to `shutter.exposure_time` in the configuration.
+                Defaults to `detector.exposure_time` in the configuration.
             rng (numpy.RandomState, optional): A random number generator.
                 The default is None.
             full_output (bool, optional):
@@ -145,17 +125,16 @@ class EPIFMSimulator(object):
         return img
 
     def form_images(
-            self, inputs, start_time=None, end_time=None, exposure_time=None,
+            self, inputs, num_frames, start_time=0.0, exposure_time=None,
             rng=None, full_output=False):
         """Form image.
 
         Args:
             inputs (array_like): A list of points. The shape must be '(n, 3)', where
                 'n' means the number of points.
-            start_time (float, optional): A time to open a shutter.
-                Defaults to `shutter_start_time` in the configuration.
-            end_time (float, optional): A time to open a shutter.
-                Defaults to `shutter_end_time` in the configuration.
+            num_frames (int): The number of frames taken.
+            start_time (float, optional): A time to start detecting.
+                Defaults to `0.0` in the configuration.
             exposure_time (float, optional): An exposure time.
                 Defaults to `detector_exposure_time` in the configuration.
             rng (numpy.RandomState, optional): A random number generator.
@@ -169,7 +148,9 @@ class EPIFMSimulator(object):
         """
         data = self.__format_inputs(inputs)
         base = self.base(rng)
-        results = base.output_frames(data, data_fmt=None, true_fmt=None, image_fmt=None, rng=rng)
+        results = base.output_frames(
+                data, num_frames, start_time=start_time, exposure_time=exposure_time,
+                data_fmt=None, true_fmt=None, image_fmt=None, rng=rng)
         imgs = [scopyon.image.Image(result[0][:, :, 1]) for result in results]
         if full_output:
             infodict = dict(
@@ -208,10 +189,10 @@ def form_image(
     Args:
         inputs (array_like): A list of points. The shape must be '(n, 3)',
             where 'n' means the number of points.
-        start_time (float, optional): A time to open a shutter.
-            Defaults to `shutter.start_time` in the configuration.
+        start_time (float, optional): A time to start detecting.
+            Defaults to 0.0.
         exposure_time (float, optional): An exposure time.
-            Defaults to `shutter.exposure_time` in the configuration.
+            Defaults to `detector.exposure_time` in the configuration.
         method (str, optional): A name of method used.
             The default is None ('default').
         config (Configuration, optional): Configurations.
@@ -229,17 +210,16 @@ def form_image(
     return sim.form_image(inputs, start_time, exposure_time, rng=rng, full_output=full_output)
 
 def form_images(
-        inputs, start_time=None, end_time=None, exposure_time=None, *,
+        inputs, num_frames, start_time=0.0, exposure_time=None, *,
         method=None, config=None, rng=None, full_output=False):
     """Form images.
 
     Args:
         inputs (array_like): A list of points. The shape must be '(n, 3)',
             where 'n' means the number of points.
-        start_time (float, optional): A time to open a shutter.
-            Defaults to `shutter_start_time` in the configuration.
-        end_time (float, optional): A time to open a shutter.
-            Defaults to `shutter_end_time` in the configuration.
+        num_frames (int): The number of frames taken.
+        start_time (float, optional): A time to start detecting.
+            Defaults to 0.0.
         exposure_time (float, optional): An exposure time.
             Defaults to `detector_exposure_time` in the configuration.
         method (str, optional): A name of method used.
@@ -256,7 +236,7 @@ def form_images(
         list: A list of dict. only returned if full_output == True
     """
     sim = create_simulator(config, method=method)
-    return sim.form_images(inputs, start_time, end_time, exposure_time, rng=rng, full_output=full_output)
+    return sim.form_images(inputs, num_frames, start_time, exposure_time, rng=rng, full_output=full_output)
 
 
 if __name__ == "__main__":

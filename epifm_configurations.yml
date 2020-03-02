@@ -34,16 +34,6 @@ preprocessing:
 # ADConverter_gain: 5.8
 default:
     type: epifm
-    shutter:
-        switch: !!bool true
-        start_time:
-            value: 0.0
-            units: s
-        end_time:
-            value: 0.0
-            units: s
-        # time_open:
-        # time_lapse:
     fluorophore:
         type: Tetramethylrhodamine(TRITC)
         radius:
@@ -114,6 +104,16 @@ default:
     emission_filter:
         switch: !!bool false
         # type:  # emission_filter
+    shutter:
+        switch: !!bool false
+        start_time:
+            value: 0.0
+            units: s
+        end_time:
+            value: 0.0
+            units: s
+        # time_open:
+        # time_lapse:
     effects:
         background:
             switch: !!bool true

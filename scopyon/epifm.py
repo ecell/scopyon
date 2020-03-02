@@ -709,9 +709,6 @@ class EPIFMConfigs:
         self.effects = PhysicalEffectConfigs(config.effects)
 
     def set_shutter(self, start_time=None, end_time=None, time_open=None, time_lapse=None, switch=True):
-        if not switch:
-            raise RuntimeError('shutter.switch must be true.')
-
         self.shutter_switch = switch
         self.shutter_start_time = start_time
         self.shutter_end_time = end_time
@@ -932,7 +929,7 @@ class _EPIFMSimulator:
             self.environ = environ
 
     def output_frames(
-            self, input_data, start_time=None, end_time=None, exposure_time=None,
+            self, input_data, num_frames, start_time=0.0, exposure_time=None,
             pathto='./images', data_fmt='image_%07d.npy', true_fmt='true_%07d.npy',
             image_fmt='image_%07d.png', cmin=None, cmax=None, low=None, high=None,
             rng=None, processes=None):
@@ -943,10 +940,9 @@ class _EPIFMSimulator:
                 Each particle is represented as a list of numbers: a coordinate (a triplet of floats),
                 molecule id, and a state of fluorecent.
                 The number of particles in each frame must be static.
-            start_time (float, optional): A time to open a shutter.
-                Defaults to `shutter_start_time` in the configuration.
-            end_time (float, optional): A time to open a shutter.
-                Defaults to `shutter_end_time` in the configuration.
+            num_frames (int): The number of frames taken.
+            start_time (float, optional): A time to start detecting.
+                Defaults to 0.0.
             exposure_time (float, optional): An exposure time.
                 Defaults to `detector_exposure_time` in the configuration.
             pathto (str, optional): A path to save images and ndarrays. Defaults to './images'.
@@ -983,17 +979,12 @@ class _EPIFMSimulator:
         if self.configs.effects.photobleaching_switch:
             fluorescence_states = {}
 
-        start_time = start_time or self.configs.shutter_start_time
-        end_time = end_time or self.configs.shutter_end_time
         exposure_time = exposure_time or self.configs.detector_exposure_time
-        num_frames = math.ceil((end_time - start_time) / exposure_time)
 
         results = []
         for frame_index in range(num_frames):
-            t = start_time + exposure_time * frame_index
-            interval = min(exposure_time, end_time - t)
             camera, optinfo = self.output_frame(
-                    input_data, frame_index=frame_index, start_time=start_time, exposure_time=interval,
+                    input_data, frame_index=frame_index, start_time=start_time, exposure_time=exposure_time,
                     fluorescence_states=fluorescence_states, rng=rng, processes=processes)
 
             # save photon counts to numpy-binary file
@@ -1016,7 +1007,7 @@ class _EPIFMSimulator:
         return results
 
     def output_frame(
-            self, input_data, frame_index=0, start_time=None, exposure_time=None,
+            self, input_data, frame_index=0, start_time=0.0, exposure_time=None,
             fluorescence_states=None, rng=None, processes=None):
         """Output an image from the given particle data.
 
@@ -1027,17 +1018,14 @@ class _EPIFMSimulator:
                 The number of particles in each frame must be static.
             frame_index (int, optional): An index of the frame. The value must be 0 and more.
                 Defaults to 0.
-            start_time (float, optional): A time to open a shutter.
-                Defaults to `shutter_start_time` in the configuration.
+            start_time (float, optional): A time to start detecting.
+                Defaults to 0.0.
             exposure_time (float, optional): An exposure time.
                 Defaults to `detector_exposure_time` in the configuration.
             rng (numpy.RandomState, optional): A random number generator.
 
         """
         processes = processes or (1 if self.environ is None else self.environ.processes)
-
-        start_time = start_time or self.configs.shutter_start_time
-        # end_time = self.configs.shutter_end_time
         exposure_time = exposure_time or self.configs.detector_exposure_time
 
         if rng is None:
@@ -1046,6 +1034,11 @@ class _EPIFMSimulator:
 
         times = numpy.array([t for t, _ in input_data])
         t = start_time + exposure_time * frame_index
+
+        if self.configs.shutter_switch:
+            t = max(t, self.configs.shutter_start_time)
+            exposure_time = max(0.0, min(t + exposure_time, self.configs.shutter_end_time))
+
         start_index = numpy.searchsorted(times, t, side='right')
         if start_index != 0:
             start_index -= 1
