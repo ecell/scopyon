@@ -69,7 +69,8 @@ def planar_background(roi):
 def background(roi):
     m, n = roi.shape
     a5, a6, a7 = planar_background(roi)
-    return roi.astype(dtype=numpy.float64) - (numpy.tile(numpy.arange(m)[:, numpy.newaxis], (1, n)) * a5 + numpy.tile(numpy.arange(n), (m, 1)) * a6 + a7)
+    bg = numpy.tile(numpy.arange(m)[:, numpy.newaxis], (1, n)) * a5 + numpy.tile(numpy.arange(n), (m, 1)) * a6 + a7
+    return roi.astype(dtype=numpy.float64) - bg, bg.sum()
 
 def gaussian(a1, a2, a3, a4):
     return lambda x, y: (
@@ -92,20 +93,23 @@ def fitgaussian(data, roi_size):
         return None
     return res.x
 
-def spot_detection(data, blobs, roi_size=6):
+def spot_detection(data, roi_size=6, blobs=None, **kwargs):
     """Finds spots in the given image.
 
     Args:
         data (ndarray): An image data.
-        blobs (ndarray, optional): Blobs. Defaults to `None`. See also `blob_detection`.
         roi_size (float, optional): A default value of a half of the ROI size.
             Defaults to 6.
+        blobs (ndarray, optional): Blobs. Defaults to `None`. See also `blob_detection`.
 
     Returns:
         ndarray: Spots detected.
-            Each row represents height, center position x, y, width x, y, and background,
-            `(intensity, height, center_x, center_y, sigma)`.
+            Each row represents center position x, y, intensity, background, height, and sigma,
+            `(center_x, center_y, intensity, bg, height, sigma)`.
     """
+
+    if blobs is None:
+        blobs = blob_detection(data, **kwargs)
 
     spots = []
     for blob in blobs:
@@ -121,7 +125,7 @@ def spot_detection(data, blobs, roi_size=6):
             _log.debug("spot_detection skip a blob due to the low signal.")
             continue
 
-        roi_ = background(roi)
+        roi_, bg = background(roi)
         if roi_ is None:
             _log.debug("spot_detection skip a blob due to the failure in background.")
             continue
@@ -131,16 +135,15 @@ def spot_detection(data, blobs, roi_size=6):
             continue
 
         (height, center_x, center_y, sigma) = res
-        if not (
-            0 <= center_x < roi.shape[0]
-            and 0 <= center_y < roi.shape[1]):
+        if not (0 <= center_x < roi.shape[0]
+                and 0 <= center_y < roi.shape[1]):
             _log.debug("spot_detection skip a blob due to invalid parameters fitted.")
             continue
 
         intensity = gaussian(*res)(*numpy.indices(roi.shape)).sum()
         center_x += x0
         center_y += y0
-        spots.append((intensity, height, center_x, center_y, sigma))
+        spots.append((center_x, center_y, intensity, bg, height, sigma))
 
     _log.info('{} spot(s) were detected'.format(len(spots)))
     spots = numpy.array(spots)
