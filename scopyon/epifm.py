@@ -685,8 +685,6 @@ class EPIFMConfigs:
 
         self.set_fluorophore(**config.fluorophore)  # => self.__wave_length
 
-        self.hc_const = config.hc_const
-
         self.set_shutter(**config.shutter)
         self.set_light_source(**config.light_source)
         self.set_dichroic_mirror(**config.dichroic_mirror)
@@ -1241,16 +1239,13 @@ class _EPIFMSimulator:
         # x_0, y_0, z_0 = p_0
         # x_i, y_i, z_i = p_i
 
-        # (plank const) * (speed of light) [joules meter]
-        hc = self.configs.hc_const
-
         # Illumination: Assume that uniform illumination (No gaussian)
         # flux density [W/cm2 (joules/sec/m2)]
         P_0 = self.configs.source_flux_density * 1e+4
 
         # single photon energy
         wave_length = self.configs.source_wavelength  # m
-        E_wl = hc / wave_length
+        E_wl = constants.hc / wave_length
 
         # photon flux density [photons/sec/m2]
         N_0 = P_0 / E_wl

@@ -25,9 +25,6 @@ default:
     # detector_pair_pulses: 0.0
     # ADConverter_gain: 5.8
     epifm:
-        hc_const:
-            value: 2.0e-25
-            units: J * m
         shutter:
             switch: !!bool true
             start_time:
