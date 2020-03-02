@@ -10,6 +10,14 @@ from logging import getLogger
 _log = getLogger(__name__)
 
 
+class EnvironSettings:
+
+    def __init__(self, config):
+        self.initialize(config)
+
+    def initialize(self, config):
+        self.processes = config.processes
+
 class EPIFMSimulator(object):
 
     def __init__(self, config=None, method=None):
@@ -34,7 +42,7 @@ class EPIFMSimulator(object):
     def base(self, rng=None):
         return scopyon.epifm._EPIFMSimulator(
                 configs=scopyon.epifm.EPIFMConfigs(self.__config[self.__method], rng=rng),
-                environ=scopyon.epifm.EnvironConfigs(self.__config.environ))
+                environ=EnvironSettings(self.__config.environ))
 
     def __format_data(self, inputs):
         assert isinstance(inputs, numpy.ndarray)
@@ -45,10 +53,10 @@ class EPIFMSimulator(object):
         if inputs.shape[1] == 2:
             data = numpy.hstack((
                 numpy.zeros((inputs.shape[0], 1)),
-                inputs))
+                inputs * self.__config.preprocessing.scale))
         elif inputs.shape[1] == 3:
             origin = numpy.array(self.__config.preprocessing.origin)
-            data = inputs - origin
+            data = inputs * self.__config.preprocessing.scale - origin
             unit_z = numpy.cross(
                 self.__config.preprocessing.unit_x,
                 self.__config.preprocessing.unit_y)
@@ -182,7 +190,7 @@ def create_simulator(config=None, method=None):
         scopyon.epifm.EPIFMSimulator: A simulator
     """
     if method is None:
-        method = config.get('default', 'epifm').lower()
+        method = config.get('method', 'default').lower()
     else:
         method = method
 
@@ -205,7 +213,7 @@ def form_image(
         exposure_time (float, optional): An exposure time.
             Defaults to `shutter.exposure_time` in the configuration.
         method (str, optional): A name of method used.
-            The default is None (config.default).
+            The default is None ('default').
         config (Configuration, optional): Configurations.
             The default is None.
         rng (numpy.RandomState, optional): A random number generator.
@@ -235,7 +243,7 @@ def form_images(
         exposure_time (float, optional): An exposure time.
             Defaults to `detector_exposure_time` in the configuration.
         method (str, optional): A name of method used.
-            The default is None ('epifm').
+            The default is None ('default').
         config (Configuration, optional): Configurations.
             The default is None.
         rng (numpy.RandomState, optional): A random number generator.

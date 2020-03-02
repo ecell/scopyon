@@ -709,17 +709,16 @@ class EPIFMConfigs:
         self.effects = PhysicalEffectConfigs(config.effects)
 
     def set_shutter(self, start_time=None, end_time=None, time_open=None, time_lapse=None, switch=True):
+        if not switch:
+            raise RuntimeError('shutter.switch must be true.')
+
         self.shutter_switch = switch
         self.shutter_start_time = start_time
         self.shutter_end_time = end_time
-        self.shutter_time_open = time_open or end_time - start_time
-        self.shutter_time_lapse = time_lapse or end_time - start_time
 
         _log.info('--- Shutter:')
         _log.info('    Start-Time = {} sec'.format(self.shutter_start_time))
         _log.info('    End-Time   = {} sec'.format(self.shutter_end_time))
-        _log.info('    Time-open  = {} sec'.format(self.shutter_time_open))
-        _log.info('    Time-lapse = {} sec'.format(self.shutter_time_lapse))
 
     def set_light_source(self, type=None, wave_length=None, flux_density=None, radius=None, angle=None, switch=True):
         self.source_switch = switch
@@ -912,14 +911,6 @@ class EPIFMConfigs:
         efficiency[idx1] = data[idx2, 1]
 
         return efficiency.tolist()
-
-class EnvironConfigs:
-
-    def __init__(self, config):
-        self.initialize(config)
-
-    def initialize(self, config):
-        self.processes = config.processes
 
 class _EPIFMSimulator:
     '''

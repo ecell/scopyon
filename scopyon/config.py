@@ -12,6 +12,11 @@ def dict_merge(dct, merge_dct):
             dct[k] = v
 
 class Configuration(collections.abc.Mapping):
+    """
+
+    Note:
+        Requires `yaml`.
+    """
 
     def __init__(self, filename=None, yaml=None):
         if filename is not None:

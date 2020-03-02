@@ -1,6 +1,5 @@
 import numpy
 
-
 from logging import getLogger
 _log = getLogger(__name__)
 
@@ -53,6 +52,9 @@ class Image(object):
     def save(self, filename):
         """Save the image.
 
+        Note:
+            Requires `PIL`.
+
         Args:
             filename (str): An output file name.
         """
@@ -66,13 +68,17 @@ class Image(object):
         img.save(filename)
 
     def plot(self):
-        """Plot the image."""
+        """Plot the image.
+
+        Note:
+            Requires `plotly` or `matplotlib`.
+        """
         try:
             import plotly.express as px
         except ImportError:
-            import matplotlib.pylab as plt
+            import matplotlib.pyplot as plt
             _ = plt.figure()
-            plt.imshow(self.__data, interpolation='none', cmap="gray")
+            plt.imshow(self.__data, interpolation='none', cmap='gray')
             plt.show()
         else:
             fig = px.imshow(self.__data, color_continuous_scale='gray')
@@ -84,3 +90,34 @@ class Image(object):
         https://ipython.readthedocs.io/en/stable/config/integrating.html
         """
         self.plot()
+
+def save_video(filename, imgs, interval=100, dpi=None):
+    """Make a video from images.
+
+    Note:
+        Requires `matplotlib`.
+
+    Args:
+        filename (str): An output file name.
+        imgs (list): A list of Images.
+        interval (int, optional): An interval between frames given in millisecond.
+        dpi (int, optional): dpi.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.animation import FuncAnimation
+
+    def animate(frame, image, imgs):
+        image.set_array(imgs[frame].as_array())
+        return image
+
+    plt.ioff()
+    fig, ax = plt.subplots(1, figsize=(1, 1))
+    fig.subplots_adjust(0, 0, 1, 1)
+    ax.axis("off")
+    image = ax.imshow(imgs[0].as_array(), cmap='gray')
+    animation = FuncAnimation(
+        fig, animate, numpy.arange(len(imgs)), fargs=(image, imgs), interval=interval)
+    dpi = dpi or max(imgs[0].shape)
+    animation.save(filename, dpi=dpi)
+    plt.clf()
+    plt.ion()

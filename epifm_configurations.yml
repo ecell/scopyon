@@ -1,10 +1,19 @@
-default: epifm
+method: default
 environ:
     processes: !!int 1
 preprocessing:
-    origin: [0.0, 0.0, 0.0]
-    unit_x: [1.0, 0.0, 0.0]
-    unit_y: [0.0, 1.0, 0.0]
+    scale:
+        value: 1.0
+        units: m
+    origin:
+        value: [0.0, 0.0, 0.0]
+        units: m
+    unit_x:
+        value: [1.0, 0.0, 0.0]
+        units: m
+    unit_y:
+        value: [0.0, 1.0, 0.0]
+        units: m
 # ignore_open_errors: !!bool false
 # electron_charge: 1.602e-19 # C
 # fluorophore_lifetime: 10.0e-9 # sec
@@ -23,7 +32,7 @@ preprocessing:
 # detector_dyn_stages: 11
 # detector_pair_pulses: 0.0
 # ADConverter_gain: 5.8
-epifm:
+default:
     type: epifm
     shutter:
         switch: !!bool true
@@ -33,8 +42,8 @@ epifm:
         end_time:
             value: 0.0
             units: s
-        time_open:
-        time_lapse:
+        # time_open:
+        # time_lapse:
     fluorophore:
         type: Tetramethylrhodamine(TRITC)
         radius:
