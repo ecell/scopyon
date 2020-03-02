@@ -57,11 +57,12 @@ class Configuration(collections.abc.Mapping):
         return self.__yaml.get(key, defaultobj)
 
     def __getitem__(self, key):
-        value = self.__yaml[key]
-        if isinstance(value, dict):
-            assert 'value' in value
-            return value['value']
-        return value
+        return getattr(self, key)
+        # value = self.__yaml[key]
+        # if isinstance(value, dict):
+        #     assert 'value' in value
+        #     return value['value']
+        # return value
 
     def __len__(self):
         return len(self.__yaml)

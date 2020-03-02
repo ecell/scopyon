@@ -15,7 +15,7 @@ from scipy.interpolate import interp1d
 from scipy.ndimage import map_coordinates
 
 from . import io
-from .image import save_image, convert_8bit
+from .image import Image
 from . import constants
 
 from logging import getLogger
@@ -679,6 +679,9 @@ class EPIFMConfigs:
                 for initializing this class. Defaults to `None`.
 
         """
+        if config.type.lower() != 'epifm':
+            raise ValueError("An invalid type [{}] was given. 'epifm' is required.".format(config.type))
+
         if rng is None:
             warnings.warn('A random number generator [rng] is not given.')
             rng = numpy.random.RandomState()
@@ -702,6 +705,8 @@ class EPIFMConfigs:
             config.fluorophore.radial_cutoff, self.psf_width, config.fluorophore.depth_cutoff,
             self.fluoem_norm, self.dichroic_switch, self.dichroic_eff, self.emission_switch, self.emission_eff,
             self.fluorophore_type, self.psf_wavelength, self.psf_normalization)
+
+        self.effects = PhysicalEffectConfigs(config.effects)
 
     def set_shutter(self, start_time=None, end_time=None, time_open=None, time_lapse=None, switch=True):
         self.shutter_switch = switch
@@ -921,7 +926,7 @@ class _EPIFMSimulator:
     A class of the simulator for Epifluorescence microscopy (EPI).
     '''
 
-    def __init__(self, configs, effects, environ=None):
+    def __init__(self, configs, environ=None):
         """A constructor of _EPIFMSimulator.
 
         Args:
@@ -931,7 +936,6 @@ class _EPIFMSimulator:
 
         """
         self.configs = configs
-        self.effects = effects
 
         if environ is not None:
             self.environ = environ
@@ -939,7 +943,7 @@ class _EPIFMSimulator:
     def output_frames(
             self, input_data, start_time=None, end_time=None, exposure_time=None,
             pathto='./images', data_fmt='image_%07d.npy', true_fmt='true_%07d.npy',
-            image_fmt='image_%07d.png', cmin=None, cmax=None, low=None, high=None, cmap=None,
+            image_fmt='image_%07d.png', cmin=None, cmax=None, low=None, high=None,
             rng=None, processes=None):
         """Output all images from the given particle data.
 
@@ -970,8 +974,6 @@ class _EPIFMSimulator:
                 Defaults to 0.
             high (int, optional): A maximum value used to generate 8-bit images.
                 Defaults to 255.
-            cmap (matplotlib.colors.ColorMap): A color map to visualize images.
-                See also `scopyon.image.convert_8bit`.
             rng (numpy.RandomState, optional): A random number generator.
 
         """
@@ -987,7 +989,7 @@ class _EPIFMSimulator:
             rng = numpy.random.RandomState()
 
         fluorescence_states = None
-        if self.effects.photobleaching_switch:
+        if self.configs.effects.photobleaching_switch:
             fluorescence_states = {}
 
         start_time = start_time or self.configs.shutter_start_time
@@ -1016,9 +1018,8 @@ class _EPIFMSimulator:
 
             # save images to numpy-binary file
             if image_fmt is not None:
-                bytedata = convert_8bit(camera[: , : , 1], cmin, cmax, low, high)
                 image_file_name = os.path.join(pathto, image_fmt % (frame_index))
-                save_image(image_file_name, bytedata, cmap, low, high)
+                Image(camera[: , : , 1]).as_8bit(cmin, cmax, low, high).save(image_file_name)
 
             results.append((camera, optinfo))
         return results
@@ -1170,12 +1171,12 @@ class _EPIFMSimulator:
         N_emit = self.__get_emit_photons(amplitude, unit_time)
 
         if fluorescence_states is not None:
-            if self.effects.photobleaching_switch:
+            if self.configs.effects.photobleaching_switch:
                 if m_id not in fluorescence_states:
                     amplitude0, _ = self.snells_law()
                     N_emit0 = self.__get_emit_photons(amplitude0, 1.0)
                     fluorescence_states[m_id] = self.get_photon_budget(
-                            N_emit0, self.effects.photobleaching_half_life, rng=rng)  #XXX: rng is only required here
+                            N_emit0, self.configs.effects.photobleaching_half_life, rng=rng)  #XXX: rng is only required here
                 budget = fluorescence_states[m_id] - N_emit
                 if budget <= 0:
                     budget = 0
@@ -1203,9 +1204,9 @@ class _EPIFMSimulator:
 
     def __get_emit_photons(self, amplitude, unit_time):
         # Absorption coeff [1/(cm M)]
-        abs_coeff = self.effects.abs_coefficient
+        abs_coeff = self.configs.effects.abs_coefficient
         # Quantum yield
-        QY = self.effects.quantum_yield
+        QY = self.configs.effects.quantum_yield
         fluorophore_radius = self.configs.fluorophore_radius
         return self.get_emit_photons(amplitude, unit_time, abs_coeff, QY, fluorophore_radius)
 
@@ -1303,7 +1304,7 @@ class _EPIFMSimulator:
         ## get signal (photons)
         photons = camera_pixel[:, :, 0]
         ## get constant background (photoelectrons)
-        photons += self.effects.background_mean
+        photons += self.configs.effects.background_mean
         ## get signal (expectation)
         expected = QE * photons
 

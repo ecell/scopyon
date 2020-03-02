@@ -1,110 +1,110 @@
-method: epifm
+default: epifm
 environ:
     processes: !!int 1
 preprocessing:
     origin: [0.0, 0.0, 0.0]
     unit_x: [1.0, 0.0, 0.0]
     unit_y: [0.0, 1.0, 0.0]
-default:
-    # ignore_open_errors: !!bool false
-    # electron_charge: 1.602e-19 # C
-    # fluorophore_lifetime: 10.0e-9 # sec
-    # psf_intensity_noise: 0.50
-    # source_center: (0.0, 0.5, 0.5)
-    # source_depth: 20.0e-6 # m
-    # image_resolution: 16.0e-8
-    # pinhole_radius: 16.0e-6 # m
-    # slit_size: 37.0e-6 # m
-    # detector_mode: 'Photon-counting'
-    # detector_base_position: (-2.0, 0.5, 0.5) # Base position of x,y,z (This unit is world_size)
-    # # detector_focal_point: (0.0, 0.5, 0.5) # Focal point of x,y,z (This unit is world_size)
-    # detector_bandwidth: 1.0e+6
-    # detector_gain: 1.0e+6
-    # detector_background: 0.0
-    # detector_dyn_stages: 11
-    # detector_pair_pulses: 0.0
-    # ADConverter_gain: 5.8
-    epifm:
-        shutter:
-            switch: !!bool true
-            start_time:
-                value: 0.0
-                units: s
-            end_time:
-                value: 0.0
-                units: s
-            time_open:
-            time_lapse:
-        fluorophore:
-            type: Tetramethylrhodamine(TRITC)
-            radius:
-                value: 20.0e-9
-                units: m
-            # wave_length:
-            #     value: 600.0e-9
-            #     units: m
-            min_wave_length:
-                value: 300.0e-9
-                units: m
-            max_wave_length:
-                value: 1000.0e-9
-                units: m
-            normalization: 1.0
-            width:
-                value: [200.0e-9, 200.0e-9] # Gaussian function (radial width, lateral width) [nm]
-                units: m
-            radial_cutoff:
-                value: 1000.0e-9
-                units: m
-            depth_cutoff:
-                value: 1000.0e-9
-                units: m
-            # file_name_format:
-        light_source:
-            switch: !!bool true
-            type: LASER
-            wave_length: 532.0e-9  # wavelength
-            flux_density:
-                value: 40.0
-                units: W / cm ** 2
-            angle: 72.0
-            radius:
-                value: 20.0e-6
-                units: m
-        dichroic_mirror:
-            switch: !!bool false
-            type: FF562-Di03-25x36  # dm
-        magnification: 241.0  # image_magnification
-        detector:
-            switch: !!bool true
-            type: EMCCD
-            image_size: [!!int 512, !!int 512]  # detector image size in pixels
-            pixel_length:
-                value: 16.0e-6  #XXX: '16e-6' is not accepted. # Pixel size in micro-m scale
-                units: m
-            exposure_time:
-                value: 0.100
-                units: s
-            focal_point:
-                value: [0.0, 0.0, 0.0]  # Focal point of x,y,z (This unit is meter)
-                units: m
-            focal_norm: [1.0, 0.0, 0.0]  #XXX: This doesn't work # Focal point of x,y,z (This unit is world_size)
-            QE: 0.92  # qeff
-            dark_count: 0
-            readout_noise: 100
-            emgain: 300
-        analog_to_digital_converter:
-            bit: 16
-            offset: 2000
-            type: "none"  #XXX: not null
-            count: 0.0
-            fullwell: 800000
-        excitation_filter:
-            switch: !!bool false
-            # type:  # excitation_filter
-        emission_filter:
-            switch: !!bool false
-            # type:  # emission_filter
+# ignore_open_errors: !!bool false
+# electron_charge: 1.602e-19 # C
+# fluorophore_lifetime: 10.0e-9 # sec
+# psf_intensity_noise: 0.50
+# source_center: (0.0, 0.5, 0.5)
+# source_depth: 20.0e-6 # m
+# image_resolution: 16.0e-8
+# pinhole_radius: 16.0e-6 # m
+# slit_size: 37.0e-6 # m
+# detector_mode: 'Photon-counting'
+# detector_base_position: (-2.0, 0.5, 0.5) # Base position of x,y,z (This unit is world_size)
+# # detector_focal_point: (0.0, 0.5, 0.5) # Focal point of x,y,z (This unit is world_size)
+# detector_bandwidth: 1.0e+6
+# detector_gain: 1.0e+6
+# detector_background: 0.0
+# detector_dyn_stages: 11
+# detector_pair_pulses: 0.0
+# ADConverter_gain: 5.8
+epifm:
+    type: epifm
+    shutter:
+        switch: !!bool true
+        start_time:
+            value: 0.0
+            units: s
+        end_time:
+            value: 0.0
+            units: s
+        time_open:
+        time_lapse:
+    fluorophore:
+        type: Tetramethylrhodamine(TRITC)
+        radius:
+            value: 20.0e-9
+            units: m
+        # wave_length:
+        #     value: 600.0e-9
+        #     units: m
+        min_wave_length:
+            value: 300.0e-9
+            units: m
+        max_wave_length:
+            value: 1000.0e-9
+            units: m
+        normalization: 1.0
+        width:
+            value: [200.0e-9, 200.0e-9] # Gaussian function (radial width, lateral width) [nm]
+            units: m
+        radial_cutoff:
+            value: 1000.0e-9
+            units: m
+        depth_cutoff:
+            value: 1000.0e-9
+            units: m
+        # file_name_format:
+    light_source:
+        switch: !!bool true
+        type: LASER
+        wave_length: 532.0e-9  # wavelength
+        flux_density:
+            value: 40.0
+            units: W / cm ** 2
+        angle: 72.0
+        radius:
+            value: 20.0e-6
+            units: m
+    dichroic_mirror:
+        switch: !!bool false
+        type: FF562-Di03-25x36  # dm
+    magnification: 241.0  # image_magnification
+    detector:
+        switch: !!bool true
+        type: EMCCD
+        image_size: [!!int 512, !!int 512]  # detector image size in pixels
+        pixel_length:
+            value: 16.0e-6  #XXX: '16e-6' is not accepted. # Pixel size in micro-m scale
+            units: m
+        exposure_time:
+            value: 0.100
+            units: s
+        focal_point:
+            value: [0.0, 0.0, 0.0]  # Focal point of x,y,z (This unit is meter)
+            units: m
+        focal_norm: [1.0, 0.0, 0.0]  #XXX: This doesn't work # Focal point of x,y,z (This unit is world_size)
+        QE: 0.92  # qeff
+        dark_count: 0
+        readout_noise: 100
+        emgain: 300
+    analog_to_digital_converter:
+        bit: 16
+        offset: 2000
+        type: "none"  #XXX: not null
+        count: 0.0
+        fullwell: 800000
+    excitation_filter:
+        switch: !!bool false
+        # type:  # excitation_filter
+    emission_filter:
+        switch: !!bool false
+        # type:  # emission_filter
     effects:
         background:
             switch: !!bool true

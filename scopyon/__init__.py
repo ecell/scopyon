@@ -1,6 +1,6 @@
 __all__ = [
-    "epifm",
-    "effects",
+    # "epifm",
+    # "effects",
     # "camera_handler",
     # "tirfm_handler",
     # "pmt_handler",
@@ -13,4 +13,4 @@ __all__ = [
     # "fcs_handler",
     ]
 
-__version__ = '0.1.12'
+__version__ = '1.0.0'
