@@ -928,6 +928,40 @@ class _EPIFMSimulator:
         if environ is not None:
             self.environ = environ
 
+    def generate_frames(
+            self, input_data, num_frames, start_time=0.0, exposure_time=None,
+            rng=None, processes=None):
+        """Output all images from the given particle data.
+
+        Args:
+            input_data (list): An input data. A list of pairs of time and a list of particles.
+                Each particle is represented as a list of numbers: a coordinate (a triplet of floats),
+                molecule id, and a state of fluorecent.
+                The number of particles in each frame must be static.
+            num_frames (int): The number of frames taken.
+            start_time (float, optional): A time to start detecting.
+                Defaults to 0.0.
+            exposure_time (float, optional): An exposure time.
+                Defaults to `detector_exposure_time` in the configuration.
+            rng (numpy.RandomState, optional): A random number generator.
+
+        """
+        if rng is None:
+            _log.info('A random number generator was initialized.')
+            rng = numpy.random.RandomState()
+
+        fluorescence_states = None
+        if self.configs.effects.photobleaching_switch:
+            fluorescence_states = {}
+
+        exposure_time = exposure_time or self.configs.detector_exposure_time
+
+        for frame_index in range(num_frames):
+            camera, optinfo = self.output_frame(
+                    input_data, frame_index=frame_index, start_time=start_time, exposure_time=exposure_time,
+                    fluorescence_states=fluorescence_states, rng=rng, processes=processes)
+            yield (camera, optinfo)
+
     def output_frames(
             self, input_data, num_frames, start_time=0.0, exposure_time=None,
             pathto='./images', data_fmt='image_%07d.npy', true_fmt='true_%07d.npy',
@@ -975,18 +1009,10 @@ class _EPIFMSimulator:
             _log.info('A random number generator was initialized.')
             rng = numpy.random.RandomState()
 
-        fluorescence_states = None
-        if self.configs.effects.photobleaching_switch:
-            fluorescence_states = {}
-
-        exposure_time = exposure_time or self.configs.detector_exposure_time
-
         results = []
-        for frame_index in range(num_frames):
-            camera, optinfo = self.output_frame(
-                    input_data, frame_index=frame_index, start_time=start_time, exposure_time=exposure_time,
-                    fluorescence_states=fluorescence_states, rng=rng, processes=processes)
-
+        for camera, optinfo in self.generate_frames(
+                input_data, frame_index=frame_index, start_time=start_time, exposure_time=exposure_time,
+                fluorescence_states=fluorescence_states, rng=rng, processes=processes):
             # save photon counts to numpy-binary file
             if data_fmt is not None:
                 data_file_name = os.path.join(pathto, data_fmt % (frame_index))

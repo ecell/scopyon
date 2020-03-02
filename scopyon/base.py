@@ -124,7 +124,7 @@ class EPIFMSimulator(object):
             return img, infodict
         return img
 
-    def form_images(
+    def generate_images(
             self, inputs, num_frames, start_time=0.0, exposure_time=None,
             rng=None, full_output=False):
         """Form image.
@@ -142,22 +142,19 @@ class EPIFMSimulator(object):
             full_output (bool, optional):
                 True if to return a dictionary of optional outputs as the second output
 
-        Returns:
-            list: A list of images.
-            list: A list of dict. only returned if full_output == True
+        Yields:
+            Image: An image.
+            dict: only returned if full_output == True
         """
         data = self.__format_inputs(inputs)
         base = self.base(rng)
-        results = base.output_frames(
-                data, num_frames, start_time=start_time, exposure_time=exposure_time,
-                data_fmt=None, true_fmt=None, image_fmt=None, rng=rng)
-        imgs = [scopyon.image.Image(result[0][:, :, 1]) for result in results]
-        if full_output:
-            infodict = dict(
-                    expectation=[result[0][:, :, 0] for result in results],
-                    true_data=[result[1] for result in results])
-            return imgs, infodict
-        return imgs
+        for (camera, optinfo) in base.generate_frames(
+                data, num_frames, start_time=start_time, exposure_time=exposure_time, rng=rng):
+            img = scopyon.image.Image(camera[:, :, 1])
+            if full_output:
+                infodict = dict(expectation=camera[:, :, 0], true_data=optinfo)
+                yield img, infodict
+            yield img
 
 def create_simulator(config=None, method=None):
     """Return a simulator.
@@ -182,7 +179,7 @@ def create_simulator(config=None, method=None):
         raise ValueError(f"An unknown type [{simulator_type}] was given.")
 
 def form_image(
-        inputs, start_time=None, exposure_time=None, *,
+        inputs, start_time=0.0, exposure_time=None, *,
         method=None, config=None, rng=None, full_output=False):
     """Form image.
 
@@ -209,7 +206,7 @@ def form_image(
     sim = create_simulator(config, method=method)
     return sim.form_image(inputs, start_time, exposure_time, rng=rng, full_output=full_output)
 
-def form_images(
+def generate_images(
         inputs, num_frames, start_time=0.0, exposure_time=None, *,
         method=None, config=None, rng=None, full_output=False):
     """Form images.
@@ -231,12 +228,12 @@ def form_images(
         full_output (bool, optional):
             True if to return a dictionary of optional outputs as the second output
 
-    Returns:
-        list: A list of images.
-        list: A list of dict. only returned if full_output == True
+    Yields:
+        Image: An image.
+        dict: only returned if full_output == True
     """
     sim = create_simulator(config, method=method)
-    return sim.form_images(inputs, num_frames, start_time, exposure_time, rng=rng, full_output=full_output)
+    return sim.generate_images(inputs, num_frames, start_time, exposure_time, rng=rng, full_output=full_output)
 
 
 if __name__ == "__main__":
