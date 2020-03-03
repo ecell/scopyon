@@ -24,15 +24,16 @@ _log = getLogger(__name__)
 
 class PointSpreadingFunction:
 
-    def __init__(self, psf_radial_cutoff, psf_width, psf_depth_cutoff, fluoem_norm, dichroic_switch, dichroic_eff, emission_switch, emission_eff, fluorophore_type, psf_wavelength, psf_normalization):
+    def __init__(self, psf_radial_cutoff, psf_radial_width, psf_depth_cutoff, fluoem_norm, dichroic_switch, dichroic_eff, emission_switch, emission_eff, fluorophore_type, psf_wavelength, psf_normalization):
         # fluorophore
         self.fluoem_norm = fluoem_norm
         self.fluorophore_type = fluorophore_type
         self.psf_wavelength = psf_wavelength
         self.psf_normalization = psf_normalization
         self.psf_radial_cutoff = psf_radial_cutoff
-        self.psf_width = psf_width
         self.psf_depth_cutoff = psf_depth_cutoff
+
+        self.psf_radial_width = psf_radial_width  #XXX: Only required for Gaussian
 
         # else
         self.dichroic_switch = dichroic_switch
@@ -44,6 +45,14 @@ class PointSpreadingFunction:
         self.__fluorophore_psf = {}
         self.__resolution_depth = 1e-9
         self.__resolution_radial = 1e-9
+
+        if self.fluorophore_type == 'Gaussian':
+            if self.psf_radial_width is None:
+                raise ValueError(
+                        'fluorophore.radial_width must be given for Gaussian type fluorophore.')
+            self.get_distribution = self.get_gaussian_distribution
+        else:
+            self.get_distribution = self.get_born_wolf_distribution
 
     def get(self, depth):
         depth = abs(depth)
@@ -88,27 +97,29 @@ class PointSpreadingFunction:
 
         return numpy.sum(I) * self.psf_normalization
 
-    def get_distribution(self, radial, depth):
-        psf = self.get_born_wolf_distribution(radial, depth, self.psf_wavelength)
+    def get_gaussian_distribution(self, radial, depth):
+        psf = self.__get_gaussian_distribution(radial, depth, self.psf_radial_width)
         return self.__normalization * psf
 
     @staticmethod
-    def get_gaussian_distribution(r, width, normalization):
-        #XXX: normalization means I in __get_normalization.
+    def __get_gaussian_distribution(r, _z, radial_width):
+        return numpy.exp(-0.5 * (r / radial_width) ** 2)
+        # #XXX: normalization means I in __get_normalization.
+        # # For normalization
+        # # norm = list(map(lambda x: True if x > 1e-4 else False, I))
+        # norm = (normalization > 1e-4)
+        # # Ir = sum(list(map(lambda x: x * numpy.exp(-0.5 * (r / self.psf_width[0]) ** 2), norm)))
+        # # Iz = sum(list(map(lambda x: x * numpy.exp(-0.5 * (z / self.psf_width[1]) ** 2), norm)))
+        # Ir = norm * numpy.exp(-0.5 * numpy.power(r / width[0], 2))
+        # Iz = norm * numpy.exp(-0.5 * numpy.power(r / width[1], 2))
+        # return numpy.array(list(map(lambda x: Ir * x, Iz)))
 
-        # For normalization
-        # norm = list(map(lambda x: True if x > 1e-4 else False, I))
-        norm = (normalization > 1e-4)
-
-        # Ir = sum(list(map(lambda x: x * numpy.exp(-0.5 * (r / self.psf_width[0]) ** 2), norm)))
-        # Iz = sum(list(map(lambda x: x * numpy.exp(-0.5 * (z / self.psf_width[1]) ** 2), norm)))
-        Ir = norm * numpy.exp(-0.5 * numpy.power(r / width[0], 2))
-        Iz = norm * numpy.exp(-0.5 * numpy.power(r / width[1], 2))
-
-        return numpy.array(list(map(lambda x: Ir * x, Iz)))
+    def get_born_wolf_distribution(self, radial, depth):
+        psf = self.__get_born_wolf_distribution(radial, depth, self.psf_wavelength)
+        return self.__normalization * psf
 
     @staticmethod
-    def get_born_wolf_distribution(r, z, wave_length):
+    def __get_born_wolf_distribution(r, z, wave_length):
         # set Magnification of optical system
         # M = self.image_magnification
 
@@ -151,6 +162,7 @@ class PointSpreadingFunction:
         # set PSF
         psf = numpy.array(list(map(lambda x: abs(x) ** 2, I_sum)))
         # print(f'psf.shape = {psf.shape}')
+        # print(f'psf.sum = {psf.sum()}')
         return psf
 
     def overlay_signal(self, camera, p_i, pixel_length, normalization=1.0):
@@ -702,7 +714,7 @@ class EPIFMConfigs:
 
         # self.fluorophore_psf = self.get_PSF_detector()
         self.fluorophore_psf = PointSpreadingFunction(
-            config.fluorophore.radial_cutoff, self.psf_width, config.fluorophore.depth_cutoff,
+            config.fluorophore.radial_cutoff, self.psf_radial_width, config.fluorophore.depth_cutoff,
             self.fluoem_norm, self.dichroic_switch, self.dichroic_eff, self.emission_switch, self.emission_eff,
             self.fluorophore_type, self.psf_wavelength, self.psf_normalization)
 
@@ -732,7 +744,7 @@ class EPIFMConfigs:
         _log.info('    Angle = {} degree'.format(self.source_angle))
 
     def set_fluorophore(
-            self, type=None, wave_length=None, normalization=None, radius=None, width=None,
+            self, type=None, wave_length=None, normalization=None, radius=None, radial_width=None,
             min_wave_length=None, max_wave_length=None, radial_cutoff=None, depth_cutoff=None):
         self.__wave_length = numpy.arange(min_wave_length, max_wave_length, 1e-9, dtype=float)
 
@@ -746,7 +758,7 @@ class EPIFMConfigs:
             fluorophore_emission = numpy.zeros(N, dtype=float)
             idx = (numpy.abs(self.__wave_length - wave_length)).argmin()
             index_ex = index_em = idx
-            self.psf_width = width
+            self.psf_radial_width = radial_width
         else:
             (fluorophore_excitation, fluorophore_emission) = io.read_fluorophore_catalog(type)
             fluorophore_excitation = self.calculate_efficiency(fluorophore_excitation, self.__wave_length)
@@ -757,7 +769,7 @@ class EPIFMConfigs:
             index_em = fluorophore_emission.argmax()
             if wave_length is not None:
                 warnings.warn('The given wave length [{}] was ignored'.format(wave_length))
-            self.psf_width = None
+            self.psf_radial_width = None  #XXX: This is only required for Gaussian
 
         fluorophore_excitation[index_ex] = 100
         fluorophore_emission[index_em] = 100
@@ -773,9 +785,10 @@ class EPIFMConfigs:
         _log.info('    Wave Length   =  {} m'.format(self.psf_wavelength))
         _log.info('    Normalization =  {}'.format(self.psf_normalization))
         _log.info('    Fluorophore radius =  {} m'.format(self.fluorophore_radius))
-        if self.psf_width is not None:
-            _log.info('    Lateral Width =  {} m'.format(self.psf_width[0]))
-            _log.info('    Axial Width =  {} m'.format(self.psf_width[1]))
+        if self.psf_radial_width is not None:
+            _log.info('    Lateral Width =  {} m'.format(self.psf_radial_width))
+            # _log.info('    Lateral Width =  {} m'.format(self.psf_width[0]))
+            # _log.info('    Axial Width =  {} m'.format(self.psf_width[1]))
         _log.info('    PSF Normalization Factor =  {}'.format(self.psf_normalization))
         _log.info('    Emission  : Wave Length =  {} m'.format(self.psf_wavelength))
 

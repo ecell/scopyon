@@ -49,8 +49,11 @@ default:
             value: 1000.0e-9
             units: m
         normalization: 1.0
-        width:
-            value: [200.0e-9, 200.0e-9] # Gaussian function (radial width, lateral width) [nm]
+        # width:
+        #     value: [200.0e-9, 200.0e-9] # Gaussian function (radial width, lateral width) [nm]
+        #     units: m
+        radial_width:
+            value: null # Gaussian function (radial width) [nm]
             units: m
         radial_cutoff:
             value: 1000.0e-9
