@@ -1,8 +1,9 @@
-from scopyon.base import *
-from scopyon.config import *
-from scopyon.image import *
-from scopyon.sampling import *
-from scopyon.spot_detection import *
+from .base import *
+from .config import *
+from .image import *
+from .sampling import *
+from .spot_detection import *
+from . import constants
 
 __all__ = []
 

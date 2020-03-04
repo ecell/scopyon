@@ -12,7 +12,7 @@ scopyon
 Requirements
 ------------
 
-For `scopyon`, Python 3 and its libraries, `numpy`, `scipy` and `matplotlib`, are required. `scikit-image`, `pillow`, `plotly` are also recommended.
+For `scopyon`, Python 3 and its libraries, `numpy`, `scipy`, `matplotlib`, `pyyaml` and `pint`, are required. Installation of `scikit-image`, `pillow` and `plotly` is also recommended.
 
 Installation
 ------------

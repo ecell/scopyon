@@ -3,6 +3,10 @@ import contextlib
 import io
 import pkgutil
 
+import numpy
+
+from scopyon.constants import Q_  # pint
+
 from logging import getLogger
 _log = getLogger(__name__)
 
@@ -20,7 +24,7 @@ class Configuration(collections.abc.Mapping):
     """
 
     Note:
-        Requires `yaml`.
+        Requires `yaml` and `pint`.
     """
 
     def __init__(self, filename=None, yaml=None):
@@ -81,11 +85,15 @@ class Configuration(collections.abc.Mapping):
         return (key for key, value in self.__yaml.items() if not isinstance(value, dict) or 'value' in value)
 
     def __getattr__(self, key):
-        assert key in self.__yaml
+        if key not in self.__yaml:
+            raise KeyError(f"'{key}'")
         value = self.__yaml[key]
         if isinstance(value, dict):
             if 'value' not in value:
                 return Configuration(yaml=value)
+            elif 'units' in value:
+                v = Q_(value['value'], value['units']).to_base_units()
+                return v.magnitude
             else:
                 return value['value']
         return value
@@ -94,16 +102,16 @@ class Configuration(collections.abc.Mapping):
         if key.startswith('_'):
             object.__setattr__(self, key, value)
             return
+        if key not in self.__yaml:
+            raise KeyError(f"'{key}'")
+        if isinstance(value, dict):
+            raise TypeError(f"The given value for '{key}' has wrong type: {value}")
 
-        assert key in self.__yaml
-        assert not isinstance(value, dict)
-        value_ = self.__yaml[key]
-        if isinstance(value_, dict):
-            if 'value' not in value_:
-                return Configuration(yaml=value_)
-            else:
-                value_['value'] = value
-        self.__yaml[key] = value
+        original = self.__yaml[key]
+        if isinstance(original, dict):
+            if 'value' not in original:
+                raise ValueError(f"Cannot update '{key}'.")
+        self.__yaml[key] = value  #XXX: clear 'units'
 
 class DefaultConfiguration(Configuration):
 
