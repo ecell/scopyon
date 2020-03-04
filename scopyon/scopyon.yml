@@ -126,7 +126,9 @@ default:
             abs_coefficient: 83400
         photo_bleaching:
             switch: !!bool true
-            half_life: 2.5
+            half_life:
+                value: 2.5
+                units: s
         # photo_activation:
         #     switch: !!bool false
         #     turn_on_ratio: 1000

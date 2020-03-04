@@ -110,15 +110,16 @@ class Image(object):
         if self.dtype is numpy.uint8:
             data = self.__data.copy()
         elif self.ndim == 2:
-            data = self.__as_8bit(self.__data)
+            data = self.__as_8bit(
+                    self.__data, cmin=cmin, cmax=cmax, low=low, high=high)
         elif self.ndim == 3:
             assert self.__data.shape[2] == 3
             data = numpy.zeros(self.__data.shape, dtype=numpy.uint8)
             for i in range(3):
-                data[:, :, i] = self.__as_8bit(self.__data[:, :, i])
+                data[:, :, i] = self.__as_8bit(
+                        self.__data[:, :, i], cmin=cmin, cmax=cmax, low=low, high=high)
         else:
             assert False
-
         return Image(data)
 
     def save(self, filename):
@@ -164,7 +165,7 @@ class Image(object):
         """
         self.plot()
 
-def save_video(filename, imgs, interval=100, dpi=None):
+def save_video(filename, imgs, interval=100, dpi=None, cmin=None, cmax=None, low=None, high=None):
     """Make a video from images.
 
     Note:
@@ -179,17 +180,22 @@ def save_video(filename, imgs, interval=100, dpi=None):
     import matplotlib.pyplot as plt
     from matplotlib.animation import FuncAnimation
 
-    def animate(frame, image, imgs):
-        image.set_array(imgs[frame].as_array())
+    def animate(frame, image, imgs, cmin, cmax, low, high):
+        image.set_array(imgs[frame].as_8bit(cmin=cmin, cmax=cmax, low=low, high=high).as_array())
         return image
+
+    if cmin is None:
+        cmin = min([img.as_array().min() for img in imgs])
+    if cmax is None:
+        cmax = max([img.as_array().max() for img in imgs])
 
     plt.ioff()
     fig, ax = plt.subplots(1, figsize=(1, 1))
     fig.subplots_adjust(0, 0, 1, 1)
     ax.axis("off")
-    image = ax.imshow(imgs[0].as_array(), cmap='gray')
+    image = ax.imshow(imgs[0].as_8bit(cmin=cmin, cmax=cmax, low=low, high=high).as_array(), cmap='gray')
     animation = FuncAnimation(
-        fig, animate, numpy.arange(len(imgs)), fargs=(image, imgs), interval=interval)
+        fig, animate, numpy.arange(len(imgs)), fargs=(image, imgs, cmin, cmax, low, high), interval=interval)
     dpi = dpi or max(imgs[0].shape)
     animation.save(filename, dpi=dpi)
     plt.clf()
