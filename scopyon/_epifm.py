@@ -739,9 +739,9 @@ class EPIFMConfigs:
 
         _log.info('--- Light Source:{}'.format(self.source_type))
         _log.info('    Wave Length = {} m'.format(self.source_wavelength))
-        _log.info('    Beam Flux Density = {} W/cm2'.format(self.source_flux_density))
+        _log.info('    Beam Flux Density = {} W/m2'.format(self.source_flux_density))
         _log.info('    1/e2 Radius = {} m'.format(self.source_radius))
-        _log.info('    Angle = {} degree'.format(self.source_angle))
+        _log.info('    Angle = {} radian'.format(self.source_angle))
 
     def set_fluorophore(
             self, type=None, wave_length=None, normalization=None, radius=None, radial_width=None,
@@ -1293,9 +1293,10 @@ class _EPIFMSimulator:
         A2_Is = N_0
         A2_Ip = N_0
 
-        # incident beam angle
+        # incident beam angle (radian)
         angle = self.configs.source_angle
-        theta_in = (angle / 180.) * numpy.pi
+        # theta_in = (angle / 180.) * numpy.pi
+        theta_in = angle
 
         sin_th1 = numpy.sin(theta_in)
         cos_th1 = numpy.cos(theta_in)

@@ -69,7 +69,11 @@ default:
         flux_density:
             value: 400000.0
             units: kg / s ** 3  # same as W / m ** 2
-        angle: 72.0
+        angle:
+            value: 1.2566370614359172
+            units: radian
+            # value: 72.0
+            # units: degree
         radius:
             value: 20.0e-6
             units: m
