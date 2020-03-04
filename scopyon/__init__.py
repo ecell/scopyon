@@ -1,16 +1,9 @@
-__all__ = [
-    # "epifm",
-    # "effects",
-    # "camera_handler",
-    # "tirfm_handler",
-    # "pmt_handler",
-    # "palm_handler",
-    # "pointscan_confm_handler",
-    # "linescan_confm_handler",
-    # "frap_handler",
-    # "lscm_handler",
-    # "flip_handler",
-    # "fcs_handler",
-    ]
+from scopyon.base import *
+from scopyon.config import *
+from scopyon.image import *
+from scopyon.samples import *
+from scopyon.spot_detection import *
+
+__all__ = []
 
 __version__ = '1.0a1'

@@ -6,6 +6,8 @@ import pkgutil
 from logging import getLogger
 _log = getLogger(__name__)
 
+__all__ = ["Configuration", "DefaultConfiguration"]
+
 
 def dict_merge(dct, merge_dct):
     for k, v in merge_dct.items():
