@@ -8,6 +8,8 @@ import numpy.random
 from logging import getLogger
 _log = getLogger(__name__)
 
+__all__ = ["generate_inputs"]
+
 
 def generate_points(rng, N=None, conc=None, lower=None, upper=None, start=0, ndim=3):
     """Generate points distributed uniformly.

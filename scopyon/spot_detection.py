@@ -4,10 +4,15 @@ import scipy.optimize
 from logging import getLogger
 _log = getLogger(__name__)
 
+__all__ = ["blob_detection", "spot_detection"]
+
 
 def blob_detection(data, min_sigma=1, max_sigma=50, num_sigma=10, threshold=0.2, overlap=0.5):
     """Finds blobs in the given image.
     See also http://scikit-image.org/docs/dev/api/skimage.feature.html#skimage.feature.blob_log
+
+    Note:
+        Requires `scikit-image`.
 
     Args:
         data (ndarray): An image data.
@@ -24,7 +29,6 @@ def blob_detection(data, min_sigma=1, max_sigma=50, num_sigma=10, threshold=0.2,
     Returns:
         ndarray: Blobs detected.
             Each row represents coordinates and the standard deviation, `(x, y, r)`.
-
     """
     try:
         from skimage.feature import blob_log
@@ -95,6 +99,9 @@ def fitgaussian(data, roi_size):
 
 def spot_detection(data, roi_size=6, blobs=None, **kwargs):
     """Finds spots in the given image.
+
+    Note:
+        Requires `scipy`.
 
     Args:
         data (ndarray): An image data.

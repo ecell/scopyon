@@ -13,4 +13,4 @@ __all__ = [
     # "fcs_handler",
     ]
 
-__version__ = '1.0.0'
+__version__ = '1.0a1'

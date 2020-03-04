@@ -4,12 +4,14 @@ import warnings
 
 import numpy
 
-import scopyon.epifm
+import scopyon._epifm
 import scopyon.config
 import scopyon.image
 
 from logging import getLogger
 _log = getLogger(__name__)
+
+__all__ = ["form_image", "generate_images", "create_simulator"]
 
 
 class EnvironSettings:
@@ -49,8 +51,8 @@ class EPIFMSimulator(object):
         self.__rng = rng
 
     def base(self):
-        return scopyon.epifm._EPIFMSimulator(
-                configs=scopyon.epifm.EPIFMConfigs(self.__config[self.__method], rng=self.__rng),
+        return scopyon._epifm._EPIFMSimulator(
+                configs=scopyon._epifm.EPIFMConfigs(self.__config[self.__method], rng=self.__rng),
                 environ=EnvironSettings(self.__config.environ))
 
     def __format_data(self, inputs):
@@ -193,7 +195,7 @@ def create_simulator(config=None, method=None, rng=None):
             The default is None.
 
     Returns:
-        scopyon.epifm.EPIFMSimulator: A simulator
+        EPIFMSimulator: A simulator
     """
     if method is None:
         method = config.get('method', 'default').lower()

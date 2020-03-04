@@ -3,6 +3,8 @@ import numpy
 from logging import getLogger
 _log = getLogger(__name__)
 
+__all__ = ["Image", "save_video"]
+
 
 class Image(object):
 
