@@ -1279,8 +1279,8 @@ class _EPIFMSimulator:
         # x_i, y_i, z_i = p_i
 
         # Illumination: Assume that uniform illumination (No gaussian)
-        # flux density [W/cm2 (joules/sec/m2)]
-        P_0 = self.configs.source_flux_density * 1e+4
+        # flux density, [W / m ** 2] = [J / s / m ** 2] = [kg / s ** 3]
+        P_0 = self.configs.source_flux_density
 
         # single photon energy
         wave_length = self.configs.source_wavelength  # m
