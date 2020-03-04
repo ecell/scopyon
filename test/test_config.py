@@ -72,6 +72,15 @@ class TestConfig(unittest.TestCase):
         config.default.detector.exposure_time = Q_(33, 'ms')
         self.assertAlmostEqual(config.default.detector.exposure_time, 0.033)
 
+    def test5(self):
+        from scopyon.config import DefaultConfiguration
+        from scopyon.constants import Q_
+        config = DefaultConfiguration()
+
+        from pint.errors import DimensionalityError
+        with self.assertRaises(DimensionalityError):
+            config.default.detector.exposure_time = Q_(33, 'm')
+
 
 if __name__ == '__main__':
     unittest.main()

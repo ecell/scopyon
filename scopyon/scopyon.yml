@@ -39,9 +39,6 @@ default:
         radius:
             value: 20.0e-9
             units: m
-        # wave_length:
-        #     value: 600.0e-9
-        #     units: m
         min_wave_length:
             value: 300.0e-9
             units: m
@@ -49,17 +46,20 @@ default:
             value: 1000.0e-9
             units: m
         normalization: 1.0
-        # width:
-        #     value: [200.0e-9, 200.0e-9] # Gaussian function (radial width, lateral width) [nm]
-        #     units: m
-        radial_width:
-            value: null # Gaussian function (radial width) [nm]
-            units: m
         radial_cutoff:
             value: 1000.0e-9
             units: m
         depth_cutoff:
             value: 1000.0e-9
+            units: m
+        # width:
+        #     value: [200.0e-9, 200.0e-9] # Gaussian function (radial width, lateral width) [nm]
+        #     units: m
+        radial_width:
+            value: null # Gaussian function (radial width) [m]
+            units: m
+        wave_length:
+            value: null # Gaussian function
             units: m
         # file_name_format:
     light_source:

@@ -118,7 +118,12 @@ class Configuration(collections.abc.Mapping):
                 #TODO: value might be Configuration.
                 raise ValueError(f"Cannot update '{key}'.")
         if isinstance(value, Q_):
-            #TODO: Check dimensionality here if needed
+            if isinstance(original, dict) and 'units' in original:
+                other = Q_(original['value'], original['units'])
+                if not value.check(other):
+                    from pint.errors import DimensionalityError
+                    raise DimensionalityError(
+                        value.units, other.units, value.dimensionality, other.dimensionality)
             self.__yaml[key] = dict(value=value.magnitude, units='{:~}'.format(value.units))
         else:
             self.__yaml[key] = value  #XXX: clear 'units'
