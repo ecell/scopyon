@@ -32,6 +32,7 @@ preprocessing:
 # detector_dyn_stages: 11
 # detector_pair_pulses: 0.0
 # ADConverter_gain: 5.8
+# default.fluorophore.file_name_format:
 default:
     type: epifm
     fluorophore:
@@ -52,16 +53,15 @@ default:
         depth_cutoff:
             value: 1000.0e-9
             units: m
-        # width:
-        #     value: [200.0e-9, 200.0e-9] # Gaussian function (radial width, lateral width) [nm]
-        #     units: m
         radial_width:
             value: null # Gaussian function (radial width) [m]
             units: m
+        # axial_width:
+        #     value: null # Gaussian function (axial width) [m]
+        #     units: m
         wave_length:
             value: null # Gaussian function
             units: m
-        # file_name_format:
     light_source:
         switch: !!bool true
         type: LASER
@@ -107,10 +107,10 @@ default:
         fullwell: 800000
     excitation_filter:
         switch: !!bool false
-        # type:  # excitation_filter
+        type: null  # excitation_filter
     emission_filter:
         switch: !!bool false
-        # type:  # emission_filter
+        type: null  # emission_filter
     shutter:
         switch: !!bool false
         start_time:
