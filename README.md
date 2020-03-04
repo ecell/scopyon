@@ -12,7 +12,7 @@ scopyon
 Requirements
 ------------
 
-For `scopyon`, Python 3 and its libraries, `numpy`, `scipy` and `matplotlib`, are required. `scikit-image` is also needed by `scopyon.spot_detection`.
+For `scopyon`, Python 3 and its libraries, `numpy`, `scipy` and `matplotlib`, are required. `scikit-image`, `pillow`, `plotly` are also recommended.
 
 Installation
 ------------
@@ -31,10 +31,10 @@ Quick start
 -----------
 
 ```shell-session
-$ python examples/twocolor_script.py
+$ python examples/twocolor.py
 ```
 
-![TIRF Image](https://github.com/ecell/scopyon/raw/master/examples/data/outputs_tirf/twocolor_0000000.png)
+![TIRF Image](https://github.com/ecell/scopyon/raw/master/examples/twocolor_000.png)
 
 License
 -------
