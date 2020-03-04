@@ -1,4 +1,6 @@
 import collections.abc
+import numbers
+import warnings
 
 import numpy
 
@@ -20,7 +22,7 @@ class EnvironSettings:
 
 class EPIFMSimulator(object):
 
-    def __init__(self, config=None, method=None):
+    def __init__(self, config=None, method=None, rng=None):
         """ Constructor
 
         Args:
@@ -28,6 +30,8 @@ class EPIFMSimulator(object):
                 The default is None.
             method (str, optional): A name of method used.
                 The default is None (config.default).
+            rng (numpy.RandomState, optional): A random number generator.
+                The default is None.
         """
         if config is None:
             config = scopyon.config.Configuration()
@@ -36,12 +40,17 @@ class EPIFMSimulator(object):
         elif not isinstance(config, scopyon.config.Configuration):
             raise TypeError("Configuration or str must be given [{}].".format(type(config)))
 
+        if rng is None:
+            warnings.warn('A random number generator is not given.')
+            rng = numpy.random.RandomState()
+
         self.__config = config
         self.__method = method or config.default.lower()
+        self.__rng = rng
 
-    def base(self, rng=None):
+    def base(self):
         return scopyon.epifm._EPIFMSimulator(
-                configs=scopyon.epifm.EPIFMConfigs(self.__config[self.__method], rng=rng),
+                configs=scopyon.epifm.EPIFMConfigs(self.__config[self.__method], rng=self.__rng),
                 environ=EnvironSettings(self.__config.environ))
 
     def __format_data(self, inputs):
@@ -54,6 +63,11 @@ class EPIFMSimulator(object):
             data = numpy.hstack((
                 numpy.zeros((inputs.shape[0], 1)),
                 inputs * self.__config.preprocessing.scale))
+            data = numpy.hstack((
+                data,
+                numpy.zeros((data.shape[0], 2))))
+            data[:, 3] = numpy.arange(inputs.shape[0])  #FIXME: Molecule ID
+            data[:, 4] = 1.0  # Photon state
         elif inputs.shape[1] == 3:
             origin = numpy.array(self.__config.preprocessing.origin)
             data = inputs * self.__config.preprocessing.scale - origin
@@ -64,14 +78,29 @@ class EPIFMSimulator(object):
                 numpy.dot(data, unit_z).reshape((-1, 1)),
                 numpy.dot(data, self.__config.preprocessing.unit_x).reshape((-1, 1)),
                 numpy.dot(data, self.__config.preprocessing.unit_y).reshape((-1, 1))))
+            data = numpy.hstack((
+                data,
+                numpy.zeros((data.shape[0], 2))))
+            data[:, 3] = numpy.arange(inputs.shape[0])  #FIXME: Molecule ID
+            data[:, 4] = 1.0  # Photon state
+        elif inputs.shape[1] == 4:
+            data = numpy.hstack((
+                numpy.zeros((inputs.shape[0], 1)),
+                inputs[:, : 2] * self.__config.preprocessing.scale,
+                inputs[:, 2: ]))
+        elif inputs.shape[1] == 5:
+            origin = numpy.array(self.__config.preprocessing.origin)
+            data = inputs[:, : 3] * self.__config.preprocessing.scale - origin
+            unit_z = numpy.cross(
+                self.__config.preprocessing.unit_x,
+                self.__config.preprocessing.unit_y)
+            data = numpy.hstack((
+                numpy.dot(data, unit_z).reshape((-1, 1)),
+                numpy.dot(data, self.__config.preprocessing.unit_x).reshape((-1, 1)),
+                numpy.dot(data, self.__config.preprocessing.unit_y).reshape((-1, 1)),
+                inputs[:, 3: ]))
         else:
             raise ValueError("The given 'inputs' has wrong shape.")
-
-        data = numpy.hstack((
-            data,
-            numpy.zeros((data.shape[0], 2))))
-        data[:, 3] = numpy.arange(inputs.shape[0])  #FIXME: Molecule ID
-        data[:, 4] = 1.0  # Photon state
         return data
 
     def __format_inputs(self, inputs):
@@ -82,7 +111,7 @@ class EPIFMSimulator(object):
             data = []
             for elem in inputs:
                 if not (isinstance(elem, (tuple, list)) and len(elem) == 2
-                        and isinstance(elem[0], Real) and isinstance(elem[1], numpy.ndarray)):
+                        and isinstance(elem[0], numbers.Real) and isinstance(elem[1], numpy.ndarray)):
                     raise ValueError("The given 'inputs' has wrong type.")
                 data.append((elem[0], self.__format_data(elem[1])))
         else:
@@ -93,7 +122,7 @@ class EPIFMSimulator(object):
 
     def form_image(
             self, inputs, start_time=0.0, exposure_time=None,
-            rng=None, full_output=False):
+            full_output=False):
         """Form image.
 
         Args:
@@ -103,8 +132,6 @@ class EPIFMSimulator(object):
                 Defaults to 0.0.
             exposure_time (float, optional): An exposure time.
                 Defaults to `detector.exposure_time` in the configuration.
-            rng (numpy.RandomState, optional): A random number generator.
-                The default is None.
             full_output (bool, optional):
                 True if to return a dictionary of optional outputs as the second output
 
@@ -113,20 +140,20 @@ class EPIFMSimulator(object):
             dict: only returned if full_output == True
         """
         data = self.__format_inputs(inputs)
-        base = self.base(rng)
-        camera, true_data = base.output_frame(
-                data, start_time=start_time, exposure_time=exposure_time, rng=rng)
+        base = self.base()
+        camera, infodict = base.output_frame(
+                data, start_time=start_time, exposure_time=exposure_time, rng=self.__rng)
         # camera[:, :, 0] => expected
         # camera[:, :, 1] => ADC
         img = scopyon.image.Image(camera[:, :, 1])
         if full_output:
-            infodict = dict(expectation=camera[:, :, 0], true_data=true_data)
+            infodict.update(dict(expectation=camera[:, :, 0]))
             return img, infodict
         return img
 
     def generate_images(
             self, inputs, num_frames, start_time=0.0, exposure_time=None,
-            rng=None, full_output=False):
+            full_output=False):
         """Form image.
 
         Args:
@@ -137,8 +164,6 @@ class EPIFMSimulator(object):
                 Defaults to `0.0` in the configuration.
             exposure_time (float, optional): An exposure time.
                 Defaults to `detector_exposure_time` in the configuration.
-            rng (numpy.RandomState, optional): A random number generator.
-                The default is None.
             full_output (bool, optional):
                 True if to return a dictionary of optional outputs as the second output
 
@@ -147,22 +172,25 @@ class EPIFMSimulator(object):
             dict: only returned if full_output == True
         """
         data = self.__format_inputs(inputs)
-        base = self.base(rng)
-        for (camera, optinfo) in base.generate_frames(
-                data, num_frames, start_time=start_time, exposure_time=exposure_time, rng=rng):
+        base = self.base()
+        for (camera, infodict) in base.generate_frames(
+                data, num_frames, start_time=start_time, exposure_time=exposure_time, rng=self.__rng):
             img = scopyon.image.Image(camera[:, :, 1])
             if full_output:
-                infodict = dict(expectation=camera[:, :, 0], true_data=optinfo)
+                infodict.update(dict(expectation=camera[:, :, 0]))
                 yield img, infodict
-            yield img
+            else:
+                yield img
 
-def create_simulator(config=None, method=None):
+def create_simulator(config=None, method=None, rng=None):
     """Return a simulator.
 
     Args:
         config (Configuration, optional): Configurations.
         method (str, optional): A name of method used.
             The default is None (config.default).
+        rng (numpy.RandomState, optional): A random number generator.
+            The default is None.
 
     Returns:
         scopyon.epifm.EPIFMSimulator: A simulator
@@ -174,7 +202,7 @@ def create_simulator(config=None, method=None):
 
     simulator_type = config[method].type.lower()
     if simulator_type == 'epifm':
-        return EPIFMSimulator(config=config, method=method)
+        return EPIFMSimulator(config=config, method=method, rng=rng)
     else:
         raise ValueError(f"An unknown type [{simulator_type}] was given.")
 
@@ -203,8 +231,8 @@ def form_image(
         Image: An image
         dict: only returned if full_output == True
     """
-    sim = create_simulator(config, method=method)
-    return sim.form_image(inputs, start_time, exposure_time, rng=rng, full_output=full_output)
+    sim = create_simulator(config, method=method, rng=rng)
+    return sim.form_image(inputs, start_time, exposure_time, full_output=full_output)
 
 def generate_images(
         inputs, num_frames, start_time=0.0, exposure_time=None, *,
@@ -232,8 +260,8 @@ def generate_images(
         Image: An image.
         dict: only returned if full_output == True
     """
-    sim = create_simulator(config, method=method)
-    return sim.generate_images(inputs, num_frames, start_time, exposure_time, rng=rng, full_output=full_output)
+    sim = create_simulator(config, method=method, rng=rng)
+    return sim.generate_images(inputs, num_frames, start_time, exposure_time, full_output=full_output)
 
 
 if __name__ == "__main__":

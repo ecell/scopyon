@@ -970,10 +970,10 @@ class _EPIFMSimulator:
         exposure_time = exposure_time or self.configs.detector_exposure_time
 
         for frame_index in range(num_frames):
-            camera, optinfo = self.output_frame(
+            camera, infodict = self.output_frame(
                     input_data, frame_index=frame_index, start_time=start_time, exposure_time=exposure_time,
                     fluorescence_states=fluorescence_states, rng=rng, processes=processes)
-            yield (camera, optinfo)
+            yield (camera, infodict)
 
     def output_frames(
             self, input_data, num_frames, start_time=0.0, exposure_time=None,
@@ -1023,7 +1023,7 @@ class _EPIFMSimulator:
             rng = numpy.random.RandomState()
 
         results = []
-        for camera, optinfo in self.generate_frames(
+        for camera, infodict in self.generate_frames(
                 input_data, frame_index=frame_index, start_time=start_time, exposure_time=exposure_time,
                 fluorescence_states=fluorescence_states, rng=rng, processes=processes):
             # save photon counts to numpy-binary file
@@ -1042,7 +1042,7 @@ class _EPIFMSimulator:
                 image_file_name = os.path.join(pathto, image_fmt % (frame_index))
                 Image(camera[: , : , 1]).as_8bit(cmin, cmax, low, high).save(image_file_name)
 
-            results.append((camera, optinfo))
+            results.append((camera, infodict))
         return results
 
     def output_frame(
@@ -1134,7 +1134,11 @@ class _EPIFMSimulator:
 
         # apply detector effects
         camera = self.__detector_output(rng, camera_pixel, processes=processes)
-        return (camera, optinfo)
+        # return (camera, optinfo)
+        infodict = dict(true_data=optinfo)
+        if fluorescence_states is not None:
+            infodict['fluorescence_states'] = copy.copy(fluorescence_states)
+        return (camera, infodict)
 
     def get_molecule_plane(
             self, particles, shape, p_b, p_0, unit_time,
@@ -1149,6 +1153,16 @@ class _EPIFMSimulator:
                     for _, _, _, m_id, _ in particles if int(m_id) in fluorescence_states}
 
         if processes is not None and processes > 1:
+            if fluorescence_states is not None and self.configs.effects.photobleaching_switch:
+                amplitude0, _ = self.snells_law()
+                N_emit0 = self.__get_emit_photons(amplitude0, 1.0)
+                half_life = self.configs.effects.photobleaching_half_life
+                for p in particles:
+                    m_id = int(p[3])
+                    if m_id not in states:
+                        states[m_id] = self.get_photon_budget(
+                                N_emit0, half_life, rng=rng)
+
             func = functools.partial(
                     self.get_molecule_plane,
                     shape=shape, p_b=p_b, p_0=p_0, unit_time=unit_time,
@@ -1196,6 +1210,7 @@ class _EPIFMSimulator:
         if fluorescence_states is not None:
             if self.configs.effects.photobleaching_switch:
                 if m_id not in fluorescence_states:
+                    assert rng is not None
                     amplitude0, _ = self.snells_law()
                     N_emit0 = self.__get_emit_photons(amplitude0, 1.0)
                     fluorescence_states[m_id] = self.get_photon_budget(
@@ -1377,6 +1392,6 @@ class _EPIFMSimulator:
     @staticmethod
     def get_photon_budget(N_emit0, half_life, rng):
         beta = half_life / numpy.log(2.0)
-        bleaching_time = (rng or numpy.random).exponential(scale=beta, size=None)
+        bleaching_time = rng.exponential(scale=beta, size=None)
         budget = bleaching_time * N_emit0
         return budget
