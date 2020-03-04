@@ -2,6 +2,7 @@ import collections.abc
 import contextlib
 import io
 import pkgutil
+import warnings
 
 import numpy
 
@@ -91,8 +92,12 @@ class Configuration(collections.abc.Mapping):
         if isinstance(value, dict):
             if 'value' not in value:
                 return Configuration(yaml=value)
-            elif 'units' in value:
-                v = Q_(value['value'], value['units']).to_base_units()
+            elif value['value'] is not None and 'units' in value:
+                #XXX: value['value'] could be None (null).
+                given = Q_(value['value'], value['units'])
+                v = given.to_base_units()
+                if given.units != v.units:
+                    warnings.warn(f"Unit conversion in '{key}' from [{given.units:~}] to [{v.units:~}]")
                 return v.magnitude
             else:
                 return value['value']
@@ -110,8 +115,13 @@ class Configuration(collections.abc.Mapping):
         original = self.__yaml[key]
         if isinstance(original, dict):
             if 'value' not in original:
+                #TODO: value might be Configuration.
                 raise ValueError(f"Cannot update '{key}'.")
-        self.__yaml[key] = value  #XXX: clear 'units'
+        if isinstance(value, Q_):
+            #TODO: Check dimensionality here if needed
+            self.__yaml[key] = dict(value=value.magnitude, units='{:~}'.format(value.units))
+        else:
+            self.__yaml[key] = value  #XXX: clear 'units'
 
 class DefaultConfiguration(Configuration):
 

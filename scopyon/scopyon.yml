@@ -68,7 +68,8 @@ default:
         wave_length: 532.0e-9  # wavelength
         flux_density:
             value: 40.0
-            units: W / cm ** 2
+            # units: W / cm ** 2  #TODO
+            # 400000.0 kg / s ** 3 in SI units
         angle: 72.0
         radius:
             value: 20.0e-6

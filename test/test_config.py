@@ -65,6 +65,13 @@ class TestConfig(unittest.TestCase):
         config.default.detector.exposure_time = 0.033
         self.assertAlmostEqual(config.default.detector.exposure_time, 0.033)
 
+    def test5(self):
+        from scopyon.config import DefaultConfiguration
+        from scopyon.constants import Q_
+        config = DefaultConfiguration()
+        config.default.detector.exposure_time = Q_(33, 'ms')
+        self.assertAlmostEqual(config.default.detector.exposure_time, 0.033)
+
 
 if __name__ == '__main__':
     unittest.main()
