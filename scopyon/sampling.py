@@ -8,10 +8,10 @@ import numpy.random
 from logging import getLogger
 _log = getLogger(__name__)
 
-__all__ = ["generate_inputs"]
+__all__ = ["sample_inputs"]
 
 
-def generate_points(rng, N=None, conc=None, lower=None, upper=None, start=0, ndim=3):
+def sample_points(rng, N=None, conc=None, lower=None, upper=None, start=0, ndim=3):
     """Generate points distributed uniformly.
 
     Args:
@@ -36,7 +36,7 @@ def generate_points(rng, N=None, conc=None, lower=None, upper=None, start=0, ndi
     if N is None and conc is None:
         raise ValueError('Either one of N or conc must be given.')
 
-    _log.info('generate_points: N={}, conc={}, lower={}, upper={}, start={}, ndim={}.'.format(
+    _log.info('sample_points: N={}, conc={}, lower={}, upper={}, start={}, ndim={}.'.format(
         N, conc, lower, upper, start, ndim))
 
     lower = (numpy.ones(ndim) * lower if isinstance(lower, numbers.Number)
@@ -117,7 +117,7 @@ def move_points(rng, points, D, dt, ndim=3):
             ret[i, dim] += rng.normal(0.0, numpy.sqrt(2 * D[dim] * dt))
     return ret
 
-def generate_inputs(t, *, N=None, conc=None, lower=None, upper=None, D=None, ndim=3, rng=None):
+def sample_inputs(t, *, N=None, conc=None, lower=None, upper=None, D=None, ndim=3, rng=None):
     """Generate the input data.
 
     Args:
@@ -147,7 +147,7 @@ def generate_inputs(t, *, N=None, conc=None, lower=None, upper=None, D=None, ndi
         rng = numpy.random.RandomState()
 
     t = sorted(t)
-    points, _ = generate_points(rng, N=N, conc=conc, lower=lower, upper=upper, ndim=ndim)
+    points, _ = sample_points(rng, N=N, conc=conc, lower=lower, upper=upper, ndim=ndim)
     tcurrent = t[0]
     inputs = []
     for tnext in t:
@@ -224,7 +224,7 @@ def generate_inputs(t, *, N=None, conc=None, lower=None, upper=None, D=None, ndi
 # 
 #     if synthesis is not None:
 #         synthesis = numpy.asarray(synthesis)
-#         ret_, start = generate_points(rng, conc=synthesis * dt, lower=lower, upper=upper, start=start)
+#         ret_, start = sample_points(rng, conc=synthesis * dt, lower=lower, upper=upper, start=start)
 #         if len(ret_) > 0:
 #             ret = numpy.vstack((ret, ret_))
 #             _log.debug('{} points were born.'.format(len(ret_)))
@@ -233,7 +233,7 @@ def generate_inputs(t, *, N=None, conc=None, lower=None, upper=None, D=None, ndi
 # 
 # 
 # if __name__ == "__main__":
-#     from .samples import generate_points, move_points, attempt_reactions
+#     from .samples import sample_points, move_points, attempt_reactions
 # 
 # 
 #     rng = numpy.random.RandomState(0)
@@ -248,7 +248,7 @@ def generate_inputs(t, *, N=None, conc=None, lower=None, upper=None, D=None, ndi
 #     size = numpy.multiply.reduce(lengths[lengths != 0])
 #     ks = N2 / size * kd
 # 
-#     points, start = generate_points(rng, upper=lengths, N=[N1, N2])
+#     points, start = sample_points(rng, upper=lengths, N=[N1, N2])
 #     t = 0.0
 #     print(points)
 #     print(points[: , 3])
@@ -267,7 +267,7 @@ def generate_inputs(t, *, N=None, conc=None, lower=None, upper=None, D=None, ndi
 #     print(points.T[1].min(), points.T[1].max(), lengths[1])
 #     print(points.T[2].min(), points.T[2].max(), lengths[2])
 # 
-#     # points, start = generate_points(rng, upper=lengths, N=[N1, N2])
+#     # points, start = sample_points(rng, upper=lengths, N=[N1, N2])
 #     # t = 0.0
 #     # while t < dt * 100:
 #     #     points = move_points(rng, points, [D1, D2], dt, lengths)

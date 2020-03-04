@@ -45,7 +45,7 @@ setup(
     packages=['scopyon'],
     package_dir={'scopyon': 'scopyon'},
     package_data={'scopyon': ['scopyon.yml', 'catalog/*.txt', 'catalog/*/*.csv']},
-    data_files=[('examples', ['examples/tirf.py', 'examples/tirf_000.png', 'examples/twocolor.py', 'examples/twocolor_000.png'])],
+    data_files=[('examples', ['examples/tirf.py', 'examples/tirf_000.png', 'examples/twocolor.py', 'examples/twocolor_000.png', 'examples/bleaching.py'])],
     install_requires=install_requires,
     test_suite='test',
     license='BSD-3-Clause',

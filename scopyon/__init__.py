@@ -1,7 +1,7 @@
 from scopyon.base import *
 from scopyon.config import *
 from scopyon.image import *
-from scopyon.samples import *
+from scopyon.sampling import *
 from scopyon.spot_detection import *
 
 __all__ = []

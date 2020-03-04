@@ -22,7 +22,7 @@ N = 1000
 D = 0.1e-12  # m ** 2 / s
 dt = config.default.detector.exposure_time
 t = numpy.arange(0, (num_frames + 1) * dt, dt)
-inputs = scopyon.generate_inputs(t, N=N, lower=-L_2, upper=+L_2, ndim=2, D=D, rng=rng)
+inputs = scopyon.sample_inputs(t, N=N, lower=-L_2, upper=+L_2, ndim=2, D=D, rng=rng)
 
 img = list(scopyon.generate_images(inputs, num_frames=num_frames, config=config, rng=rng))
 scopyon.save_video('video.mp4', img)
