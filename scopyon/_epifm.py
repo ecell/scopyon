@@ -2,6 +2,7 @@ import copy
 import math
 import warnings
 import os
+import numbers
 
 from multiprocessing import Pool
 import functools
@@ -9,6 +10,7 @@ import functools
 import numpy
 
 import scipy.special
+import scipy.integrate
 
 from scipy.special import j0, i1e
 from scipy.interpolate import interp1d
@@ -72,17 +74,23 @@ class PointSpreadingFunction:
         radial = numpy.arange(0.0, self.psf_radial_cutoff, self.__resolution_radial, dtype=float)
         r = radial / self.__resolution_radial
         radial_cutoff = self.psf_radial_cutoff / self.__resolution_radial
+        psf_r = self.get_distribution(radial, depth)
+        psf_cart = self.radial_to_cartesian(radial, psf_r, self.psf_radial_cutoff, self.__resolution_radial)
+        return psf_cart
+
+    @staticmethod
+    def radial_to_cartesian(radial, radial_distribution, radial_cutoff, radial_resolution):
+        r = radial / radial_resolution
+        radial_cutoff = radial_cutoff / radial_resolution
 
         theta = numpy.linspace(0, 90, 91)  #XXX: theta resolution
         z = numpy.linspace(0, radial_cutoff, len(r))
         y = numpy.linspace(0, radial_cutoff, len(r))
 
         coordinates = _polar2cartesian_coordinates(r, theta, z, y)
-        psf_t = numpy.ones_like(theta)
-
-        psf_r = self.get_distribution(radial, depth)
-        psf_polar = numpy.array(list(map(lambda x: psf_t * x, psf_r)))
-        return _polar2cartesian(psf_polar, coordinates, (len(z), len(y)))
+        theta = numpy.ones_like(theta)
+        polar_distribution = numpy.array(list(map(lambda x: theta * x, radial_distribution)))
+        return _polar2cartesian(polar_distribution, coordinates, (len(z), len(y)))
 
     def __get_normalization(self):
         # Fluorophores Emission Intensity (wave_length)
@@ -103,7 +111,9 @@ class PointSpreadingFunction:
 
     @staticmethod
     def __get_gaussian_distribution(r, _z, radial_width):
-        return numpy.exp(-0.5 * (r / radial_width) ** 2)
+        # return numpy.exp(-0.5 * (r / radial_width) ** 2) / (2 * numpy.pi * radial_width * radial_width)
+        return numpy.exp(-0.5 * (r / radial_width) ** 2)  #XXX: w/o normalization
+
         # #XXX: normalization means I in __get_normalization.
         # # For normalization
         # # norm = list(map(lambda x: True if x > 1e-4 else False, I))
@@ -115,14 +125,35 @@ class PointSpreadingFunction:
         # return numpy.array(list(map(lambda x: Ir * x, Iz)))
 
     def get_born_wolf_distribution(self, radial, depth):
-        psf = self.__get_born_wolf_distribution(radial, depth, self.psf_wavelength)
+        # psf = self.__get_born_wolf_distribution(radial, depth, self.psf_wavelength)
+        psf = self.__get_born_wolf_distribution_old(radial, depth, self.psf_wavelength)
         return self.__normalization * psf
 
     @staticmethod
     def __get_born_wolf_distribution(r, z, wave_length):
-        # set Magnification of optical system
-        # M = self.image_magnification
+        assert isinstance(r, numpy.ndarray) and r.ndim == 1
+        assert isinstance(z, numbers.Real) and z >= 0.0
+        assert isinstance(wave_length, numbers.Real) and wave_length > 0
 
+        # set Numerical Appature
+        NA = 1.4  # self.objective_NA
+
+        # set alpha and psi
+        k = 2.0 * numpy.pi / wave_length
+        alpha = k * NA
+        psi = 0.5 * alpha * z * NA
+
+        psf = numpy.zeros(r.size, dtype=r.dtype)
+        for i in range(r.size):
+            alpha_r = alpha * r[i]
+            I_real, _ = scipy.integrate.quad(lambda rho: j0(alpha_r * rho) * +numpy.cos(psi * rho * rho) * rho, 0, 1.0)
+            I_imag, _ = scipy.integrate.quad(lambda rho: j0(alpha_r * rho) * -numpy.sin(psi * rho * rho) * rho, 0, 1.0)
+            psf[i] = I_real ** 2 + I_imag ** 2
+        psf *= alpha * alpha / numpy.pi  #XXX: normalization
+        return psf
+
+    @staticmethod
+    def __get_born_wolf_distribution_old(r, z, wave_length):
         # set Numerical Appature
         NA = 1.4  # self.objective_NA
 
@@ -136,7 +167,6 @@ class PointSpreadingFunction:
         drho = 1.0 / N
         # rho = numpy.array([(i + 1) * drho for i in range(N)])
         rho = numpy.arange(1, N + 1) * drho
-
         # print(f'r.shape = {r.shape}')
         # print(f'rho.shape = {rho.shape}')
 
@@ -149,20 +179,12 @@ class PointSpreadingFunction:
         I_sum = I.sum(axis=1)
         # print(f'I_sum.shape = {I_sum.shape}')
 
-        #XXX: z : 1d array_like
-        # J0 = numpy.array(list(map(lambda x: j0(x * alpha * rho), r)))
-        # print(f'J0.shape = {J0.shape}')
-        # Y  = numpy.array(list(map(lambda x: numpy.exp(-2 * 1.j * x * gamma * rho * rho) * rho * drho, z)))
-        # print(f'Y.shape = {Y.shape}')
-        # I  = numpy.array(list(map(lambda x: x * J0, Y)))
-        # print(f'I.shape = {I.shape}')
-        # I_sum = I.sum(axis=2)
-        # print(f'I_sum.shape = {I_sum.shape}')
-
         # set PSF
         psf = numpy.array(list(map(lambda x: abs(x) ** 2, I_sum)))
         # print(f'psf.shape = {psf.shape}')
         # print(f'psf.sum = {psf.sum()}')
+
+        # psf *= alpha * alpha / numpy.pi  #XXX: normalization
         return psf
 
     def overlay_signal(self, camera, p_i, pixel_length, normalization=1.0):
@@ -171,10 +193,10 @@ class PointSpreadingFunction:
             return
         depth = p_i[0]
         signal = self.get(depth)
-        self.__overlay_signal(camera, signal, p_i, pixel_length, normalization)
+        self.overlay_signal_(camera, signal, p_i, pixel_length, normalization)
 
     @staticmethod
-    def __overlay_signal(camera, signal, p_i, pixel_length, normalization):
+    def overlay_signal_(camera, signal, p_i, pixel_length, normalization):
         # m-scale
         # camera pixel
         Nw_pixel, Nh_pixel = camera.shape
