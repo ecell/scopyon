@@ -2,8 +2,8 @@ from .base import *
 from .config import *
 from .image import *
 from .sampling import *
-from .spot_detection import *
 from . import constants
+from . import analysis
 
 __all__ = []
 
