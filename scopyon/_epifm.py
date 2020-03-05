@@ -111,8 +111,8 @@ class PointSpreadingFunction:
 
     @staticmethod
     def __get_gaussian_distribution(r, _z, radial_width):
-        # return numpy.exp(-0.5 * (r / radial_width) ** 2) / (2 * numpy.pi * radial_width * radial_width)
-        return numpy.exp(-0.5 * (r / radial_width) ** 2)  #XXX: w/o normalization
+        return numpy.exp(-0.5 * (r / radial_width) ** 2) / (2 * numpy.pi * radial_width * radial_width)
+        # return numpy.exp(-0.5 * (r / radial_width) ** 2)  #XXX: w/o normalization
 
         # #XXX: normalization means I in __get_normalization.
         # # For normalization
@@ -127,6 +127,14 @@ class PointSpreadingFunction:
     def get_born_wolf_distribution(self, radial, depth):
         # psf = self.__get_born_wolf_distribution(radial, depth, self.psf_wavelength)
         psf = self.__get_born_wolf_distribution_old(radial, depth, self.psf_wavelength)
+
+        # NA = 1.4  # self.objective_NA
+        # k = 2.0 * numpy.pi / self.psf_wavelength
+        # alpha = k * NA
+        # unit_area = 1e-9 ** 2
+        # psf *= 1.0 / (alpha * alpha / numpy.pi * unit_area)  #TODO: Unknown normalization factor
+        # print("Normalization:", 1.0 / (alpha * alpha / numpy.pi * unit_area))
+
         return self.__normalization * psf
 
     @staticmethod
@@ -184,7 +192,7 @@ class PointSpreadingFunction:
         # print(f'psf.shape = {psf.shape}')
         # print(f'psf.sum = {psf.sum()}')
 
-        # psf *= alpha * alpha / numpy.pi  #XXX: normalization
+        psf *= alpha * alpha / numpy.pi  #XXX: normalization
         return psf
 
     def overlay_signal(self, camera, p_i, pixel_length, normalization=1.0):
@@ -233,9 +241,10 @@ class PointSpreadingFunction:
         jrange = numpy.vstack((jarray[: -1], jbottom, jtop)).T
         jrange = jrange[jrange[:, 2] > jrange[:, 1]]
 
+        unit_area = signal_resolution * signal_resolution
         for i, i0, i1 in irange:
             for j, j0, j1 in jrange:
-                photons = signal[i0: i1, j0: j1].sum()
+                photons = signal[i0: i1, j0: j1].sum() * unit_area
                 if photons > 0:
                     camera[i, j] += photons * normalization
 

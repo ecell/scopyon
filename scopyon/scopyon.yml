@@ -46,7 +46,9 @@ default:
         max_wave_length:
             value: 1000.0e-9
             units: m
-        normalization: 1.0
+        normalization:
+            value: 13564.06122650865  # 1.0 / (alpha ** 2 / pi * unit_area), where unit_area = 1e-9 ** 2
+            units: dimensionless
         radial_cutoff:
             value: 1000.0e-9
             units: m
