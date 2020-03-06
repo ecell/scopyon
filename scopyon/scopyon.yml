@@ -96,7 +96,6 @@ default:
         focal_point:
             value: [0.0, 0.0, 0.0]  # Focal point of x,y,z (This unit is meter)
             units: m
-        focal_norm: [1.0, 0.0, 0.0]  #XXX: This doesn't work # Focal point of x,y,z (This unit is world_size)
         QE: 0.92  # qeff
         dark_count: 0
         readout_noise: 100

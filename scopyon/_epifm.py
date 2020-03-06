@@ -834,7 +834,7 @@ class EPIFMConfigs:
 
     def set_detector(
             self, type=None, image_size=None, pixel_length=None, exposure_time=None, focal_point=None,
-            QE=None, readout_noise=None, dark_count=None, emgain=None, switch=True, focal_norm=None):
+            QE=None, readout_noise=None, dark_count=None, emgain=None, switch=True):
         self.detector_switch = switch
         self.detector_type = type
         self.detector_image_size = image_size
@@ -848,7 +848,6 @@ class EPIFMConfigs:
         # self.detector_base_position = base_position
 
         self.detector_focal_point = focal_point
-        self.detector_focal_norm = focal_norm
 
         _log.info('--- Detector:  {}'.format(self.detector_type))
         if self.detector_image_size is not None:
@@ -863,7 +862,6 @@ class EPIFMConfigs:
         _log.info('    EM gain = x {}'.format(self.detector_emgain))
         # _log.info('    Position    =  {}'.format(self.detector_base_position))
         _log.info('Focal Center: {}'.format(self.detector_focal_point))
-        _log.info('Normal Vector: {}'.format(self.detector_focal_norm))
 
     def set_analog_to_digital_converter(self, *, rng, bit=None, offset=None, fullwell=None, type=None, count=None):
         self.ADConverter_bit = bit
