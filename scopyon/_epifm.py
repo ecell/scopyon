@@ -213,30 +213,30 @@ class PointSpreadingFunction:
 
         # particle position
         _, yi, zi = p_i
-        dz = (zi - signal_resolution * signal.shape[0] / 2 + pixel_length * Nw_pixel / 2)
-        dy = (yi - signal_resolution * signal.shape[1] / 2 + pixel_length * Nh_pixel / 2)
+        dy = (yi - signal_resolution * signal.shape[0] / 2 + pixel_length * Nw_pixel / 2)
+        dz = (zi - signal_resolution * signal.shape[1] / 2 + pixel_length * Nh_pixel / 2)
 
-        imin = math.ceil(dz / pixel_length)
-        imax = math.ceil((signal.shape[0] * signal_resolution + dz) / pixel_length) - 1
-        jmin = math.ceil(dy / pixel_length)
-        jmax = math.ceil((signal.shape[1] * signal_resolution + dy) / pixel_length) - 1
+        imin = math.ceil(dy / pixel_length)
+        imax = math.ceil((signal.shape[0] * signal_resolution + dy) / pixel_length) - 1
+        jmin = math.ceil(dz / pixel_length)
+        jmax = math.ceil((signal.shape[1] * signal_resolution + dz) / pixel_length) - 1
         imin = max(imin, 0)
         imax = min(imax, Nw_pixel)
         jmin = max(jmin, 0)
         jmax = min(jmax, Nh_pixel)
 
         iarray = numpy.arange(imin, imax + 1)
-        ibottom = (iarray[: -1] * pixel_length - dz) / signal_resolution
+        ibottom = (iarray[: -1] * pixel_length - dy) / signal_resolution
         ibottom = numpy.maximum(numpy.floor(ibottom).astype(int), 0)
-        itop = (iarray[1: ] * pixel_length - dz) / signal_resolution
+        itop = (iarray[1: ] * pixel_length - dy) / signal_resolution
         itop = numpy.minimum(numpy.floor(itop).astype(int), signal.shape[0])
         irange = numpy.vstack((iarray[: -1], ibottom, itop)).T
         irange = irange[irange[:, 2] > irange[:, 1]]
 
         jarray = numpy.arange(jmin, jmax)
-        jbottom = (jarray[: -1] * pixel_length - dy) / signal_resolution
+        jbottom = (jarray[: -1] * pixel_length - dz) / signal_resolution
         jbottom = numpy.maximum(numpy.floor(jbottom).astype(int), 0)
-        jtop = (jarray[1: ] * pixel_length - dy) / signal_resolution
+        jtop = (jarray[1: ] * pixel_length - dz) / signal_resolution
         jtop = numpy.minimum(numpy.floor(jtop).astype(int), signal.shape[1])
         jrange = numpy.vstack((jarray[: -1], jbottom, jtop)).T
         jrange = jrange[jrange[:, 2] > jrange[:, 1]]

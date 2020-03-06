@@ -79,7 +79,8 @@ class EPIFMSimulator(object):
             data = numpy.hstack((
                 numpy.dot(data, unit_z).reshape((-1, 1)),
                 numpy.dot(data, self.__config.preprocessing.unit_x).reshape((-1, 1)),
-                numpy.dot(data, self.__config.preprocessing.unit_y).reshape((-1, 1))))
+                numpy.dot(data, self.__config.preprocessing.unit_y).reshape((-1, 1)),
+                ))
             data = numpy.hstack((
                 data,
                 numpy.zeros((data.shape[0], 2))))
