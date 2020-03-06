@@ -56,13 +56,13 @@ default:
             value: 1000.0e-9
             units: m
         radial_width:
-            value: null # Gaussian function (radial width) [m]
+            value: null  # Gaussian function (radial width) [m]
             units: m
         # axial_width:
-        #     value: null # Gaussian function (axial width) [m]
+        #     value: null  # Gaussian function (axial width) [m]
         #     units: m
         wave_length:
-            value: null # Gaussian function
+            value: null  # Gaussian function
             units: m
     light_source:
         switch: !!bool true
@@ -94,7 +94,7 @@ default:
             value: 0.100
             units: s
         focal_point:
-            value: [0.0, 0.0, 0.0]  # Focal point of x,y,z (This unit is meter)
+            value: [0.0, 0.0, 0.0]
             units: m
         QE: 0.92  # qeff
         dark_count: 0
@@ -118,10 +118,8 @@ default:
             value: 0.0
             units: s
         end_time:
-            value: 0.0
+            value: null
             units: s
-        # time_open:
-        # time_lapse:
     effects:
         background:
             switch: !!bool true
