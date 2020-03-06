@@ -6,7 +6,8 @@ __all__ = ['show']
 
 
 def __get_shape(shape):
-    x, y, sigma, c = shape['x'], shape['y'], shape['sigma'], shape['color']
+    row, column, sigma, c = shape['x'], shape['y'], shape['sigma'], shape['color']
+    x, y = column, row  # imshow
     return dict(type='rect', x0=x - sigma, y0=y - sigma, x1=x + sigma, y1=y + sigma, line=dict(color=c))
 
 def show(img, shapes=None):
@@ -18,7 +19,7 @@ def show(img, shapes=None):
     Args:
         img (ndarray): An image data to be shown.
         shapes (list, optional): A list of shapes.
-            shape is a dictionary consisting of `x`, `y`, `sigma` and `color`.
+            shape is a dictionary consisting of `x` (row), `y` (column), `sigma` and `color`.
             `sigma` is a half size of the box (square).
     """
     if not isinstance(img, numpy.ndarray):

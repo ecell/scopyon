@@ -179,7 +179,7 @@ class Image(object):
             filename (str): An output file path.
             img (ndarray): An image data to be shown.
             shapes (list, optional): A list of shapes.
-                shape is a dictionary consisting of `x`, `y`, `sigma` and `color`.
+                shape is a dictionary consisting of `x` (row), `y` (column), `sigma` and `color`.
                 `sigma` is a half size of the box (square).
         """
         import PIL.Image
@@ -191,7 +191,8 @@ class Image(object):
             img = img.convert('RGB')
             d = ImageDraw.Draw(img)
             for shape in shapes:
-                x, y, sigma, c = shape['x'], shape['y'], shape['sigma'], shape['color']
+                row, column, sigma, c = shape['x'], shape['y'], shape['sigma'], shape['color']
+                x, y = column, row  # imshow
                 d.rectangle([(x - sigma, y - sigma), (x + sigma, y + sigma)], outline=c, width=1)
 
         img.save(filename)
