@@ -1,53 +1,80 @@
+import os.path
 import numpy
 
 from logging import getLogger
 _log = getLogger(__name__)
 
-__all__ = ["Image", "save_video"]
+__all__ = ["Image", "Video"]
 
+from scopyon import _plotly, _matplotlib
 
 class Image(object):
 
-    def __init__(self, data=None, *, file=None, red=None, green=None, blue=None):
+    PLOTTING = _plotly
+
+    @staticmethod
+    def load(file):
+        """Load an image.
+
+        Args:
+            file (str): A file path.
+
+        Returns:
+            Image: an image object
+        """
+        assert isinstance(file, str)
+        filename = file
+        _, ext = os.path.splitext(filename)
+        if ext.lower() == '.npy':
+            assert len(kwargs) == 0  # No option is allowed
+            return Image(numpy.load(filename))
+        elif ext.lower() == '.csv':
+            return Image(numpy.loadtxt(filename))
+
+        #XXX: Expected to be an image format
+        import matplotlib.pyplot as plt
+        return Image(plt.imread(filename))
+
+    @staticmethod
+    def RGB(red=None, green=None, blue=None):
+        """Make an image from RGB arrays.
+
+        Args:
+            red (2d ndarray or Image): RGB channel
+            green (2d ndarray or Image): RGB channel
+            blue (2d ndarray or Image): RGB channel
+
+        Returns:
+            Image: an image object
+        """
+        shape, dtype = None, None
+        for channel in (red, green, blue):
+            if channel is None:
+                pass
+            elif shape is None:
+                shape = channel.shape
+                dtype = channel.dtype
+            else:
+                assert shape == channel.shape and dtype == channel.dtype
+        assert shape is not None
+        rgb = numpy.zeros((shape[0], shape[1], 3), dtype=dtype)
+        for i, channel in enumerate((red, green, blue)):
+            if isinstance(channel, Image):
+                rgb[:, :, i] = channel.as_array()
+            elif isinstance(channel, numpy.ndarray):
+                rgb[:, :, i] = channel
+            else:
+                assert channel is None
+        return Image(rgb)
+
+    def __init__(self, data):
         """A wrapper for an image.
 
         Args:
             data (2d or 3d ndarray): An image data.
-            file (str, optional): A file path.
-            red (2d ndarray or Image, optional): RGB channel
-            green (2d ndarray or Image, optional): RGB channel
-            blue (2d ndarray or Image, optional): RGB channel
         """
-        if data is not None:
-            assert file is None and red is None and green is None and blue is None
-            assert data.ndim == 2 or (data.ndim == 3 and data.shape[2] == 3)
-            self.__data = data
-        elif file is not None:
-            assert red is None and green is None and blue is None
-            import matplotlib.pyplot as plt
-            self.__data = plt.imread(file)
-        elif red is not None or green is not None or blue is not None:
-            shape, dtype = None, None
-            for channel in (red, green, blue):
-                if channel is None:
-                    pass
-                elif shape is None:
-                    shape = channel.shape
-                    dtype = channel.dtype
-                else:
-                    assert shape == channel.shape and dtype == channel.dtype
-            assert shape is not None
-            rgb = numpy.zeros((shape[0], shape[1], 3), dtype=dtype)
-            for i, channel in enumerate((red, green, blue)):
-                if isinstance(channel, Image):
-                    rgb[:, :, i] = channel.as_array()
-                elif isinstance(channel, numpy.ndarray):
-                    rgb[:, :, i] = channel
-                else:
-                    assert channel is None
-            self.__data = rgb
-        else:
-            raise ValueError("Either 'data' or 'file' must be given.")
+        assert data.ndim == 2 or (data.ndim == 3 and data.shape[2] == 3)
+        self.__data = data
 
     def as_array(self):
         return self.__data
@@ -122,41 +149,82 @@ class Image(object):
             assert False
         return Image(data)
 
-    def save(self, filename):
-        """Save the image.
+    def save(self, filename, **kwargs):
+        """Save the 8-bit image.
 
         Note:
-            Requires `PIL`.
+            Requires `pillow` to save in the image format.
+            See also `scopyon.Image.savefig`.
 
         Args:
             filename (str): An output file name.
+                `.npy`, `.csv` or image formats are accepted.
+        """
+        _, ext = os.path.splitext(filename)
+        if ext.lower() == '.npy':
+            assert len(kwargs) == 0  # No option is allowed
+            numpy.save(filename, self.__data)
+        elif ext.lower() == '.csv':
+            assert len(kwargs) == 0  # No option is allowed
+            numpy.savetxt(filename, self.__data)
+        else:
+            #XXX: Expected to be an image format
+            self.savefig(filename, self.as_8bit().as_array(), **kwargs)
+
+    @staticmethod
+    def savefig(filename, img, shapes=None):
+        """ Save figure.
+
+        Args:
+            filename (str): An output file path.
+            img (ndarray): An image data to be shown.
+            shapes (list, optional): A list of shapes.
+                shape is a dictionary consisting of `x`, `y`, `sigma` and `color`.
+                `sigma` is a half size of the box (square).
         """
         import PIL.Image
-        img = PIL.Image.fromarray(self.as_8bit().as_array())
-        img.save(filename)
+        from PIL import ImageDraw
 
-    def plot(self):
-        """Plot the image.
+        img = PIL.Image.fromarray(img)
+
+        if shapes is not None:
+            img = img.convert('RGB')
+            d = ImageDraw.Draw(img)
+            for shape in shapes:
+                x, y, sigma, c = shape['x'], shape['y'], shape['sigma'], shape['color']
+                d.rectangle([(x - sigma, y - sigma), (x + sigma, y + sigma)], outline=c, width=1)
+
+        img.save(filename)
+        # import matplotlib.pyplot as plt
+        # plt.ioff()
+        # _, ax = plt.subplots()
+        # if img.ndim == 2:
+        #     plt.imshow(img, interpolation='none', cmap='gray')
+        # elif img.ndim == 3:
+        #     plt.imshow(img, interpolation='none')
+        # else:
+        #     raise ValueError("'img' has wrong dimension.")
+        # if shapes is not None:
+        #     for shape in shapes:
+        #         ax.add_patch(__get_shape(shape))
+        # plt.axis('off')
+        # plt.tick_params(labelbottom=False, labelleft=False, labelright=False, labeltop=False)
+        # plt.savefig(filename, bbox_inches='tight', pad_inches=0)
+        # plt.clf()
+        # plt.ion()
+
+    def plot(self, **kwargs):
+        """Plot the 8-bit image.
 
         Note:
-            Requires `plotly` or `matplotlib`.
+            Requires `plotly` optionally.
+            See also `scopyon._plotly.show`, `scopyon._matplotlib.show`.
+
         """
         try:
-            import plotly.express as px
+            self.PLOTTING.show(self.as_8bit().as_array(), **kwargs)
         except ImportError:
-            import matplotlib.pyplot as plt
-            _ = plt.figure()
-            if self.ndim == 2:
-                plt.imshow(self.__data, interpolation='none', cmap='gray')
-            else:
-                plt.imshow(self.__data, interpolation='none')
-            plt.show()
-        else:
-            if self.ndim == 2:
-                fig = px.imshow(self.__data, color_continuous_scale='gray')
-            else:
-                fig = px.imshow(self.__data)
-            fig.show()
+            _matplotlib.show(self.as_8bit().as_array(), **kwargs)
 
     def _ipython_display_(self):
         """
@@ -165,38 +233,41 @@ class Image(object):
         """
         self.plot()
 
-def save_video(filename, imgs, interval=100, dpi=None, cmin=None, cmax=None, low=None, high=None):
-    """Make a video from images.
+class Video:
 
-    Note:
-        Requires `matplotlib`.
+    @staticmethod
+    def save(filename, img, interval=100, dpi=None, cmin=None, cmax=None, low=None, high=None):
+        """Make a video from images.
 
-    Args:
-        filename (str): An output file name.
-        imgs (list): A list of Images.
-        interval (int, optional): An interval between frames given in millisecond.
-        dpi (int, optional): dpi.
-    """
-    import matplotlib.pyplot as plt
-    from matplotlib.animation import FuncAnimation
+        Note:
+            Requires `matplotlib`.
 
-    def animate(frame, image, imgs, cmin, cmax, low, high):
-        image.set_array(imgs[frame].as_8bit(cmin=cmin, cmax=cmax, low=low, high=high).as_array())
-        return image
+        Args:
+            filename (str): An output file name.
+            imgs (list): A list of Images.
+            interval (int, optional): An interval between frames given in millisecond.
+            dpi (int, optional): dpi.
+        """
+        import matplotlib.pyplot as plt
+        from matplotlib.animation import FuncAnimation
 
-    if cmin is None:
-        cmin = min([img.as_array().min() for img in imgs])
-    if cmax is None:
-        cmax = max([img.as_array().max() for img in imgs])
+        def animate(frame, image, imgs, cmin, cmax, low, high):
+            image.set_array(imgs[frame].as_8bit(cmin=cmin, cmax=cmax, low=low, high=high).as_array())
+            return image
 
-    plt.ioff()
-    fig, ax = plt.subplots(1, figsize=(1, 1))
-    fig.subplots_adjust(0, 0, 1, 1)
-    ax.axis("off")
-    image = ax.imshow(imgs[0].as_8bit(cmin=cmin, cmax=cmax, low=low, high=high).as_array(), cmap='gray')
-    animation = FuncAnimation(
-        fig, animate, numpy.arange(len(imgs)), fargs=(image, imgs, cmin, cmax, low, high), interval=interval)
-    dpi = dpi or max(imgs[0].shape)
-    animation.save(filename, dpi=dpi)
-    plt.clf()
-    plt.ion()
+        if cmin is None:
+            cmin = min([img.as_array().min() for img in imgs])
+        if cmax is None:
+            cmax = max([img.as_array().max() for img in imgs])
+
+        plt.ioff()
+        fig, ax = plt.subplots(1, figsize=(1, 1))
+        fig.subplots_adjust(0, 0, 1, 1)
+        ax.axis("off")
+        image = ax.imshow(imgs[0].as_8bit(cmin=cmin, cmax=cmax, low=low, high=high).as_array(), cmap='gray')
+        animation = FuncAnimation(
+            fig, animate, numpy.arange(len(imgs)), fargs=(image, imgs, cmin, cmax, low, high), interval=interval)
+        dpi = dpi or max(imgs[0].shape)
+        animation.save(filename, dpi=dpi)
+        plt.clf()
+        plt.ion()

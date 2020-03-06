@@ -25,4 +25,4 @@ t = numpy.arange(0, (num_frames + 1) * dt, dt)
 inputs = scopyon.sample_inputs(t, N=N, lower=-L_2, upper=+L_2, ndim=2, D=D, rng=rng)
 
 img = list(scopyon.generate_images(inputs, num_frames=num_frames, config=config, rng=rng))
-scopyon.save_video('video.mp4', img)
+scopyon.Video.save('video.mp4', img)

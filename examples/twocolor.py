@@ -13,7 +13,7 @@ def main():
 
     img1 = scopyon.form_image(inputs[: 200], config=config, rng=rng)
     img2 = scopyon.form_image(inputs[150: ], config=config, rng=rng)
-    img = scopyon.Image(red=img1, green=img2)
+    img = scopyon.Image.RGB(red=img1, green=img2)
     img.save("twocolor_000.png")
 
 
