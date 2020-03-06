@@ -214,7 +214,7 @@ class Image(object):
         # plt.clf()
         # plt.ion()
 
-    def plot(self, **kwargs):
+    def show(self, **kwargs):
         """Plot the 8-bit image.
 
         Note:
@@ -232,7 +232,7 @@ class Image(object):
         Displays the object as a side effect.
         https://ipython.readthedocs.io/en/stable/config/integrating.html
         """
-        self.plot()
+        self.show()
 
 class Video:
 
