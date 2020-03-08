@@ -247,10 +247,7 @@ class PointSpreadingFunction:
         # m-scale
         # camera pixel
         Nw_pixel, Nh_pixel = camera.shape
-
         signal_resolution = 1.0e-9  # m  #=> self.psf_radial_cutoff / (len(r) - 1) ???
-        pixel_ratio = pixel_length / signal_resolution
-
         signal_width = signal_resolution * (signal.shape[0] - 1)
         signal_height = signal_resolution * (signal.shape[1] - 1)
 
@@ -258,47 +255,49 @@ class PointSpreadingFunction:
 
         imin = math.floor((Nw_pixel * pixel_length * 0.5 + yi - signal_width * 0.5) / pixel_length)
         imax = math.ceil((Nw_pixel * pixel_length * 0.5 + yi + signal_width * 0.5) / pixel_length)
-
-        test = lambda i: (i * pixel_length - Nw_pixel * pixel_length * 0.5 - yi + signal_width * 0.5) / signal_resolution
-        assert math.ceil(test(imin)) <= 0
-        assert math.ceil(test(imin + 1)) > 0
-        assert math.ceil(test(imax)) >= signal.shape[0]
-        assert math.ceil(test(imax - 1)) < signal.shape[0]
-
-        iarray = numpy.arange(Nw_pixel + 1)
+        iarray = numpy.arange(max(0, imin), min(Nw_pixel, imax) + 1)
         left = (iarray - (Nw_pixel - 1) * 0.5) * pixel_length - 0.5 * pixel_length
         left -= yi - signal_width * 0.5
         left /= signal_resolution
         left = numpy.ceil(left).astype(int)
-        numpy.clip(left, 0, signal.shape[0], out=left)
+        assert left[1] > 0
+        if imin >= 0:
+            assert left[0] <= 0
+            left[0] = 0
+        else:
+            assert left[0] > 0
+        assert left[-2] < signal.shape[0]
+        if imax <= Nw_pixel:
+            assert left[-1] >= signal.shape[0]
+            left[-1] = signal.shape[0]
+        else:
+            assert left[-1] < signal.shape[0]
+        # numpy.clip(left, 0, signal.shape[0], out=left)
 
         jmin = math.floor((Nh_pixel * pixel_length * 0.5 + zi - signal_height * 0.5) / pixel_length)
         jmax = math.ceil((Nh_pixel * pixel_length * 0.5 + zi + signal_height * 0.5) / pixel_length)
-
-        test = lambda j: (j * pixel_length - Nh_pixel * pixel_length * 0.5 - zi + signal_height * 0.5) / signal_resolution
-        assert math.ceil(test(jmin)) <= 0
-        assert math.ceil(test(jmin + 1)) > 0
-        assert math.ceil(test(jmax)) >= signal.shape[1]
-        assert math.ceil(test(jmax - 1)) < signal.shape[1]
-
-        jarray = numpy.arange(Nh_pixel + 1)
+        jarray = numpy.arange(max(0, jmin), min(Nh_pixel, jmax) + 1)
         top = (jarray - (Nh_pixel - 1) * 0.5) * pixel_length - 0.5 * pixel_length
         top -= zi - signal_height * 0.5
         top /= signal_resolution
         top = numpy.ceil(top).astype(int)
-        numpy.clip(top, 0, signal.shape[1], out=top)
+        assert top[1] > 0
+        if jmin >= 0:
+            assert top[0] <= 0
+            top[0] = 0
+        else:
+            assert top[0] > 0
+        assert top[-2] < signal.shape[1]
+        if jmax <= Nw_pixel:
+            assert top[-1] >= signal.shape[1]
+            top[-1] = signal.shape[1]
+        else:
+            assert top[-1] < signal.shape[1]
+        # numpy.clip(top, 0, signal.shape[1], out=top)
 
         unit_area = signal_resolution * signal_resolution
         for i, i0, i1 in zip(iarray, left[: -1], left[1: ]):
-            if i0 >= i1:
-                assert i < imin or i >= imax
-                continue
             for j, j0, j1 in zip(jarray, top[: -1], top[1: ]):
-                if j0 >= j1:
-                    assert j < jmin or j >= jmax
-                    continue
-                assert i >= imin and i < imax
-                assert j >= jmin and j < jmax
                 photons = signal[i0: i1, j0: j1].sum() * unit_area
                 if photons > 0:
                     camera[i, j] += photons * normalization
@@ -307,8 +306,6 @@ class PointSpreadingFunction:
         # _, yi, zi = p_i
         # dy = (yi - signal_resolution * signal.shape[0] / 2 + pixel_length * (Nw_pixel - 1) / 2) / pixel_length
         # dz = (zi - signal_resolution * signal.shape[1] / 2 + pixel_length * (Nh_pixel - 1) / 2) / pixel_length
-        # # dy += 0.5
-        # # dz += 0.5
         # imin = math.ceil(dy)
         # imax = math.ceil(signal.shape[0] / pixel_ratio + dy) - 1
         # jmin = math.ceil(dz)
