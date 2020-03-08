@@ -24,6 +24,29 @@ from logging import getLogger
 _log = getLogger(__name__)
 
 
+def _polar2cartesian_coordinates(r, t, x, y):
+    X, Y = numpy.meshgrid(x, y)
+    new_r = numpy.sqrt(X * X + Y * Y)
+    new_t = numpy.arctan2(X, Y)
+
+    ir = interp1d(r, numpy.arange(len(r)), bounds_error=False)
+    it = interp1d(t, numpy.arange(len(t)))
+
+    new_ir = ir(new_r.ravel())
+    new_it = it(new_t.ravel())
+    new_ir[new_r.ravel() > r.max()] = len(r) - 1
+    new_ir[new_r.ravel() < r.min()] = 0
+
+    return numpy.array([new_ir, new_it])
+
+def _polar2cartesian(grid, coordinates, shape):
+    r = shape[0] - 1
+    psf_cart = numpy.empty([2 * r + 1, 2 * r + 1])
+    psf_cart[r: , r: ] = map_coordinates(grid, coordinates, order=0).reshape(shape)
+    psf_cart[r: , : r] = psf_cart[r: , : r: -1]
+    psf_cart[: r, : ] = psf_cart[: r: -1, : ]
+    return psf_cart
+
 class PointSpreadingFunction:
 
     def __init__(self, psf_radial_cutoff, psf_radial_width, psf_depth_cutoff, fluoem_norm, dichroic_switch, dichroic_eff, emission_switch, emission_eff, fluorophore_type, psf_wavelength, psf_normalization):
@@ -80,17 +103,33 @@ class PointSpreadingFunction:
 
     @staticmethod
     def radial_to_cartesian(radial, radial_distribution, radial_cutoff, radial_resolution):
-        r = radial / radial_resolution
-        radial_cutoff = radial_cutoff / radial_resolution
+        # r = radial / radial_resolution
+        # radial_cutoff = radial_cutoff / radial_resolution
 
-        theta = numpy.linspace(0, 90, 91)  #XXX: theta resolution
-        z = numpy.linspace(0, radial_cutoff, len(r))
-        y = numpy.linspace(0, radial_cutoff, len(r))
+        # theta = numpy.linspace(0, 90, 91)  #XXX: theta resolution
+        # z = numpy.linspace(0, radial_cutoff, len(r))
+        # y = numpy.linspace(0, radial_cutoff, len(r))
 
-        coordinates = _polar2cartesian_coordinates(r, theta, z, y)
-        theta = numpy.ones_like(theta)
-        polar_distribution = numpy.array(list(map(lambda x: theta * x, radial_distribution)))
-        return _polar2cartesian(polar_distribution, coordinates, (len(z), len(y)))
+        # coordinates = _polar2cartesian_coordinates(r, theta, z, y)
+        # theta = numpy.ones_like(theta)
+        # polar_distribution = numpy.array(list(map(lambda x: theta * x, radial_distribution)))
+        # return _polar2cartesian(polar_distribution, coordinates, (len(z), len(y)))
+
+        assert isinstance(radial, numpy.ndarray) and radial.ndim == 1
+        assert isinstance(radial_distribution, numpy.ndarray) and radial.ndim == 1
+        assert radial.size == radial_distribution.size
+        assert isinstance(radial_cutoff, numbers.Real)
+        assert isinstance(radial_resolution, numbers.Real)
+
+        shape = (2 * (radial.size  - 1) + 1, 2 * (radial.size  - 1) + 1)
+        X, Y = numpy.meshgrid(numpy.arange(shape[0]), numpy.arange(shape[1]))
+        X = (X.ravel() - (radial.size - 1)) * radial_resolution
+        Y = (Y.ravel() - (radial.size - 1)) * radial_resolution
+        R = numpy.sqrt(X ** 2 + Y ** 2)
+        R[R > radial.max()] = radial.max()  #XXX
+        interp_func = interp1d(radial, radial_distribution)
+        P = interp_func(R)
+        return P.reshape(shape)
 
     def __get_normalization(self):
         # Fluorophores Emission Intensity (wave_length)
@@ -210,43 +249,97 @@ class PointSpreadingFunction:
         Nw_pixel, Nh_pixel = camera.shape
 
         signal_resolution = 1.0e-9  # m  #=> self.psf_radial_cutoff / (len(r) - 1) ???
+        pixel_ratio = pixel_length / signal_resolution
 
-        # particle position
+        signal_width = signal_resolution * (signal.shape[0] - 1)
+        signal_height = signal_resolution * (signal.shape[1] - 1)
+
         _, yi, zi = p_i
-        dy = (yi - signal_resolution * signal.shape[0] / 2 + pixel_length * Nw_pixel / 2)
-        dz = (zi - signal_resolution * signal.shape[1] / 2 + pixel_length * Nh_pixel / 2)
 
-        imin = math.ceil(dy / pixel_length)
-        imax = math.ceil((signal.shape[0] * signal_resolution + dy) / pixel_length) - 1
-        jmin = math.ceil(dz / pixel_length)
-        jmax = math.ceil((signal.shape[1] * signal_resolution + dz) / pixel_length) - 1
-        imin = max(imin, 0)
-        imax = min(imax, Nw_pixel)
-        jmin = max(jmin, 0)
-        jmax = min(jmax, Nh_pixel)
+        imin = math.floor((Nw_pixel * pixel_length * 0.5 + yi - signal_width * 0.5) / pixel_length)
+        imax = math.ceil((Nw_pixel * pixel_length * 0.5 + yi + signal_width * 0.5) / pixel_length)
 
-        iarray = numpy.arange(imin, imax + 1)
-        ibottom = (iarray[: -1] * pixel_length - dy) / signal_resolution
-        ibottom = numpy.maximum(numpy.floor(ibottom).astype(int), 0)
-        itop = (iarray[1: ] * pixel_length - dy) / signal_resolution
-        itop = numpy.minimum(numpy.floor(itop).astype(int), signal.shape[0])
-        irange = numpy.vstack((iarray[: -1], ibottom, itop)).T
-        irange = irange[irange[:, 2] > irange[:, 1]]
+        test = lambda i: (i * pixel_length - Nw_pixel * pixel_length * 0.5 - yi + signal_width * 0.5) / signal_resolution
+        assert math.ceil(test(imin)) <= 0
+        assert math.ceil(test(imin + 1)) > 0
+        assert math.ceil(test(imax)) >= signal.shape[0]
+        assert math.ceil(test(imax - 1)) < signal.shape[0]
 
-        jarray = numpy.arange(jmin, jmax)
-        jbottom = (jarray[: -1] * pixel_length - dz) / signal_resolution
-        jbottom = numpy.maximum(numpy.floor(jbottom).astype(int), 0)
-        jtop = (jarray[1: ] * pixel_length - dz) / signal_resolution
-        jtop = numpy.minimum(numpy.floor(jtop).astype(int), signal.shape[1])
-        jrange = numpy.vstack((jarray[: -1], jbottom, jtop)).T
-        jrange = jrange[jrange[:, 2] > jrange[:, 1]]
+        iarray = numpy.arange(Nw_pixel + 1)
+        left = (iarray - (Nw_pixel - 1) * 0.5) * pixel_length - 0.5 * pixel_length
+        left -= yi - signal_width * 0.5
+        left /= signal_resolution
+        left = numpy.ceil(left).astype(int)
+        numpy.clip(left, 0, signal.shape[0], out=left)
+
+        jmin = math.floor((Nh_pixel * pixel_length * 0.5 + zi - signal_height * 0.5) / pixel_length)
+        jmax = math.ceil((Nh_pixel * pixel_length * 0.5 + zi + signal_height * 0.5) / pixel_length)
+
+        test = lambda j: (j * pixel_length - Nh_pixel * pixel_length * 0.5 - zi + signal_height * 0.5) / signal_resolution
+        assert math.ceil(test(jmin)) <= 0
+        assert math.ceil(test(jmin + 1)) > 0
+        assert math.ceil(test(jmax)) >= signal.shape[1]
+        assert math.ceil(test(jmax - 1)) < signal.shape[1]
+
+        jarray = numpy.arange(Nh_pixel + 1)
+        top = (jarray - (Nh_pixel - 1) * 0.5) * pixel_length - 0.5 * pixel_length
+        top -= zi - signal_height * 0.5
+        top /= signal_resolution
+        top = numpy.ceil(top).astype(int)
+        numpy.clip(top, 0, signal.shape[1], out=top)
 
         unit_area = signal_resolution * signal_resolution
-        for i, i0, i1 in irange:
-            for j, j0, j1 in jrange:
+        for i, i0, i1 in zip(iarray, left[: -1], left[1: ]):
+            if i0 >= i1:
+                assert i < imin or i >= imax
+                continue
+            for j, j0, j1 in zip(jarray, top[: -1], top[1: ]):
+                if j0 >= j1:
+                    assert j < jmin or j >= jmax
+                    continue
+                assert i >= imin and i < imax
+                assert j >= jmin and j < jmax
                 photons = signal[i0: i1, j0: j1].sum() * unit_area
                 if photons > 0:
                     camera[i, j] += photons * normalization
+
+        # # particle position
+        # _, yi, zi = p_i
+        # dy = (yi - signal_resolution * signal.shape[0] / 2 + pixel_length * (Nw_pixel - 1) / 2) / pixel_length
+        # dz = (zi - signal_resolution * signal.shape[1] / 2 + pixel_length * (Nh_pixel - 1) / 2) / pixel_length
+        # # dy += 0.5
+        # # dz += 0.5
+        # imin = math.ceil(dy)
+        # imax = math.ceil(signal.shape[0] / pixel_ratio + dy) - 1
+        # jmin = math.ceil(dz)
+        # jmax = math.ceil(signal.shape[1] / pixel_ratio + dz) - 1
+        # imin = max(imin, 0)
+        # imax = min(imax, Nw_pixel)
+        # jmin = max(jmin, 0)
+        # jmax = min(jmax, Nh_pixel)
+
+        # iarray = numpy.arange(imin, imax + 1)
+        # ibottom = (iarray[: -1] - dy) * pixel_ratio
+        # ibottom = numpy.maximum(numpy.floor(ibottom).astype(int), 0)
+        # itop = (iarray[1: ] - dy) * pixel_ratio
+        # itop = numpy.minimum(numpy.floor(itop).astype(int), signal.shape[0])
+        # irange = numpy.vstack((iarray[: -1], ibottom, itop)).T
+        # irange = irange[irange[:, 2] > irange[:, 1]]
+
+        # jarray = numpy.arange(jmin, jmax)
+        # jbottom = (jarray[: -1] - dz) * pixel_ratio
+        # jbottom = numpy.maximum(numpy.floor(jbottom).astype(int), 0)
+        # jtop = (jarray[1: ] - dz) * pixel_ratio
+        # jtop = numpy.minimum(numpy.floor(jtop).astype(int), signal.shape[1])
+        # jrange = numpy.vstack((jarray[: -1], jbottom, jtop)).T
+        # jrange = jrange[jrange[:, 2] > jrange[:, 1]]
+
+        # unit_area = signal_resolution * signal_resolution
+        # for i, i0, i1 in irange:
+        #     for j, j0, j1 in jrange:
+        #         photons = signal[i0: i1, j0: j1].sum() * unit_area
+        #         if photons > 0:
+        #             camera[i, j] += photons * normalization
 
 def cylindrical_coordinate(p_i, p_0):
     p_i = numpy.array(p_i)  # Make a copy
@@ -256,29 +349,6 @@ def cylindrical_coordinate(p_i, p_0):
     radial = numpy.sqrt(displacement[1] ** 2 + displacement[2] ** 2)
     depth = displacement[0]
     return p_i, radial, depth
-
-def _polar2cartesian_coordinates(r, t, x, y):
-    X, Y = numpy.meshgrid(x, y)
-    new_r = numpy.sqrt(X * X + Y * Y)
-    new_t = numpy.arctan2(X, Y)
-
-    ir = interp1d(r, numpy.arange(len(r)), bounds_error=False)
-    it = interp1d(t, numpy.arange(len(t)))
-
-    new_ir = ir(new_r.ravel())
-    new_it = it(new_t.ravel())
-    new_ir[new_r.ravel() > r.max()] = len(r) - 1
-    new_ir[new_r.ravel() < r.min()] = 0
-
-    return numpy.array([new_ir, new_it])
-
-def _polar2cartesian(grid, coordinates, shape):
-    r = shape[0] - 1
-    psf_cart = numpy.empty([2 * r + 1, 2 * r + 1])
-    psf_cart[r: , r: ] = map_coordinates(grid, coordinates, order=0).reshape(shape)
-    psf_cart[r: , : r] = psf_cart[r: , : r: -1]
-    psf_cart[: r, : ] = psf_cart[: r: -1, : ]
-    return psf_cart
 
 class CMOS:
 
@@ -846,7 +916,6 @@ class EPIFMConfigs:
         self.detector_dark_count = dark_count
         self.detector_emgain = emgain
         # self.detector_base_position = base_position
-
         self.detector_focal_point = focal_point
 
         _log.info('--- Detector:  {}'.format(self.detector_type))
@@ -1157,9 +1226,14 @@ class _EPIFMSimulator:
 
         for m_id in optinfo:
             optinfo[m_id][1] /= exposure_time  # photon state
-            optinfo[m_id][2: ] /= optinfo[m_id][0]
-            optinfo[m_id][2] = (optinfo[m_id][2] - p_0[1]) / pixel_length + Nw_pixel * 0.5  # X-coordinate in pixel
-            optinfo[m_id][3] = (optinfo[m_id][3] - p_0[2]) / pixel_length + Nh_pixel * 0.5  # Y-coordinate in pixel
+            optinfo[m_id][2: ] /= optinfo[m_id][0]  # Calculating time averages
+
+            # Transforming CoM (X and Y) from coordinates to pixels.
+            # The coordinate is positioned at the center of a pixel, rather than the corner.
+            # Therefore, shifting not `Nw_pixel * 0.5`, but `(Nw_pixel - 1) * 0.5`.
+            # See also `PointSpreadingFunction.overlay_signal`_
+            optinfo[m_id][2] = (optinfo[m_id][2] - p_0[1]) / pixel_length + (Nw_pixel - 1) * 0.5
+            optinfo[m_id][3] = (optinfo[m_id][3] - p_0[2]) / pixel_length + (Nh_pixel - 1) * 0.5
 
         # apply detector effects
         camera = self.__detector_output(rng, camera_pixel, processes=processes)
