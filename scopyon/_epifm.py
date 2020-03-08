@@ -244,21 +244,18 @@ class PointSpreadingFunction:
 
     @staticmethod
     def overlay_signal_(camera, signal, p_i, pixel_length, normalization):
-        # m-scale
-        # camera pixel
+        _, xi, yi = p_i
         Nw_pixel, Nh_pixel = camera.shape
         signal_resolution = 1.0e-9  # m  #=> self.psf_radial_cutoff / (len(r) - 1) ???
         signal_width = signal_resolution * (signal.shape[0] - 1)
         signal_height = signal_resolution * (signal.shape[1] - 1)
+        camera_width = Nw_pixel * pixel_length  # Not `(Nw_pixel - 1) * pixel_length`
+        camera_height = Nh_pixel * pixel_length  # Not `(Nh_pixel - 1) * pixel_length`
 
-        _, yi, zi = p_i
-
-        imin = math.floor((Nw_pixel * pixel_length * 0.5 + yi - signal_width * 0.5) / pixel_length)
-        imax = math.ceil((Nw_pixel * pixel_length * 0.5 + yi + signal_width * 0.5) / pixel_length)
+        imin = math.floor((camera_width * 0.5 + xi - signal_width * 0.5) / pixel_length)
+        imax = math.ceil((camera_width * 0.5 + xi + signal_width * 0.5) / pixel_length)
         iarray = numpy.arange(max(0, imin), min(Nw_pixel, imax) + 1)
-        left = (iarray - (Nw_pixel - 1) * 0.5) * pixel_length - 0.5 * pixel_length
-        left -= yi - signal_width * 0.5
-        left /= signal_resolution
+        left = (iarray * pixel_length - (camera_width * 0.5 + xi - signal_width * 0.5)) / signal_resolution
         left = numpy.ceil(left).astype(int)
         assert left[1] > 0
         if imin >= 0:
@@ -272,14 +269,13 @@ class PointSpreadingFunction:
             left[-1] = signal.shape[0]
         else:
             assert left[-1] < signal.shape[0]
-        # numpy.clip(left, 0, signal.shape[0], out=left)
+        # left[0] = max(left[0], 0)
+        # left[-1] = min(left[-1], signal.shape[0])
 
-        jmin = math.floor((Nh_pixel * pixel_length * 0.5 + zi - signal_height * 0.5) / pixel_length)
-        jmax = math.ceil((Nh_pixel * pixel_length * 0.5 + zi + signal_height * 0.5) / pixel_length)
+        jmin = math.floor((camera_height * 0.5 + yi - signal_height * 0.5) / pixel_length)
+        jmax = math.ceil((camera_height * 0.5 + yi + signal_height * 0.5) / pixel_length)
         jarray = numpy.arange(max(0, jmin), min(Nh_pixel, jmax) + 1)
-        top = (jarray - (Nh_pixel - 1) * 0.5) * pixel_length - 0.5 * pixel_length
-        top -= zi - signal_height * 0.5
-        top /= signal_resolution
+        top = (jarray * pixel_length - (camera_height * 0.5 + yi - signal_height * 0.5)) / signal_resolution
         top = numpy.ceil(top).astype(int)
         assert top[1] > 0
         if jmin >= 0:
@@ -293,7 +289,8 @@ class PointSpreadingFunction:
             top[-1] = signal.shape[1]
         else:
             assert top[-1] < signal.shape[1]
-        # numpy.clip(top, 0, signal.shape[1], out=top)
+        # top[0] = max(top[0], 0)
+        # top[-1] = min(top[-1], signal.shape[1])
 
         unit_area = signal_resolution * signal_resolution
         for i, i0, i1 in zip(iarray, left[: -1], left[1: ]):
