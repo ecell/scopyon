@@ -136,11 +136,16 @@ class EPIFMSimulator(object):
             exposure_time (float, optional): An exposure time.
                 Defaults to `detector.exposure_time` in the configuration.
             full_output (bool, optional):
-                True if to return a dictionary of optional outputs as the second output
+                True to return a dictionary containing optional outputs.
 
         Returns:
             Image: An image.
             dict: only returned if full_output == True
+                A dictionary containing additional information.
+                'expectation' is 2-dimensional ndarray.
+                'true_data' is a dictionary containing a pair of a molecule ID and ndarray.
+                The array has 7 elements, which are exposure time, photon state, X and Y in pixels,
+                X and Y in meter-scale, and normalization.
         """
         data = self.__format_inputs(inputs)
         base = self.base()
@@ -168,11 +173,18 @@ class EPIFMSimulator(object):
             exposure_time (float, optional): An exposure time.
                 Defaults to `detector_exposure_time` in the configuration.
             full_output (bool, optional):
-                True if to return a dictionary of optional outputs as the second output
+                True to return a dictionary containing optional outputs.
 
         Yields:
             Image: An image.
             dict: only returned if full_output == True
+                A dictionary containing additional information.
+                'expectation' is 2-dimensional ndarray.
+                'true_data' is a dictionary containing pairs of a molecule ID and ndarray.
+                The array has 7 elements, which are exposure time, photon state, X and Y in pixels,
+                X and Y in meter-scale, and normalization.
+                If 'photo_bleaching' is active, 'fluorescence_states' contains pairs of a molecule
+                ID and remaining photon budget.
         """
         data = self.__format_inputs(inputs)
         base = self.base()
@@ -228,11 +240,16 @@ def form_image(
         rng (numpy.RandomState, optional): A random number generator.
             The default is None.
         full_output (bool, optional):
-            True if to return a dictionary of optional outputs as the second output
+            True to return a dictionary containing optional outputs.
 
     Returns:
         Image: An image
         dict: only returned if full_output == True
+            A dictionary containing additional information.
+            'expectation' is 2-dimensional ndarray.
+            'true_data' is a dictionary containing a pair of a molecule ID and ndarray.
+            The array has 7 elements, which are exposure time, photon state, X and Y in pixels,
+            X and Y in meter-scale, and normalization.
     """
     sim = create_simulator(config, method=method, rng=rng)
     return sim.form_image(inputs, start_time, exposure_time, full_output=full_output)
@@ -257,11 +274,18 @@ def generate_images(
         rng (numpy.RandomState, optional): A random number generator.
             The default is None.
         full_output (bool, optional):
-            True if to return a dictionary of optional outputs as the second output
+            True to return a dictionary containing optional outputs.
 
     Yields:
         Image: An image.
         dict: only returned if full_output == True
+            A dictionary containing additional information.
+            'expectation' is 2-dimensional ndarray.
+            'true_data' is a dictionary containing pairs of a molecule ID and ndarray.
+            The array has 7 elements, which are exposure time, photon state, X and Y in pixels,
+            X and Y in meter-scale, and normalization.
+            If 'photo_bleaching' is active, 'fluorescence_states' contains pairs of a molecule
+            ID and remaining photon budget.
     """
     sim = create_simulator(config, method=method, rng=rng)
     return sim.generate_images(inputs, num_frames, start_time, exposure_time, full_output=full_output)

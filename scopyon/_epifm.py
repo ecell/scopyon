@@ -3,15 +3,13 @@ import math
 import warnings
 import os
 import numbers
-
-from multiprocessing import Pool
 import functools
+from multiprocessing import Pool
 
 import numpy
 
 import scipy.special
 import scipy.integrate
-
 from scipy.special import j0, i1e
 from scipy.interpolate import interp1d
 from scipy.ndimage import map_coordinates
@@ -24,50 +22,40 @@ from logging import getLogger
 _log = getLogger(__name__)
 
 
-def _polar2cartesian_coordinates(r, t, x, y):
-    X, Y = numpy.meshgrid(x, y)
-    new_r = numpy.sqrt(X * X + Y * Y)
-    new_t = numpy.arctan2(X, Y)
-
-    ir = interp1d(r, numpy.arange(len(r)), bounds_error=False)
-    it = interp1d(t, numpy.arange(len(t)))
-
-    new_ir = ir(new_r.ravel())
-    new_it = it(new_t.ravel())
-    new_ir[new_r.ravel() > r.max()] = len(r) - 1
-    new_ir[new_r.ravel() < r.min()] = 0
-
-    return numpy.array([new_ir, new_it])
-
-def _polar2cartesian(grid, coordinates, shape):
-    r = shape[0] - 1
-    psf_cart = numpy.empty([2 * r + 1, 2 * r + 1])
-    psf_cart[r: , r: ] = map_coordinates(grid, coordinates, order=0).reshape(shape)
-    psf_cart[r: , : r] = psf_cart[r: , : r: -1]
-    psf_cart[: r, : ] = psf_cart[: r: -1, : ]
-    return psf_cart
+# def _polar2cartesian_coordinates(r, t, x, y):
+#     X, Y = numpy.meshgrid(x, y)
+#     new_r = numpy.sqrt(X * X + Y * Y)
+#     new_t = numpy.arctan2(X, Y)
+# 
+#     ir = interp1d(r, numpy.arange(len(r)), bounds_error=False)
+#     it = interp1d(t, numpy.arange(len(t)))
+# 
+#     new_ir = ir(new_r.ravel())
+#     new_it = it(new_t.ravel())
+#     new_ir[new_r.ravel() > r.max()] = len(r) - 1
+#     new_ir[new_r.ravel() < r.min()] = 0
+# 
+#     return numpy.array([new_ir, new_it])
+# 
+# def _polar2cartesian(grid, coordinates, shape):
+#     r = shape[0] - 1
+#     psf_cart = numpy.empty([2 * r + 1, 2 * r + 1])
+#     psf_cart[r: , r: ] = map_coordinates(grid, coordinates, order=0).reshape(shape)
+#     psf_cart[r: , : r] = psf_cart[r: , : r: -1]
+#     psf_cart[: r, : ] = psf_cart[: r: -1, : ]
+#     return psf_cart
 
 class PointSpreadingFunction:
 
-    def __init__(self, psf_radial_cutoff, psf_radial_width, psf_depth_cutoff, fluoem_norm, dichroic_switch, dichroic_eff, emission_switch, emission_eff, fluorophore_type, psf_wavelength, psf_normalization):
+    def __init__(self, psf_radial_cutoff, psf_radial_width, psf_depth_cutoff, fluorophore_type, psf_wavelength):
         # fluorophore
-        self.fluoem_norm = fluoem_norm
         self.fluorophore_type = fluorophore_type
-        self.psf_wavelength = psf_wavelength
-        self.psf_normalization = psf_normalization
-        self.psf_radial_cutoff = psf_radial_cutoff
-        self.psf_depth_cutoff = psf_depth_cutoff
-
+        self.psf_wave_length = psf_wavelength
         self.psf_radial_width = psf_radial_width  #XXX: Only required for Gaussian
 
-        # else
-        self.dichroic_switch = dichroic_switch
-        self.dichroic_eff = dichroic_eff
-        self.emission_switch = emission_switch
-        self.emission_eff = emission_eff
-
-        self.__normalization = self.__get_normalization()
         self.__fluorophore_psf = {}
+        self.__cutoff_radial = psf_radial_cutoff
+        self.__cutoff_depth = psf_depth_cutoff
         self.__resolution_depth = 1e-9
         self.__resolution_radial = 1e-9
 
@@ -76,29 +64,35 @@ class PointSpreadingFunction:
                 raise ValueError(
                         'fluorophore.radial_width must be given for Gaussian type fluorophore.')
             self.get_distribution = self.get_gaussian_distribution
+            #XXX: `partial` is not picklable.
+            # self.get_distribution = functools.partial(
+            #         self.__get_gaussian_distribution, radial_width=self.psf_radial_width)
         else:
             self.get_distribution = self.get_born_wolf_distribution
+            #XXX: `partial` is not picklable.
+            # self.get_distribution = functools.partial(
+            #         self.__get_born_wolf_distribution_old, wave_length=self.psf_wave_length)
 
     def get(self, depth):
         depth = abs(depth)
-        if depth < self.psf_depth_cutoff + self.__resolution_depth:
+        if depth < self.__cutoff_depth + self.__resolution_depth:
             assert depth >= 0
             key = int(depth / self.__resolution_depth)
             depth = key * self.__resolution_depth
         else:
             key = -1
-            depth = self.psf_depth_cutoff
+            depth = self.__cutoff_depth
 
         if key not in self.__fluorophore_psf:
             self.__fluorophore_psf[key] = self.__get(depth)
         return self.__fluorophore_psf[key]
 
     def __get(self, depth):
-        radial = numpy.arange(0.0, self.psf_radial_cutoff, self.__resolution_radial, dtype=float)
+        radial = numpy.arange(0.0, self.__cutoff_radial, self.__resolution_radial, dtype=float)
         r = radial / self.__resolution_radial
-        radial_cutoff = self.psf_radial_cutoff / self.__resolution_radial
+        radial_cutoff = self.__cutoff_radial / self.__resolution_radial
         psf_r = self.get_distribution(radial, depth)
-        psf_cart = self.radial_to_cartesian(radial, psf_r, self.psf_radial_cutoff, self.__resolution_radial)
+        psf_cart = self.radial_to_cartesian(radial, psf_r, self.__cutoff_radial, self.__resolution_radial)
         return psf_cart
 
     @staticmethod
@@ -131,27 +125,13 @@ class PointSpreadingFunction:
         P = interp_func(R)
         return P.reshape(shape)
 
-    def __get_normalization(self):
-        # Fluorophores Emission Intensity (wave_length)
-        I = self.fluoem_norm
-
-        # Photon Transmission Efficiency
-        if self.dichroic_switch:
-            I = I * 0.01 * self.dichroic_eff
-
-        if self.emission_switch:
-            I = I * 0.01 * self.emission_eff
-
-        return numpy.sum(I) * self.psf_normalization
-
     def get_gaussian_distribution(self, radial, depth):
         psf = self.__get_gaussian_distribution(radial, depth, self.psf_radial_width)
-        return self.__normalization * psf
+        return psf
 
     @staticmethod
     def __get_gaussian_distribution(r, _z, radial_width):
         return numpy.exp(-0.5 * (r / radial_width) ** 2) / (2 * numpy.pi * radial_width * radial_width)
-        # return numpy.exp(-0.5 * (r / radial_width) ** 2)  #XXX: w/o normalization
 
         # #XXX: normalization means I in __get_normalization.
         # # For normalization
@@ -164,17 +144,15 @@ class PointSpreadingFunction:
         # return numpy.array(list(map(lambda x: Ir * x, Iz)))
 
     def get_born_wolf_distribution(self, radial, depth):
-        # psf = self.__get_born_wolf_distribution(radial, depth, self.psf_wavelength)
-        psf = self.__get_born_wolf_distribution_old(radial, depth, self.psf_wavelength)
-
+        # psf = self.__get_born_wolf_distribution(radial, depth, self.psf_wave_length)
+        psf = self.__get_born_wolf_distribution_old(radial, depth, self.psf_wave_length)
         # NA = 1.4  # self.objective_NA
-        # k = 2.0 * numpy.pi / self.psf_wavelength
+        # k = 2.0 * numpy.pi / self.psf_wave_length
         # alpha = k * NA
         # unit_area = 1e-9 ** 2
         # psf *= 1.0 / (alpha * alpha / numpy.pi * unit_area)  #TODO: Unknown normalization factor
         # print("Normalization:", 1.0 / (alpha * alpha / numpy.pi * unit_area))
-
-        return self.__normalization * psf
+        return psf
 
     @staticmethod
     def __get_born_wolf_distribution(r, z, wave_length):
@@ -234,70 +212,70 @@ class PointSpreadingFunction:
         psf *= alpha * alpha / numpy.pi  #XXX: normalization
         return psf
 
-    def overlay_signal(self, camera, p_i, pixel_length, normalization=1.0):
+    def overlay_signal(self, expected, p_i, pixel_length, normalization=1.0):
         # fluorophore axial position
         if normalization <= 0.0:
             return
         depth = p_i[0]
         signal = self.get(depth)
-        self.overlay_signal_(camera, signal, p_i, pixel_length, normalization)
+        self.overlay_signal_(expected, signal, p_i, pixel_length, self.__resolution_radial, normalization)
 
     @staticmethod
-    def overlay_signal_(camera, signal, p_i, pixel_length, normalization):
+    def overlay_signal_(expected, signal, p_i, pixel_length, signal_resolution, normalization):
         _, xi, yi = p_i
-        Nw_pixel, Nh_pixel = camera.shape
-        signal_resolution = 1.0e-9  # m  #=> self.psf_radial_cutoff / (len(r) - 1) ???
+        Nw_pixel, Nh_pixel = expected.shape
+        # signal_resolution = 1.0e-9  # m  #=> self.__cutoff_radial / (len(r) - 1) ???
         signal_width = signal_resolution * (signal.shape[0] - 1)
         signal_height = signal_resolution * (signal.shape[1] - 1)
-        camera_width = Nw_pixel * pixel_length  # Not `(Nw_pixel - 1) * pixel_length`
-        camera_height = Nh_pixel * pixel_length  # Not `(Nh_pixel - 1) * pixel_length`
+        expected_width = Nw_pixel * pixel_length  # Not `(Nw_pixel - 1) * pixel_length`
+        expected_height = Nh_pixel * pixel_length  # Not `(Nh_pixel - 1) * pixel_length`
 
-        imin = math.floor((camera_width * 0.5 + xi - signal_width * 0.5) / pixel_length)
-        imax = math.ceil((camera_width * 0.5 + xi + signal_width * 0.5) / pixel_length)
+        imin = math.floor((expected_width * 0.5 + xi - signal_width * 0.5) / pixel_length)
+        imax = math.ceil((expected_width * 0.5 + xi + signal_width * 0.5) / pixel_length)
         iarray = numpy.arange(max(0, imin), min(Nw_pixel, imax) + 1)
-        left = (iarray * pixel_length - (camera_width * 0.5 + xi - signal_width * 0.5)) / signal_resolution
+        left = (iarray * pixel_length - (expected_width * 0.5 + xi - signal_width * 0.5)) / signal_resolution
         left = numpy.ceil(left).astype(int)
-        assert left[1] > 0
-        if imin >= 0:
-            assert left[0] <= 0
-            left[0] = 0
-        else:
-            assert left[0] > 0
-        assert left[-2] < signal.shape[0]
-        if imax <= Nw_pixel:
-            assert left[-1] >= signal.shape[0]
-            left[-1] = signal.shape[0]
-        else:
-            assert left[-1] < signal.shape[0]
-        # left[0] = max(left[0], 0)
-        # left[-1] = min(left[-1], signal.shape[0])
+        # assert left[1] > 0
+        # if imin >= 0:
+        #     assert left[0] <= 0
+        #     left[0] = 0
+        # else:
+        #     assert left[0] > 0
+        # assert left[-2] < signal.shape[0]
+        # if imax <= Nw_pixel:
+        #     assert left[-1] >= signal.shape[0]
+        #     left[-1] = signal.shape[0]
+        # else:
+        #     assert left[-1] < signal.shape[0]
+        left[0] = max(left[0], 0)
+        left[-1] = min(left[-1], signal.shape[0])
 
-        jmin = math.floor((camera_height * 0.5 + yi - signal_height * 0.5) / pixel_length)
-        jmax = math.ceil((camera_height * 0.5 + yi + signal_height * 0.5) / pixel_length)
+        jmin = math.floor((expected_height * 0.5 + yi - signal_height * 0.5) / pixel_length)
+        jmax = math.ceil((expected_height * 0.5 + yi + signal_height * 0.5) / pixel_length)
         jarray = numpy.arange(max(0, jmin), min(Nh_pixel, jmax) + 1)
-        top = (jarray * pixel_length - (camera_height * 0.5 + yi - signal_height * 0.5)) / signal_resolution
+        top = (jarray * pixel_length - (expected_height * 0.5 + yi - signal_height * 0.5)) / signal_resolution
         top = numpy.ceil(top).astype(int)
-        assert top[1] > 0
-        if jmin >= 0:
-            assert top[0] <= 0
-            top[0] = 0
-        else:
-            assert top[0] > 0
-        assert top[-2] < signal.shape[1]
-        if jmax <= Nw_pixel:
-            assert top[-1] >= signal.shape[1]
-            top[-1] = signal.shape[1]
-        else:
-            assert top[-1] < signal.shape[1]
-        # top[0] = max(top[0], 0)
-        # top[-1] = min(top[-1], signal.shape[1])
+        # assert top[1] > 0
+        # if jmin >= 0:
+        #     assert top[0] <= 0
+        #     top[0] = 0
+        # else:
+        #     assert top[0] > 0
+        # assert top[-2] < signal.shape[1]
+        # if jmax <= Nw_pixel:
+        #     assert top[-1] >= signal.shape[1]
+        #     top[-1] = signal.shape[1]
+        # else:
+        #     assert top[-1] < signal.shape[1]
+        top[0] = max(top[0], 0)
+        top[-1] = min(top[-1], signal.shape[1])
 
         unit_area = signal_resolution * signal_resolution
         for i, i0, i1 in zip(iarray, left[: -1], left[1: ]):
             for j, j0, j1 in zip(jarray, top[: -1], top[1: ]):
                 photons = signal[i0: i1, j0: j1].sum() * unit_area
                 if photons > 0:
-                    camera[i, j] += photons * normalization
+                    expected[i, j] += photons * normalization
 
         # # particle position
         # _, yi, zi = p_i
@@ -333,7 +311,7 @@ class PointSpreadingFunction:
         #     for j, j0, j1 in jrange:
         #         photons = signal[i0: i1, j0: j1].sum() * unit_area
         #         if photons > 0:
-        #             camera[i, j] += photons * normalization
+        #             expected[i, j] += photons * normalization
 
 def cylindrical_coordinate(p_i, p_0):
     p_i = numpy.array(p_i)  # Make a copy
@@ -810,8 +788,7 @@ class EPIFMConfigs:
         # self.fluorophore_psf = self.get_PSF_detector()
         self.fluorophore_psf = PointSpreadingFunction(
             config.fluorophore.radial_cutoff, self.psf_radial_width, config.fluorophore.depth_cutoff,
-            self.fluoem_norm, self.dichroic_switch, self.dichroic_eff, self.emission_switch, self.emission_eff,
-            self.fluorophore_type, self.psf_wavelength, self.psf_normalization)
+            self.fluorophore_type, self.psf_wavelength)
 
         self.effects = PhysicalEffectConfigs(config.effects)
 
@@ -1220,7 +1197,7 @@ class _EPIFMSimulator:
 
         for m_id in optinfo:
             optinfo[m_id][1] /= exposure_time  # photon state
-            optinfo[m_id][2: ] /= optinfo[m_id][0]  # Calculating time averages
+            optinfo[m_id][2: 6] /= optinfo[m_id][0]  # Calculating time averages
 
             # Transforming CoM (X and Y) from coordinates to pixels.
             # The coordinate is positioned at the center of a pixel, rather than the corner.
@@ -1278,7 +1255,7 @@ class _EPIFMSimulator:
         return expected, optinfo, states
 
     def __overlay_molecule_plane(
-            self, camera, particle_i, _p_b, p_0, unit_time,
+            self, expected, particle_i, _p_b, p_0, unit_time,
             optional_info, fluorescence_states=None, rng=None):
         # m-scale
         # p_b (ndarray): beam position (assumed to be the same with focal center), but not used.
@@ -1318,15 +1295,22 @@ class _EPIFMSimulator:
                     p_state = 0.0  #XXX
                 fluorescence_states[m_id] = budget
 
-        normalization = p_state * N_emit / (4.0 * numpy.pi)
+        # Photon Transmission Efficiency
+        normalization = self.configs.fluoem_norm
+        if self.configs.dichroic_switch:
+            normalization *= 0.01 * self.configs.dichroic_eff
+        if self.configs.emission_switch:
+            normalization *= 0.01 * self.configs.emission_eff
+        normalization = numpy.sum(normalization) * self.configs.psf_normalization
+        normalization *= p_state * N_emit / (4.0 * numpy.pi)
 
         # add signal matrix to image plane
         pixel_length = self.configs.detector_pixel_length / self.configs.image_magnification
-        self.configs.fluorophore_psf.overlay_signal(camera, p_i - p_0, pixel_length, normalization)
+        self.configs.fluorophore_psf.overlay_signal(expected, p_i - p_0, pixel_length, normalization)
 
         # set true-dataset
         if m_id not in optional_info:
-            optional_info[m_id] = numpy.zeros(7, dtype=numpy.float64)
+            optional_info[m_id] = numpy.zeros(8, dtype=numpy.float64)
         optional_info[m_id] += numpy.array([
             unit_time,
             unit_time * p_state,  # photon-state
@@ -1335,6 +1319,7 @@ class _EPIFMSimulator:
             unit_time * p_i[1],  # X-coordinate in the image-plane
             unit_time * p_i[2],  # Y-coordinate in the image-plane
             unit_time * depth,  # Depth from focal-plane
+            normalization,  # normalization
             ])
 
     def __get_emit_photons(self, amplitude, unit_time):
