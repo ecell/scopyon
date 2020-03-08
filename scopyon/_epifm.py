@@ -1190,7 +1190,7 @@ class _EPIFMSimulator:
             expected, optinfo_, states = self.get_molecule_plane(
                     particles, shape=camera_pixel.shape[: 2], p_b=p_b, p_0=p_0, unit_time=unit_time,
                     optional_info=optinfo, fluorescence_states=fluorescence_states, rng=rng, processes=processes)
-            camera_pixel[:, :, 0] = expected
+            camera_pixel[:, :, 0] += expected
             optinfo.update(optinfo_)
             if fluorescence_states is not None:
                 fluorescence_states.update(states)
@@ -1425,7 +1425,8 @@ class _EPIFMSimulator:
         ## get signal (photons)
         photons = camera_pixel[:, :, 0]
         ## get constant background (photoelectrons)
-        photons += self.configs.effects.background_mean
+        if self.configs.effects.background_switch:
+            photons += self.configs.effects.background_mean
         ## get signal (expectation)
         expected = QE * photons
 

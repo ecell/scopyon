@@ -14,6 +14,7 @@ class TestEPIFM(unittest.TestCase):
         import scopyon._epifm
 
     def test2(self):
+        print('Testing TRITC ...')
         import numpy
         from scopyon._epifm import PointSpreadingFunction
         psf = PointSpreadingFunction(psf_radial_cutoff=self.radial_cutoff, psf_radial_width=None, psf_depth_cutoff=1000.0e-9, fluorophore_type="Tetramethylrhodamine(TRITC)", psf_wavelength=5.78e-07)
@@ -41,6 +42,7 @@ class TestEPIFM(unittest.TestCase):
         print(f'Integral of detected = {tot_camera}')
 
     def test3(self):
+        print('Testing Gaussian ...')
         import numpy
         from scopyon._epifm import PointSpreadingFunction
         psf = PointSpreadingFunction(psf_radial_cutoff=self.radial_cutoff, psf_radial_width=1.0e-7, psf_depth_cutoff=1000.0e-9, fluorophore_type="Gaussian", psf_wavelength=6.0e-7)
