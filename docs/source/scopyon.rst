@@ -47,12 +47,12 @@ scopyon.io module
 scopyon.samples module
 ----------------------
 
-.. automodule:: scopyon.samples
+.. automodule:: scopyon.sampling
    :members:
    :undoc-members:
    :show-inheritance:
 
-scopyon.spot\_detection module
+scopyon.analysis.spot\_detection module
 ------------------------------
 
 .. automodule:: scopyon.spot_detection
