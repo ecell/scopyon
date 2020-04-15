@@ -44,7 +44,7 @@ scopyon.io module
    :undoc-members:
    :show-inheritance:
 
-scopyon.samples module
+scopyon.sampling module
 ----------------------
 
 .. automodule:: scopyon.sampling
@@ -55,7 +55,7 @@ scopyon.samples module
 scopyon.analysis.spot\_detection module
 ------------------------------
 
-.. automodule:: scopyon.spot_detection
+.. automodule:: scopyon.analysis.spot_detection
    :members:
    :undoc-members:
    :show-inheritance:
