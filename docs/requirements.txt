@@ -5,3 +5,4 @@ numpydoc
 ipython
 pip>=8.1.2
 sphinx-gallery
+scopyon==1.0.0a2
