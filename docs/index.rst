@@ -10,7 +10,7 @@ Welcome to scopyon's documentation!
 Installation
 **************
 
-For :code:`scopyon`, Python 3 and its libraries, :code:`numpy`, :code:`scipy`, :code:`matplotlib`, :code:`pyyaml` and :code:`pint`, are required. Installation of :code:`scikit-image`, :code:`pillow` and :code:`plotly` is also recommended.
+For :code:`scopyon`, Python 3 and its libraries, :code:`numpy`, :code:`scipy`, :code:`matplotlib`, :code:`pyyaml` and :code:`pint`, are required (see also `requirements.txt <https://github.com/ecell/scopyon/blob/docs/requirements.txt`>_). Installation of :code:`scikit-image`, :code:`pillow` and :code:`plotly` is also recommended.
 
 ::
 

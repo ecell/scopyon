@@ -1,5 +1,5 @@
-.. toctree::
-   :maxdepth: 2
-   :glob:
+#############
+Examples
+#############
 
-   tirf
+Test
