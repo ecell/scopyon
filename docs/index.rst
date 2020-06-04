@@ -24,6 +24,8 @@ or
 
 ::
 
+    git clone https://github.com/ecell/scopyon.git
+    cd scopyon
     python setup.py test install
 
 **************
@@ -36,6 +38,16 @@ Quick start
 
 .. image:: https://github.com/ecell/scopyon/raw/master/examples/twocolor_000.png
     :alt: TIRF Image
+
+*************
+Examples
+*************
+
+.. toctree::
+    :maxdepth: 2
+    :glob:
+
+    examples/*
 
 **********
 License
