@@ -23,5 +23,4 @@ python:
   install:
   install:
     - requirements: ./docs/requirements.txt
-    - requirements: ./requirements.txt
   system_packages: true
