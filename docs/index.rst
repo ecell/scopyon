@@ -4,13 +4,13 @@ Welcome to scopyon's documentation!
 
 :code:`scopyon` is a Monte Carlo simulation toolkit for bioimagins systems.
 
-`https://github.com/ecell/scopyon <https://github.com/ecell/scopyon>`_
+The source code is available at `https://github.com/ecell/scopyon <https://github.com/ecell/scopyon>`_.
 
 **************
 Prerequisites
 **************
 
-For :code:`scopyon`, Python 3 and its libraries, :code:`numpy`, :code:`scipy`, :code:`matplotlib`, :code:`pyyaml` and :code:`pint`, are required (see also `requirements.txt <https://github.com/ecell/scopyon/blob/docs/requirements.txt`>_). Installation of :code:`scikit-image`, :code:`pillow` and :code:`plotly` is also recommended.
+For :code:`scopyon`, Python 3 and its libraries, :code:`numpy`, :code:`scipy`, :code:`matplotlib`, :code:`pyyaml` and :code:`pint`, are required (see also `requirements.txt <https://github.com/ecell/scopyon/blob/docs/requirements.txt>`_). Installation of :code:`scikit-image`, :code:`pillow` and :code:`plotly` is also recommended.
 
 **************
 Installation
@@ -43,7 +43,7 @@ Quick start
 Examples
 *************
 
-See :doc:`examples/index`.
+See :doc:`examples/index` for a list of examples.
 
 **********
 License
