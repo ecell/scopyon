@@ -47,7 +47,7 @@ Examples
     :maxdepth: 2
     :glob:
 
-    examples/tirf
+    examples/index
 
 **********
 License
