@@ -7,3 +7,4 @@ Examples
    :glob:
 
    tirf
+   spot_detection
