@@ -7,11 +7,6 @@ scopyon module
     :undoc-members:
     :show-inheritance:
 
-.. automodule:: scopyon.base
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 .. automodule:: scopyon.analysis
     :members:
     :undoc-members:

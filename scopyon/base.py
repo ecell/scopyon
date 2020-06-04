@@ -11,7 +11,10 @@ import scopyon.image
 from logging import getLogger
 _log = getLogger(__name__)
 
-__all__ = ["form_image", "generate_images", "create_simulator"]
+__all__ = [
+    "EnvironSettings", "EPIFMSimulator",
+    "form_image", "generate_images", "create_simulator"
+    ]
 
 
 class EnvironSettings:
