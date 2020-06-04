@@ -43,10 +43,7 @@ Quick start
 Examples
 *************
 
-.. toctree::
-    :maxdepth: 2
-
-    examples/index
+See :doc:`examples/index`.
 
 **********
 License
