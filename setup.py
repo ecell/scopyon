@@ -44,7 +44,7 @@ setup(
     maintainer_email='kaizu@riken.jp',
     packages=['scopyon', 'scopyon.analysis'],
     package_dir={'scopyon': 'scopyon', 'scopyon.analysis': 'scopyon/analysis'},
-    package_data={'scopyon': ['scopyon.yml', 'catalog/*.txt', 'catalog/*/*.csv']},
+    package_data={'scopyon': ['scopyon.yaml', 'catalog/*.txt', 'catalog/*/*.csv']},
     data_files=[('examples', ['examples/tirf.py', 'examples/tirf_000.png', 'examples/twocolor.py', 'examples/twocolor_000.png', 'examples/bleaching.py'])],
     install_requires=install_requires,
     test_suite='test',

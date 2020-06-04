@@ -129,6 +129,11 @@ class Configuration(collections.abc.Mapping):
             self.__yaml[key] = value  #XXX: clear 'units'
 
 class DefaultConfiguration(Configuration):
+    """
+
+    Default configuration. All the settings are available in package data, `scopyon.yaml`.
+    See https://github.com/ecell/scopyon/blob/master/scopyon/scopyon.yaml
+    """
 
     def __init__(self):
         import yaml
@@ -136,7 +141,7 @@ class DefaultConfiguration(Configuration):
             from yaml import CLoader as Loader
         except ImportError:
             from yaml import Loader
-        with contextlib.closing(io.StringIO(pkgutil.get_data("scopyon", "scopyon.yml").decode())) as f:
+        with contextlib.closing(io.StringIO(pkgutil.get_data("scopyon", "scopyon.yaml").decode())) as f:
             data = yaml.load(f.read(), Loader=Loader)
 
         Configuration.__init__(self, yaml=data)
