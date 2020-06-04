@@ -65,10 +65,3 @@ API
 
 - :doc:`api/index`
 - :doc:`api/scopyon`
-
-Test here:
-
-.. automodule:: scopyon
-    :members:
-    :undoc-members:
-    :show-inheritance:
