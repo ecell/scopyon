@@ -2,10 +2,6 @@
 Welcome to scopyon's documentation!
 #######################################
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
 :code:`scopyon` is a Monte Carlo simulation toolkit for bioimagins systems.
 
 `https://github.com/ecell/scopyon <https://github.com/ecell/scopyon>`_
@@ -45,7 +41,6 @@ Examples
 
 .. toctree::
     :maxdepth: 2
-    :glob:
 
     examples/index
 
