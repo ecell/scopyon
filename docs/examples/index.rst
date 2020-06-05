@@ -8,3 +8,4 @@ Examples
 
    tirf
    spot_detection
+   bleaching
