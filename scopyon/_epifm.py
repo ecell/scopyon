@@ -1136,6 +1136,8 @@ class _EPIFMSimulator:
         processes = processes or (1 if self.environ is None else self.environ.processes)
         exposure_time = exposure_time or self.configs.detector_exposure_time
 
+        _log.info('processes = {}.'.format(processes))
+
         if rng is None:
             _log.info('A random number generator was initialized.')
             rng = numpy.random.RandomState()
@@ -1195,6 +1197,9 @@ class _EPIFMSimulator:
             if fluorescence_states is not None:
                 fluorescence_states.update(states)
 
+        _log.info('Total camera_pixel = {:3e}'.format(camera_pixel[:, :, 0].sum()))
+        _log.info('{} optoinfos are registered.'.format(len(optinfo)))
+
         for m_id in optinfo:
             optinfo[m_id][1] /= exposure_time  # photon state
             optinfo[m_id][2: 6] /= optinfo[m_id][0]  # Calculating time averages
@@ -1207,6 +1212,7 @@ class _EPIFMSimulator:
             optinfo[m_id][3] = (optinfo[m_id][3] - p_0[2]) / pixel_length + (Nh_pixel - 1) * 0.5
 
         # apply detector effects
+        _log.info("Apply detector effects.")
         camera = self.__detector_output(rng, camera_pixel, processes=processes)
         # return (camera, optinfo)
         infodict = dict(true_data=optinfo)
