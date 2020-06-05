@@ -9,3 +9,4 @@ Examples
    tirf
    spot_detection
    bleaching
+   testsuite1
