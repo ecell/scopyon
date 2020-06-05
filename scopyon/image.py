@@ -237,7 +237,7 @@ class Image(object):
 class Video:
 
     @staticmethod
-    def save(filename, img, interval=100, dpi=None, cmin=None, cmax=None, low=None, high=None):
+    def save(filename, imgs, interval=100, dpi=None, cmin=None, cmax=None, low=None, high=None):
         """Make a video from images.
 
         Note:
