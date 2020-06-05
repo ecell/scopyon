@@ -7,6 +7,7 @@ Examples
    :glob:
 
    tirf
+   twocolor
    spot_detection
    bleaching
    testsuite1
