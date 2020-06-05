@@ -6,6 +6,7 @@ import warnings
 
 import numpy
 
+import pint
 from scopyon.constants import Q_  # pint
 
 from logging import getLogger
@@ -117,6 +118,11 @@ class Configuration(collections.abc.Mapping):
             if 'value' not in original:
                 #TODO: value might be Configuration.
                 raise ValueError(f"Cannot update '{key}'.")
+        if isinstance(value, pint.Quantity) and not isinstance(value, Q_):
+            # Accept a quantity with the different registry.
+            warnings.warn(
+                "Quantity with the different registry was given. Use scopyon.constants.Quantity")
+            value = Q_(value.magnitude, value.units)
         if isinstance(value, Q_):
             if isinstance(original, dict) and 'units' in original:
                 other = Q_(original['value'], original['units'])

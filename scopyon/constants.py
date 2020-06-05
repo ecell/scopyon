@@ -1,10 +1,11 @@
 import pint
 
 
-__all__ = ['ureg', 'Q_', 'ABOGADROS_NUMBER', 'N_A', 'hc']
+__all__ = ['ureg', 'Quantity', 'Q_', 'ABOGADROS_NUMBER', 'N_A', 'hc']
 
 ureg = pint.UnitRegistry()
-Q_ = ureg.Quantity
+Quantity = ureg.Quantity
+Q_ = Quantity
 
 # Avogadro constant
 # AVOGADROS_NUMBER = 6.022140857e+23
