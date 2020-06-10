@@ -46,9 +46,9 @@ def sample_points(rng, N=None, conc=None, lower=None, upper=None, start=0, ndim=
         else numpy.array(upper) if upper is not None
         else numpy.ones(ndim))
 
-    if len(lower) != ndim or len(upper) != ndim:
+    if len(lower) < ndim or len(upper) < ndim:
         raise ValueError(
-            "The wrong size of limits was given [{},{} != {}].".format(len(lower), len(upper), ndim))
+            "The wrong size of limits was given [(lower={}, upper={}) != {}].".format(len(lower), len(upper), ndim))
 
     for dim in range(ndim):
         if lower[dim] > upper[dim]:
@@ -74,14 +74,15 @@ def sample_points(rng, N=None, conc=None, lower=None, upper=None, start=0, ndim=
     if N <= 0:
         return numpy.array([]), start
 
-    ret = numpy.zeros((N, ndim + 2))
-    for dim in range(ndim):
+    maxdim = len(lower)
+    ret = numpy.zeros((N, maxdim + 2))
+    for dim in range(maxdim):
         if lower[dim] < upper[dim]:
             ret[: , dim] = rng.uniform(lower[dim], upper[dim], N)
         else:
             ret[: , dim] = lower[dim]
-    ret[: , ndim + 0] = numpy.arange(start, start + N)  # Molecule ID
-    ret[: , ndim + 1] = 1.0  # Photon state
+    ret[: , maxdim + 0] = numpy.arange(start, start + N)  # Molecule ID
+    ret[: , maxdim + 1] = 1.0  # Photon state
     return ret, start + N
 
 def move_points(rng, points, D, dt, ndim=3):
@@ -117,7 +118,7 @@ def move_points(rng, points, D, dt, ndim=3):
             ret[i, dim] += rng.normal(0.0, numpy.sqrt(2 * D[dim] * dt))
     return ret
 
-def sample_inputs(t, *, N=None, conc=None, lower=None, upper=None, D=None, ndim=3, rng=None):
+def sample_inputs(t, *, N=None, conc=None, lower=None, upper=None, D=None, start=0, ndim=3, rng=None):
     """Generate the input data.
 
     Args:
@@ -131,6 +132,7 @@ def sample_inputs(t, *, N=None, conc=None, lower=None, upper=None, D=None, ndim=
             It is a constant or an array contains constants along with each axis.
             Defaults to 0.0.
         ndim (int, optional) The number of dimensions. Defaults to 3.
+        start (int, optional): The first index. Defaults to 0.
         rng (numpy.RandomState, optional): A random number generator.
 
     Returns:
@@ -147,7 +149,7 @@ def sample_inputs(t, *, N=None, conc=None, lower=None, upper=None, D=None, ndim=
         rng = numpy.random.RandomState()
 
     t = sorted(t)
-    points, _ = sample_points(rng, N=N, conc=conc, lower=lower, upper=upper, ndim=ndim)
+    points, _ = sample_points(rng, N=N, conc=conc, lower=lower, upper=upper, start=start, ndim=ndim)
     tcurrent = t[0]
     inputs = []
     for tnext in t:
