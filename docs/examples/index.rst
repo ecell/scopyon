@@ -8,6 +8,7 @@ Examples
 
    tirf
    twocolor
+   efm
    spot_detection
    bleaching
    testsuite1
