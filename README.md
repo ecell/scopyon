@@ -9,6 +9,11 @@ scopyon
 
 :microscope: Monte Carlo simulation toolkit for bioimaging systems
 
+Documentation
+--------------
+
+See [https://scopyon.readthedocs.io/](https://scopyon.readthedocs.io/) for details.
+
 Requirements
 ------------
 

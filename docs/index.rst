@@ -16,6 +16,9 @@ For :code:`scopyon`, Python 3 and its libraries, :code:`numpy`, :code:`scipy`, :
 Installation
 **************
 
+.. image:: https://badge.fury.io/py/scopyon.svg
+    :target: https://badge.fury.io/py/scopyon
+
 ::
 
     pip install scopyon
