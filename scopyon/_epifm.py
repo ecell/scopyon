@@ -247,6 +247,8 @@ class PointSpreadingFunction:
         #     left[-1] = signal.shape[0]
         # else:
         #     assert left[-1] < signal.shape[0]
+        if len(left) == 0:
+            return
         left[0] = max(left[0], 0)
         left[-1] = min(left[-1], signal.shape[0])
 
@@ -267,6 +269,8 @@ class PointSpreadingFunction:
         #     top[-1] = signal.shape[1]
         # else:
         #     assert top[-1] < signal.shape[1]
+        if len(top) == 0:
+            return
         top[0] = max(top[0], 0)
         top[-1] = min(top[-1], signal.shape[1])
 
