@@ -12,3 +12,4 @@ Examples
    spot_detection
    bleaching
    testsuite1
+   testsuite2
