@@ -1202,7 +1202,7 @@ class _EPIFMSimulator:
                 fluorescence_states.update(states)
 
         _log.info('Total camera_pixel = {:3e}'.format(camera_pixel[:, :, 0].sum()))
-        _log.info('{} optoinfos are registered.'.format(len(optinfo)))
+        _log.info('{} optinfos are registered.'.format(len(optinfo)))
 
         for m_id in optinfo:
             optinfo[m_id][1] /= exposure_time  # photon state
