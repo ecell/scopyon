@@ -6,6 +6,56 @@ from hmmlearn import _utils
 
 
 class FullPTHMM(_BaseHMM):
+    r"""Hidden Markov Model for Particle Tracking.
+
+    Args:
+        n_components (int): Number of states.
+        min_var (float, optional): Floor on the variance to prevent overfitting.
+            Defaults to 1e-5.
+        startprob_prior (array, optional):
+            shape (n_components, ). Parameters of the Dirichlet prior distribution for
+            :attr:`startprob_`.
+        transmat_prior (array, optional):
+            shape (n_components, n_components). Parameters of the Dirichlet prior distribution for each row
+            of the transition probabilities :attr:`transmat_`.
+        algorithm (string, optional):
+            Decoder algorithm. Must be one of "viterbi" or`"map".
+            Defaults to "viterbi".
+        random_state (RandomState or an int seed, optional):
+            A random number generator instance.
+        n_iter (int, optional): Maximum number of iterations to perform.
+        tol (float, optional):
+            Convergence threshold. EM will stop if the gain in log-likelihood
+            is below this value.
+        verbose (bool, optional):
+            When ``True`` per-iteration convergence reports are printed
+            to :data:`sys.stderr`. You can diagnose convergence via the
+            :attr:`monitor_` attribute.
+        params (string, optional):
+            Controls which parameters are updated in the training
+            process.  Can contain any combination of 's' for startprob,
+            't' for transmat, 'd' for diffusivities, 'm' for intensity means
+            and 'v' for intensity variances. Defaults to all parameters.
+        init_params (string, optional):
+            Controls which parameters are initialized prior to
+            training.  Can contain any combination of 's' for startprob,
+            't' for transmat, 'd' for diffusivities, 'm' for intensity means
+            and 'v' for intensity variances. Defaults to all parameters.
+
+    Attributes:
+        monitor\_  (ConvergenceMonitor):
+            Monitor object used to check the convergence of EM.
+        startprob\_  (array): shape (n_components, ).
+            Initial state occupation distribution.
+        transmat\_ (array): shape (n_components, n_components).
+            Matrix of transition probabilities between states.
+        diffusivities\_ (array): shape (n_components, 1).
+            Diffusion constants for each state.
+        intensity_means\_  (array): shape (n_components, 1).
+            Mean parameters of intensity distribution for each state.
+        intensity_vars\_ (array): shape (n_components, 1).
+            Variance parameters of intensity distribution for each state.
+    """
 
     def __init__(self, n_components=1,
                  min_var=1e-5,
@@ -130,6 +180,58 @@ class FullPTHMM(_BaseHMM):
                 stats['obs2**2'] - 2 * self.intensity_means_ * stats['obs2'] + self.intensity_means_ ** 2 * denom) / denom
 
 class PTHMM(_BaseHMM):
+    r"""Hidden Markov Model for Particle Tracking.
+
+    Args:
+        n_components (int): Number of states.
+        n_oligomers (int): Number of oligomeric states.
+            n_components must be divisible by n_oligomers.
+        min_var (float, optional): Floor on the variance to prevent overfitting.
+            Defaults to 1e-5.
+        startprob_prior (array, optional):
+            shape (n_components, ). Parameters of the Dirichlet prior distribution for
+            :attr:`startprob_`.
+        transmat_prior (array, optional):
+            shape (n_components, n_components). Parameters of the Dirichlet prior distribution for each row
+            of the transition probabilities :attr:`transmat_`.
+        algorithm (string, optional):
+            Decoder algorithm. Must be one of "viterbi" or`"map".
+            Defaults to "viterbi".
+        random_state (RandomState or an int seed, optional):
+            A random number generator instance.
+        n_iter (int, optional): Maximum number of iterations to perform.
+        tol (float, optional):
+            Convergence threshold. EM will stop if the gain in log-likelihood
+            is below this value.
+        verbose (bool, optional):
+            When ``True`` per-iteration convergence reports are printed
+            to :data:`sys.stderr`. You can diagnose convergence via the
+            :attr:`monitor_` attribute.
+        params (string, optional):
+            Controls which parameters are updated in the training
+            process.  Can contain any combination of 's' for startprob,
+            't' for transmat, 'd' for diffusivities, 'm' for intensity means
+            and 'v' for intensity variances. Defaults to all parameters.
+        init_params (string, optional):
+            Controls which parameters are initialized prior to
+            training.  Can contain any combination of 's' for startprob,
+            't' for transmat, 'd' for diffusivities, 'm' for intensity means
+            and 'v' for intensity variances. Defaults to all parameters.
+
+    Attributes:
+        monitor\_  (ConvergenceMonitor):
+            Monitor object used to check the convergence of EM.
+        startprob\_  (array): shape (n_components, ).
+            Initial state occupation distribution.
+        transmat\_ (array): shape (n_components, n_components).
+            Matrix of transition probabilities between states.
+        diffusivities\_ (array): shape (n_components, 1).
+            Diffusion constants for each state.
+        intensity_means\_  (array): shape (1, 1).
+            Base mean parameter of intensity distributions.
+        intensity_vars\_ (array): shape (1, 1).
+            Base Variance parameter of intensity distributions.
+    """
 
     def __init__(self, n_components=1, n_oligomers=1,
                  min_var=1e-5,
