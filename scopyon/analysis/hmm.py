@@ -72,7 +72,7 @@ class FullPTHMM(_BaseHMM):
         self.min_var = min_var
 
     def _check(self):
-        super(ParticleTrackingHMM, self)._check()
+        super()._check()
 
         self.diffusivities_ = numpy.asarray(self.diffusivities_)
         assert self.diffusivities_.shape == (self.n_components, 1)
@@ -104,7 +104,7 @@ class FullPTHMM(_BaseHMM):
 
     def _init(self, X, lengths=None):
         _check_and_set_gaussian_n_features(self, X)
-        super(ParticleTrackingHMM, self)._init(X, lengths=lengths)
+        super()._init(X, lengths=lengths)
 
         _, n_features = X.shape
         if hasattr(self, 'n_features') and self.n_features != n_features:
@@ -131,7 +131,7 @@ class FullPTHMM(_BaseHMM):
             self.intensity_vars_ = numpy.tile([var], (self.n_components, 1))
 
     def _initialize_sufficient_statistics(self):
-        stats = super(ParticleTrackingHMM, self)._initialize_sufficient_statistics()
+        stats = super()._initialize_sufficient_statistics()
 
         stats['post'] = numpy.zeros(self.n_components)
         stats['obs1**2'] = numpy.zeros((self.n_components, 1))
@@ -155,7 +155,7 @@ class FullPTHMM(_BaseHMM):
 
     def _accumulate_sufficient_statistics(self, stats, obs, framelogprob,
                                           posteriors, fwdlattice, bwdlattice):
-        super(ParticleTrackingHMM, self)._accumulate_sufficient_statistics(
+        super()._accumulate_sufficient_statistics(
             stats, obs, framelogprob, posteriors, fwdlattice, bwdlattice)
 
         if any(param in self.params for param in 'dmv'):
@@ -168,7 +168,7 @@ class FullPTHMM(_BaseHMM):
             stats['obs2**2'] += numpy.dot(posteriors.T, obs[:, [1]] ** 2)
 
     def _do_mstep(self, stats):
-        super(ParticleTrackingHMM, self)._do_mstep(stats)
+        super()._do_mstep(stats)
 
         denom = stats['post'][:, numpy.newaxis]
         if 'd' in self.params:
@@ -251,7 +251,7 @@ class PTHMM(_BaseHMM):
         assert self.n_components % self.n_oligomers == 0
 
     def _check(self):
-        super(ParticleTrackingHMM, self)._check()
+        super()._check()
 
         self.diffusivities_ = np.asarray(self.diffusivities_)
         assert self.diffusivities_.shape == (self.n_components, 1)
@@ -284,7 +284,7 @@ class PTHMM(_BaseHMM):
 
     def _init(self, X, lengths=None):
         _check_and_set_gaussian_n_features(self, X)
-        super(ParticleTrackingHMM, self)._init(X, lengths=lengths)
+        super()._init(X, lengths=lengths)
 
         _, n_features = X.shape
         if hasattr(self, 'n_features') and self.n_features != n_features:
@@ -312,7 +312,7 @@ class PTHMM(_BaseHMM):
             self.intensity_vars_ = np.array([[var]])
 
     def _initialize_sufficient_statistics(self):
-        stats = super(ParticleTrackingHMM, self)._initialize_sufficient_statistics()
+        stats = super()._initialize_sufficient_statistics()
         stats['post'] = np.zeros(self.n_components)
         stats['obs1**2'] = np.zeros((self.n_components, 1))
         stats['obs2'] = np.zeros((self.n_components, 1))
@@ -340,7 +340,7 @@ class PTHMM(_BaseHMM):
 
     def _accumulate_sufficient_statistics(self, stats, obs, framelogprob,
                                           posteriors, fwdlattice, bwdlattice):
-        super(ParticleTrackingHMM, self)._accumulate_sufficient_statistics(
+        super()._accumulate_sufficient_statistics(
             stats, obs, framelogprob, posteriors, fwdlattice, bwdlattice)
 
         if any(param in self.params for param in 'dmv'):
@@ -361,7 +361,7 @@ class PTHMM(_BaseHMM):
         # assert False
 
     def _do_mstep(self, stats):
-        super(ParticleTrackingHMM, self)._do_mstep(stats)
+        super()._do_mstep(stats)
 
         denom = stats['post'][:, np.newaxis]
         # print("denom=", denom.shape)
