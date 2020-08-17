@@ -3,3 +3,4 @@ scipy
 matplotlib
 pint
 pyyaml
+hmmlearn
