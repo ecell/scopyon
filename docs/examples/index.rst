@@ -13,3 +13,4 @@ Examples
    bleaching
    testsuite1
    testsuite2
+   vbhmm
