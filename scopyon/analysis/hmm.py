@@ -69,6 +69,7 @@ class FullPTHMM(_BaseHMM):
                           random_state=random_state, n_iter=n_iter,
                           tol=tol, params=params, verbose=verbose,
                           init_params=init_params)
+
         self.min_var = min_var
 
     def _check(self):
@@ -246,7 +247,6 @@ class PTHMM(_BaseHMM):
                           tol=tol, params=params, verbose=verbose,
                           init_params=init_params)
 
-        self.covariance_type = covariance_type
         self.min_var = min_var
         self.n_diffusivities = n_diffusivities
         self.n_oligomers = n_oligomers
