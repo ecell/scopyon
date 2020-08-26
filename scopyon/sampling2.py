@@ -30,7 +30,7 @@ def __generate_points(rng, N, lower, upper, ndim):
     ret[: , ndim + 1] = numpy.arange(start, start + ret.shape[0])  # Molecule ID
     return ret
 
-def __move_points(rng, points, D, lower, upper, dt, ndim):
+def __move_points(rng, points, D, lower, upper, dt, ndim, periodic):
     _log.info('move_points: D={}, dt={}, ndim={}.'.format(D, dt, ndim))
     _log.debug('{} points are given.'.format(points.shape[0]))
 
@@ -40,12 +40,13 @@ def __move_points(rng, points, D, lower, upper, dt, ndim):
         scale = numpy.sqrt(2 * D[state] * dt)
         for dim in range(ndim):
             ret[i, dim] += rng.normal(0.0, scale)
-    for dim in range(ndim):
-        if upper[dim] > lower[dim]:
-            ret[: , dim] = (
-                (ret[:, dim] - lower[dim]) % (upper[dim] - lower[dim]) + lower[dim])
-        else:
-            ret[:, dim] = lower[dim]
+    if periodic:
+        for dim in range(ndim):
+            if upper[dim] > lower[dim]:
+                ret[: , dim] = (
+                    (ret[:, dim] - lower[dim]) % (upper[dim] - lower[dim]) + lower[dim])
+            else:
+                ret[:, dim] = lower[dim]
     return ret
 
 def __transition_states(rng, points, transmat, dt, ndim):
@@ -66,7 +67,7 @@ def __transition_states(rng, points, transmat, dt, ndim):
         ret[i, ndim + 0] = state_next
     return ret
 
-def sample(t, N, *, lower=None, upper=None, D=None, transmat=None, ndim=3, rng=None):
+def sample(t, N, *, lower=None, upper=None, D=None, transmat=None, ndim=3, periodic=False, rng=None):
     """Generate the points.
 
     Args:
@@ -80,6 +81,8 @@ def sample(t, N, *, lower=None, upper=None, D=None, transmat=None, ndim=3, rng=N
         transmat (array-like, optional): A state transition rate matrix.
             It must be a square matrix of size n, where n is the number of states.
         ndim (int, optional) The number of dimensions. Defaults to 3.
+        periodic (bool, optional) Whether applying periodic boundary.
+            Defaults to False.
         rng (numpy.RandomState, optional): A random number generator.
 
     Returns:
@@ -134,7 +137,8 @@ def sample(t, N, *, lower=None, upper=None, D=None, transmat=None, ndim=3, rng=N
         if tnext > tcurrent:
             dt = tnext - tcurrent
             points = __move_points(
-                rng, points, D=D, lower=lower, upper=upper, dt=dt, ndim=ndim)
+                rng, points, D=D, lower=lower, upper=upper, dt=dt, ndim=ndim,
+                periodic=periodic)
             if transmat is not None:
                 points = __transition_states(
                     rng, points, transmat=transmat, dt=dt, ndim=ndim)
