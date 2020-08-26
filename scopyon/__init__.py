@@ -2,6 +2,7 @@ from .base import *
 from .config import *
 from .image import *
 from .sampling import *
+from .sampling2 import *
 from . import constants
 from . import analysis
 
@@ -11,6 +12,7 @@ __all__ = [
     "Configuration", "DefaultConfiguration",
     "Image", "Video",
     "sample_inputs",
+    "sample",
     "constants", "analysis"
     ]
 
