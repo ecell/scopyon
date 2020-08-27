@@ -106,7 +106,7 @@ class LoggingMessage:
     message: str = ""
     level: int = DEBUG
 
-def __spot_detection(data, roi_size, blob):
+def __spot_detection(blob, data, roi_size):
     x, y, _ = blob
 
     x0, x1 = int(x - roi_size), int(x + roi_size) + 1
