@@ -1,4 +1,5 @@
 import dataclasses
+from multiprocessing import Pool
 
 import numpy
 import scipy.optimize
