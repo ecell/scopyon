@@ -1,4 +1,5 @@
 import dataclasses
+import functools
 from multiprocessing import Pool
 
 import numpy
