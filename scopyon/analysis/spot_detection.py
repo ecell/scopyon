@@ -102,7 +102,7 @@ def fitgaussian(data, roi_size):
 @dataclasses.dataclass
 class LoggingMessage:
     message: str = ""
-    level: int = logging.DEBUG
+    level: int = DEBUG
 
 def __spot_detection(data, roi_size, blob):
     x, y, _ = blob
