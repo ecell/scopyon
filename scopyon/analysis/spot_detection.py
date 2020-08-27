@@ -1,7 +1,9 @@
+import dataclasses
+
 import numpy
 import scipy.optimize
 
-from logging import getLogger
+from logging import getLogger, DEBUG
 _log = getLogger(__name__)
 
 __all__ = ["blob_detection", "spot_detection"]
@@ -97,7 +99,41 @@ def fitgaussian(data, roi_size):
         return None
     return res.x
 
-def spot_detection(data, roi_size=6, blobs=None, **kwargs):
+@dataclasses.dataclass
+class LoggingMessage:
+    message: str = ""
+    level: int = logging.DEBUG
+
+def __spot_detection(data, roi_size, blob):
+    x, y, _ = blob
+
+    x0, x1 = int(x - roi_size), int(x + roi_size) + 1
+    y0, y1 = int(y - roi_size), int(y + roi_size) + 1
+    x0, x1 = max(0, x0), min(data.shape[0], x1)
+    y0, y1 = max(0, y0), min(data.shape[1], y1)
+    roi = data[x0: x1, y0: y1]
+
+    if roi.sum() <= 0:
+        return LoggingMessage("spot_detection skip a blob due to the low signal.")
+
+    roi_, bg = background(roi)
+    if roi_ is None:
+        return LoggingMessage("spot_detection skip a blob due to the failure in background.")
+    res = fitgaussian(roi_, roi_size)
+    if res is None:
+        return LoggingMessage("spot_detection skip a blob due to the failure in fitgaussian.")
+
+    (height, center_x, center_y, sigma) = res
+    if not (0 <= center_x < roi.shape[0]
+            and 0 <= center_y < roi.shape[1]):
+        return LoggingMessage("spot_detection skip a blob due to invalid parameters fitted.")
+
+    intensity = gaussian(*res)(*numpy.indices(roi.shape)).sum()
+    center_x += x0
+    center_y += y0
+    return (center_x, center_y, intensity, bg, height, sigma)
+
+def spot_detection(data, roi_size=6, blobs=None, processes=None, **kwargs):
     """Finds spots in the given image.
 
     Note:
@@ -118,39 +154,18 @@ def spot_detection(data, roi_size=6, blobs=None, **kwargs):
     if blobs is None:
         blobs = blob_detection(data, **kwargs)
 
-    spots = []
-    for blob in blobs:
-        x, y, _ = blob
-
-        x0, x1 = int(x - roi_size), int(x + roi_size) + 1
-        y0, y1 = int(y - roi_size), int(y + roi_size) + 1
-        x0, x1 = max(0, x0), min(data.shape[0], x1)
-        y0, y1 = max(0, y0), min(data.shape[1], y1)
-        roi = data[x0: x1, y0: y1]
-
-        if roi.sum() <= 0:
-            _log.debug("spot_detection skip a blob due to the low signal.")
-            continue
-
-        roi_, bg = background(roi)
-        if roi_ is None:
-            _log.debug("spot_detection skip a blob due to the failure in background.")
-            continue
-        res = fitgaussian(roi_, roi_size)
-        if res is None:
-            _log.debug("spot_detection skip a blob due to the failure in fitgaussian.")
-            continue
-
-        (height, center_x, center_y, sigma) = res
-        if not (0 <= center_x < roi.shape[0]
-                and 0 <= center_y < roi.shape[1]):
-            _log.debug("spot_detection skip a blob due to invalid parameters fitted.")
-            continue
-
-        intensity = gaussian(*res)(*numpy.indices(roi.shape)).sum()
-        center_x += x0
-        center_y += y0
-        spots.append((center_x, center_y, intensity, bg, height, sigma))
+    if processes is not None and processes > 1:
+        with Pool(processes) as pool:
+            spots = pool.map(functools.partial(__spot_detection, data=data, roi_size=roi_size), blobs)
+        spots = [spot for spot in spots if not isinstance(spot, LoggingMessage)]
+    else:
+        spots = []
+        for blob in blobs:
+            spot = __spot_detection(data, roi_size, blob)
+            if isinstance(spot, LoggingMessage):
+                _log.log(spot.level, spot.message)
+            else:
+                spots.append(spot)
 
     _log.info('{} spot(s) were detected'.format(len(spots)))
     spots = numpy.array(spots)
