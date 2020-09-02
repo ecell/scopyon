@@ -163,7 +163,7 @@ def spot_detection(data, roi_size=6, blobs=None, processes=None, **kwargs):
     else:
         spots = []
         for blob in blobs:
-            spot = __spot_detection(data, roi_size, blob)
+            spot = __spot_detection(blob, data, roi_size)
             if isinstance(spot, LoggingMessage):
                 _log.log(spot.level, spot.message)
             else:
