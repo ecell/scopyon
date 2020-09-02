@@ -17,7 +17,7 @@ __all__ = ["Configuration", "DefaultConfiguration"]
 
 def dict_merge(dct, merge_dct):
     for k, v in merge_dct.items():
-        if isinstance(dct.get(k), dict) and isinstance(v, collections.Mapping):
+        if isinstance(dct.get(k), dict) and isinstance(v, collections.abc.Mapping):
             dict_merge(dct[k], v)
         else:
             dct[k] = v
