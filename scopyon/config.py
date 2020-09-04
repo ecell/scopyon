@@ -52,6 +52,17 @@ class Configuration(collections.abc.Mapping):
             from yaml import Dumper
         return yaml.dump(self.__yaml, default_flow_style=False, Dumper=Dumper)
 
+    def save(self, file):
+        """ Save configurations as YAML file.
+
+        Args:
+            file (str): An output file name.
+        """
+        assert isinstance(file, (str, pathlib.PurePath))
+        file = file if isinstance(file, str) else str(file)
+        with open(file, 'w') as f:
+            f.write(repr(self))
+
     def update(self, conf):
         if isinstance(conf, Configuration):
             dict_merge(self.__yaml, conf.yaml)
