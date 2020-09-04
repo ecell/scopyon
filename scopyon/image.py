@@ -26,7 +26,6 @@ class Image(object):
         filename = file
         _, ext = os.path.splitext(filename)
         if ext.lower() == '.npy':
-            assert len(kwargs) == 0  # No option is allowed
             return Image(numpy.load(filename))
         elif ext.lower() == '.csv':
             return Image(numpy.loadtxt(filename))
