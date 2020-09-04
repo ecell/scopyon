@@ -1,4 +1,5 @@
 import os.path
+import pathlib
 import numpy
 
 from logging import getLogger
@@ -22,8 +23,8 @@ class Image(object):
         Returns:
             Image: an image object
         """
-        assert isinstance(file, str)
-        filename = file
+        assert isinstance(file, (str, pathlib.PurePath))
+        filename = file if isinstance(file, str) else str(file)
         _, ext = os.path.splitext(filename)
         if ext.lower() == '.npy':
             return Image(numpy.load(filename))
@@ -159,6 +160,9 @@ class Image(object):
             filename (str): An output file name.
                 `.npy`, `.csv` or image formats are accepted.
         """
+        assert isinstance(filename, (str, pathlib.PurePath))
+        filename = filename if isinstance(filename, str) else str(filename)
+
         _, ext = os.path.splitext(filename)
         if ext.lower() == '.npy':
             assert len(kwargs) == 0  # No option is allowed
