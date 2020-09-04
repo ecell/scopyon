@@ -3,6 +3,7 @@ import contextlib
 import io
 import pkgutil
 import warnings
+import pathlib
 
 import numpy
 
