@@ -3,4 +3,4 @@ scipy
 matplotlib
 pint
 pyyaml
-hmmlearn
+hmmlearn==0.2.3
