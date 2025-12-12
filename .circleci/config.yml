@@ -7,7 +7,7 @@ jobs:
   build:
     working_directory: ~/workspace
     docker:
-      - image: circleci/python:3.8
+      - image: circleci/python:3.11
     steps:
       - checkout
       - restore_cache:
@@ -46,7 +46,7 @@ jobs:
   deploy:
     working_directory: ~/workspace
     docker:
-      - image: circleci/python:3.6
+      - image: circleci/python:3.11
     steps:
       - attach_workspace:
           at: .
