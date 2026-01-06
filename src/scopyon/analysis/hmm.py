@@ -1,11 +1,10 @@
 import numpy
 
-from hmmlearn.base import _BaseHMM
-from hmmlearn.hmm import _check_and_set_gaussian_n_features
+from hmmlearn.base import BaseHMM
 from hmmlearn import _utils
 
 
-class FullPTHMM(_BaseHMM):
+class FullPTHMM(BaseHMM):
     r"""Hidden Markov Model for Particle Tracking.
 
     Args:
@@ -63,7 +62,7 @@ class FullPTHMM(_BaseHMM):
                  algorithm="viterbi", random_state=None,
                  n_iter=10, tol=1e-2, verbose=False,
                  params="stdmv", init_params="stdmv"):
-        _BaseHMM.__init__(self, n_components,
+        BaseHMM.__init__(self, n_components,
                           startprob_prior=startprob_prior,
                           transmat_prior=transmat_prior, algorithm=algorithm,
                           random_state=random_state, n_iter=n_iter,
@@ -104,7 +103,7 @@ class FullPTHMM(_BaseHMM):
         }
 
     def _init(self, X, lengths=None):
-        _check_and_set_gaussian_n_features(self, X)
+        self._check_and_set_gaussian_n_features(X)
         super()._init(X, lengths=lengths)
 
         _, n_features = X.shape
@@ -180,7 +179,7 @@ class FullPTHMM(_BaseHMM):
             self.intensity_vars_ = (
                 stats['obs2**2'] - 2 * self.intensity_means_ * stats['obs2'] + self.intensity_means_ ** 2 * denom) / denom
 
-class PTHMM(_BaseHMM):
+class PTHMM(BaseHMM):
     r"""Hidden Markov Model for Particle Tracking.
 
     Args:
@@ -240,7 +239,7 @@ class PTHMM(_BaseHMM):
                  algorithm="viterbi", random_state=None,
                  n_iter=10, tol=1e-2, verbose=False,
                  params="stdmv", init_params="stdmv"):
-        _BaseHMM.__init__(self, n_diffusivities * n_oligomers,
+        BaseHMM.__init__(self, n_diffusivities * n_oligomers,
                           startprob_prior=startprob_prior,
                           transmat_prior=transmat_prior, algorithm=algorithm,
                           random_state=random_state, n_iter=n_iter,
@@ -285,7 +284,7 @@ class PTHMM(_BaseHMM):
         }
 
     def _init(self, X, lengths=None):
-        _check_and_set_gaussian_n_features(self, X)
+        self._check_and_set_gaussian_n_features(X)
         super()._init(X, lengths=lengths)
 
         _, n_features = X.shape
