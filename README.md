@@ -1,11 +1,10 @@
 scopyon
 =======
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ecell/scopyon/master)
 [![PyPI version](https://badge.fury.io/py/scopyon.svg)](https://badge.fury.io/py/scopyon)
-[![CircleCI](https://circleci.com/gh/ecell/scopyon.svg?style=svg)](https://circleci.com/gh/ecell/scopyon)
 [![Readthedocs](https://readthedocs.org/projects/scopyon/badge/)](http://scopyon.readthedocs.io/)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/ca714025c04b456dbaa036e0275cb603)](https://www.codacy.com/app/ecell/scopyon?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=ecell/scopyon&amp;utm_campaign=Badge_Grade)
+[![unittest](https://github.com/ecell/scopyon/actions/workflows/unittest.yml/badge.svg)](https://github.com/ecell/scopyon/actions/workflows/unittest.yml)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ecell/scopyon/master)
 
 :microscope: Monte Carlo simulation toolkit for bioimaging systems
 
