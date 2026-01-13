@@ -1,3 +1,5 @@
+import importlib.metadata
+
 from .base import *
 from .config import *
 from .image import *
@@ -16,4 +18,7 @@ __all__ = [
     "constants", "analysis"
     ]
 
-__version__ = '1.0.0a6'
+try:
+    __version__ = importlib.metadata.version(__name__)
+except importlib.metadata.PackageNotFoundError:
+    __version__ = "0.0.0"  # Fallback for development mode

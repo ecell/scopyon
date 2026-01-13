@@ -1,6 +1,6 @@
 [project]
 name = "scopyon"
-version = "1.0.0a6"
+version = "1.0.0a7"
 description = "Monte Carlo simulation toolkit for bioimaging systems"
 readme = "README.md"
 authors = [
