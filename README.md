@@ -25,7 +25,13 @@ Installation
 $ pip install scopyon
 ```
 
-or
+With `uv`:
+
+```shell-session
+$ uv pip install scopyon
+```
+
+Or install from source:
 
 ```shell-session
 $ python setup.py test install
