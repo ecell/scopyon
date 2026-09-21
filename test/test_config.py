@@ -23,7 +23,7 @@ class TestConfig(unittest.TestCase):
         config.default.detector.exposure_time = 0.033
         self.assertAlmostEqual(config.default.detector.exposure_time, 0.033)
 
-    def test4(self):
+    def test6(self):
         from scopyon.config import DefaultConfiguration
         config = DefaultConfiguration()
         config.update("""
@@ -65,7 +65,7 @@ class TestConfig(unittest.TestCase):
         config.default.detector.exposure_time = 0.033
         self.assertAlmostEqual(config.default.detector.exposure_time, 0.033)
 
-    def test5(self):
+    def test7(self):
         from scopyon.config import DefaultConfiguration
         from scopyon.constants import Q_
         config = DefaultConfiguration()
