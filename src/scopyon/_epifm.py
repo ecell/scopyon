@@ -988,8 +988,8 @@ class EPIFMConfigs:
         efficiency = numpy.zeros(len(wave_length))
 
         wave_length = numpy.round(wave_length / 1e-9).astype(int)  #XXX: numpy.array(dtype=int)
-        idx1 = numpy.in1d(wave_length, data[:, 0])
-        idx2 = numpy.in1d(numpy.array(data[:, 0]), wave_length)
+        idx1 = numpy.isin(wave_length, data[:, 0])
+        idx2 = numpy.isin(numpy.array(data[:, 0]), wave_length)
 
         efficiency[idx1] = data[idx2, 1]
 

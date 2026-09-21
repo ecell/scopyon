@@ -15,11 +15,10 @@
 - **Activate venv**: `source .venv/bin/activate`
 - **Install (editable)**: `uv pip install -e .`
 - **Run tests**: `python -m unittest discover test -v`
-- **Run examples**: `MPLBACKEND=Agg python examples/twocolor.py` (see Known Issues below)
+- **Run examples**: `MPLBACKEND=Agg python examples/twocolor.py`
 
 ### Known Issues
 
-- The example scripts in `examples/` (e.g., `twocolor.py`, `tirf.py`) call `numpy.in1d`, which was removed in NumPy 2.0+. These examples will fail at runtime. The unit tests in `test/` do not exercise this code path and pass successfully.
 - Set `MPLBACKEND=Agg` when running scripts that use matplotlib in a headless environment.
 
 ### No Lint Configuration
